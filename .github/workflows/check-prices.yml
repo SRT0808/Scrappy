@@ -43,6 +43,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate heartbeat configuration
+        run: |
+          if [[ -z "$HEALTHCHECK_URL" ]]; then
+            echo "Falta el secreto HEALTHCHECK_URL." >&2
+            exit 1
+          fi
+          if [[ "$HEALTHCHECK_URL" != https://hc-ping.com/* ]]; then
+            echo "HEALTHCHECK_URL debe ser la URL HTTPS de ping de Healthchecks.io." >&2
+            exit 1
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -76,7 +87,7 @@ jobs:
         if: steps.browsers.outputs.cache-hit == 'true'
         run: python -m playwright install-deps chromium
 
-      - name: Run scaffold
+      - name: Connect to Supabase and record empty run
         env:
           RUN_MODE: ${{ inputs.mode || 'all' }}
           PRODUCT_ID: ${{ inputs.product_id }}
@@ -89,8 +100,8 @@ jobs:
         run: python -m scrappy.run --mode "$RUN_MODE" --product-id "$PRODUCT_ID"
 
       - name: Ping heartbeat
-        if: success() && env.HEALTHCHECK_URL != ''
-        run: curl --fail --silent --output /dev/null --max-time 15 --retry 2 "$HEALTHCHECK_URL"
+        if: success()
+        run: curl --fail --silent --output /dev/null --max-time 15 --retry 2 "${HEALTHCHECK_URL%/}"
 
       - name: Ping failure
         if: failure() && env.HEALTHCHECK_URL != ''
