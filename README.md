@@ -224,6 +224,8 @@ The SQL integration requires the local `SUPABASE_ACCESS_TOKEN` and calls the
 Supabase Management API. It tests the installed functions, interval boundaries,
 rejected and accepted reviews, stale writers, permissions and atomic rollback.
 All generated fixture data is rolled back; no migration is applied by the test.
+Verified on 2026-10-08: the Python client connection, 18 review unit tests and the
+transactional SQL integration passed against the configured project.
 `SUPABASE_DB_URL` is optional for local database tools; neither setup credential
 belongs in Actions or Vercel.
 
