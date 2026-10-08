@@ -1,0 +1,19 @@
+# Fixed phase-one sample: 15 products, 12 domains, 7 Peruvian URLs.
+# Large retailers: Falabella, Ripley, Walmart, Best Buy.
+# Local retailers: Hiraoka, Sercoplus, Memory Kings, Impacto.
+# Specialist shops: Adafruit, Pimoroni, The Pi Hut, Arduino.
+https://www.falabella.com.pe/falabella-pe/product/131687542/LAPTOP-LENOVO-IDEAPAD-SLIM-3I-15.6-FHD-TACTL-INTEL-CORE-I5-12450H-16GB-RAM-1TB-SSD/131687543
+https://simple.ripley.com.pe/mouse-con-cable-logitech-m90-negro-pmp20000837852
+https://hiraoka.com.pe/mouse-gamer-logitech-g203-lightsync-rgb-blanco
+https://nuevo.sercoplus.com/kit-teclado-y-mouse/2445-2445.html
+https://www.memorykings.pe/producto/341387/teclado-mouse-logitech-mk120-v2-usb
+https://www.impacto.com.pe/producto/mouse-logitech-g502-gaming-hero-kda-910-006096-gaming-led-rgb
+https://www.adafruit.com/product/4296
+https://shop.pimoroni.com/products/raspberry-pi-pico
+https://thepihut.com/products/raspberry-pi-pico
+https://www.walmart.com/ip/43184295
+https://www.bestbuy.com/product/logitech-m185-wireless-optical-ambidextrous-mouse-wireless-swift-gray/J7H7ZLVWQJ/sku/12250365
+https://store-usa.arduino.cc/products/arduino-uno-rev3
+https://www.adafruit.com/product/4834
+https://hiraoka.com.pe/mouse-logitech-m90-910-004053
+https://thepihut.com/products/raspberry-pi-pico-w

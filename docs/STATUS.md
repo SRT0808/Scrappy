@@ -1,4 +1,4 @@
 # STATUS
-Fase: 0 cerrada el 2026-10-08; Supabase y latido aceptados en remoto.
-Hecho: migración aplicada; ocho tablas con RLS, cero políticas públicas, permisos solo de servidor y caso límite SQL validado. Tres Secrets configurados; Actions 37856046874 en develop exitoso, run vacío dispatch confirmado en Supabase y ping exitoso; job 56 s, ejecución total 64 s, consumo facturado aún no confirmable (API devuelve 0 ms). Siete tests unitarios previamente aprobados, revisión de cierre sin bloqueos; actionlint omitido por instrucción del usuario. AGENTS.md conserva el cambio previo del usuario.
-Siguiente: fase 1, implementar CLI probe y validar extractor con al menos 15 URLs desde local y Actions, evaluar persistencia adaptativa y reportar resultados (SPEC §8, §14–15); registrar consumo con caché y comprobar facturación cuando esté disponible.
+Fase: 1 en validación el 2026-10-08; fase 0 conserva Supabase y latido aceptados.
+Hecho: CLI probe y extractor implementados; muestra local 12/15 (80%, JSON-LD 9, meta/microdatos 3, HTTP 12), evidencia guardada. 26 tests afectados aprobados; integración adaptativa JSON/Supabase restaurada en proceso nuevo y fila aislada eliminada. AGENTS.md conserva el cambio previo del usuario.
+Siguiente: ejecutar la misma muestra en Actions, comparar entornos y revisar resultados antes de cerrar la puerta del extractor (SPEC §8, §14–15); registrar duración con caché y consumo facturado si está disponible.

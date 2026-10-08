@@ -1,0 +1,950 @@
+{
+  "created_at": "2026-10-08T23:07:40.519587+00:00",
+  "environment": "local",
+  "seconds": 191.8,
+  "summary": {
+    "total": 15,
+    "successful": 12,
+    "success_rate": 0.8,
+    "by_method": {
+      "json_ld": 9,
+      "meta_microdata": 3
+    },
+    "by_mode": {
+      "http": 12
+    },
+    "failed_domains": [
+      "nuevo.sercoplus.com",
+      "www.falabella.com.pe",
+      "www.impacto.com.pe"
+    ]
+  },
+  "results": [
+    {
+      "url": "https://www.falabella.com.pe/falabella-pe/product/131687542/LAPTOP-LENOVO-IDEAPAD-SLIM-3I-15.6-FHD-TACTL-INTEL-CORE-I5-12450H-16GB-RAM-1TB-SSD/131687543",
+      "domain": "www.falabella.com.pe",
+      "ok": false,
+      "fetch_mode": null,
+      "extraction": {
+        "name": "LAPTOP LENOVO IDEAPAD SLIM 3I 15.6\" FHD TÁCTL  INTEL CORE I5 12450H 16GB RAM 1TB SSD",
+        "price": null,
+        "currency": null,
+        "original_price": null,
+        "image_url": "https://media.falabella.com/FalabellaPEAndCO/NoImage/public",
+        "availability": null,
+        "method": "none",
+        "confidence": 0.0,
+        "candidates": [],
+        "warnings": [
+          "Lectura no confiable; enseñar un selector CSS o confirmar un candidato."
+        ]
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://www.falabella.com.pe/falabella-pe/product/131687542/LAPTOP-LENOVO-IDEAPAD-SLIM-3I-15.6-FHD-TACTL-INTEL-CORE-I5-12450H-16GB-RAM-1TB-SSD/131687543",
+          "bytes": 1065934,
+          "title": "LAPTOP LENOVO IDEAPAD SLIM 3I 15.6\" FHD TÁCTL  INTEL CORE I5 12450H 16GB RAM 1TB SSD LENOVO | Falabella Perú",
+          "html": "35f633393037-http.html",
+          "sha256": "03d2bfac655ffd375f9cd81c01fab35a0ef7ce04d49c824d3106e2fc3e4ba9b1",
+          "method": "none",
+          "confidence": 0.0,
+          "extraction": {
+            "name": "LAPTOP LENOVO IDEAPAD SLIM 3I 15.6\" FHD TÁCTL  INTEL CORE I5 12450H 16GB RAM 1TB SSD",
+            "price": null,
+            "currency": null,
+            "original_price": null,
+            "image_url": "https://media.falabella.com/FalabellaPEAndCO/NoImage/public",
+            "availability": null,
+            "method": "none",
+            "confidence": 0.0,
+            "candidates": [],
+            "warnings": [
+              "Lectura no confiable; enseñar un selector CSS o confirmar un candidato."
+            ]
+          },
+          "reason": "sin precio confiable",
+          "seconds": 1.2
+        },
+        {
+          "mode": "dynamic",
+          "error": "TimeoutError",
+          "reason": "error de obtención o extracción",
+          "seconds": 27.62
+        },
+        {
+          "mode": "stealth",
+          "error": "TimeoutError",
+          "reason": "error de obtención o extracción",
+          "seconds": 30.81
+        }
+      ]
+    },
+    {
+      "url": "https://simple.ripley.com.pe/mouse-con-cable-logitech-m90-negro-pmp20000837852",
+      "domain": "simple.ripley.com.pe",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Mouse con Cable Logitech M90 Negro",
+        "price": "29",
+        "currency": "PEN",
+        "original_price": null,
+        "image_url": "https://rimage.ripley.com.pe/home.ripley/Attachment/MKP/376/PMP20000837852/full_image-1.jpeg",
+        "availability": "https://schema.org/InStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "29",
+            "currency": "PEN",
+            "name": "Mouse con Cable Logitech M90 Negro",
+            "availability": "https://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://simple.ripley.com.pe/mouse-con-cable-logitech-m90-negro-pmp20000837852",
+          "bytes": 225051,
+          "title": "Mouse con Cable Logitech M90 Negro",
+          "html": "c39adb919d30-http.html",
+          "sha256": "446e410ef9557b2c1b66f40b1ba415f8824b6ec481f085073ee01a3c96cff4a4",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "Mouse con Cable Logitech M90 Negro",
+            "price": "29",
+            "currency": "PEN",
+            "original_price": null,
+            "image_url": "https://rimage.ripley.com.pe/home.ripley/Attachment/MKP/376/PMP20000837852/full_image-1.jpeg",
+            "availability": "https://schema.org/InStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "29",
+                "currency": "PEN",
+                "name": "Mouse con Cable Logitech M90 Negro",
+                "availability": "https://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 3.31
+        }
+      ]
+    },
+    {
+      "url": "https://hiraoka.com.pe/mouse-gamer-logitech-g203-lightsync-rgb-blanco",
+      "domain": "hiraoka.com.pe",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Mouse Gamer Logitech G203 Lightsync RGB Blanco",
+        "price": "109.00",
+        "currency": "PEN",
+        "original_price": null,
+        "image_url": "https://hiraoka.com.pe/pub/media/catalog/product/1/_/1_458_6.jpg",
+        "availability": "https://schema.org/InStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "109.00",
+            "currency": "PEN",
+            "name": "Mouse Gamer Logitech G203 Lightsync RGB Blanco",
+            "availability": "https://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          },
+          {
+            "price": "159.90",
+            "currency": "PEN",
+            "name": "Mouse Gamer Logitech G203 Lightsync RGB Blanco",
+            "availability": "https://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://hiraoka.com.pe/mouse-gamer-logitech-g203-lightsync-rgb-blanco",
+          "bytes": 287448,
+          "title": "Mouse Gamer Logitech G203 Lightsync RGB Blanco",
+          "html": "5aedfe78827b-http.html",
+          "sha256": "6807eaa9285e32bedf7d9e96d677254eb72ee703bdf1d7ebbc0dde1103a95e07",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "Mouse Gamer Logitech G203 Lightsync RGB Blanco",
+            "price": "109.00",
+            "currency": "PEN",
+            "original_price": null,
+            "image_url": "https://hiraoka.com.pe/pub/media/catalog/product/1/_/1_458_6.jpg",
+            "availability": "https://schema.org/InStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "109.00",
+                "currency": "PEN",
+                "name": "Mouse Gamer Logitech G203 Lightsync RGB Blanco",
+                "availability": "https://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              },
+              {
+                "price": "159.90",
+                "currency": "PEN",
+                "name": "Mouse Gamer Logitech G203 Lightsync RGB Blanco",
+                "availability": "https://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 0.3
+        }
+      ]
+    },
+    {
+      "url": "https://nuevo.sercoplus.com/kit-teclado-y-mouse/2445-2445.html",
+      "domain": "nuevo.sercoplus.com",
+      "ok": false,
+      "fetch_mode": null,
+      "extraction": {
+        "name": null,
+        "price": null,
+        "currency": null,
+        "original_price": null,
+        "image_url": null,
+        "availability": null,
+        "method": "none",
+        "confidence": 0.0,
+        "candidates": [],
+        "warnings": [
+          "No se pudo obtener una lectura confiable."
+        ]
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 503,
+          "final_url": "https://nuevo.sercoplus.com/kit-teclado-y-mouse/2445-2445.html",
+          "bytes": 2466,
+          "title": "",
+          "html": "1f8e1d240b75-http.html",
+          "sha256": "694079179e8b5a945c8f59c16b94bd6d691b7652501167d855b935e367aed965",
+          "reason": "HTTP sin producto",
+          "seconds": 0.84
+        },
+        {
+          "mode": "dynamic",
+          "status": 503,
+          "final_url": "https://nuevo.sercoplus.com/kit-teclado-y-mouse/2445-2445.html",
+          "bytes": 2718,
+          "title": "",
+          "html": "1f8e1d240b75-dynamic.html",
+          "sha256": "3b92062f00a65464cae3b00768a1de8e1277251c04cae78d4e1456f9d74f48d4",
+          "reason": "HTTP sin producto",
+          "seconds": 4.62
+        },
+        {
+          "mode": "stealth",
+          "status": 503,
+          "final_url": "https://nuevo.sercoplus.com/kit-teclado-y-mouse/2445-2445.html",
+          "bytes": 2718,
+          "title": "",
+          "html": "1f8e1d240b75-stealth.html",
+          "sha256": "b988c20a89af87f8264346b18de1f141f8f9e61f7837a5a761330857cc1de9bd",
+          "reason": "HTTP sin producto",
+          "seconds": 4.27
+        }
+      ]
+    },
+    {
+      "url": "https://www.memorykings.pe/producto/341387/teclado-mouse-logitech-mk120-v2-usb",
+      "domain": "www.memorykings.pe",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "TECLADO+MOUSE LOGITECH MK120 V2 USB ",
+        "price": "48.50",
+        "currency": "PEN",
+        "original_price": null,
+        "image_url": "https://cdn.memorykings.pe/files/2025/11/19/341387-MK032126-A2.jpg",
+        "availability": "https://schema.org/InStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "48.50",
+            "currency": "PEN",
+            "name": "TECLADO+MOUSE LOGITECH MK120 V2 USB ",
+            "availability": "https://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://www.memorykings.pe/producto/341387/teclado-mouse-logitech-mk120-v2-usb",
+          "bytes": 178436,
+          "title": "TECLADO+MOUSE LOGITECH MK120 V2 USB - Memory Kings, lo mejor en equipos de computo y accesorios",
+          "html": "e9467066da59-http.html",
+          "sha256": "676fcb80516ef1ccaf7870fef44971cc8b1126325077bc6d8327d64877beddee",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "TECLADO+MOUSE LOGITECH MK120 V2 USB ",
+            "price": "48.50",
+            "currency": "PEN",
+            "original_price": null,
+            "image_url": "https://cdn.memorykings.pe/files/2025/11/19/341387-MK032126-A2.jpg",
+            "availability": "https://schema.org/InStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "48.50",
+                "currency": "PEN",
+                "name": "TECLADO+MOUSE LOGITECH MK120 V2 USB ",
+                "availability": "https://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 0.95
+        }
+      ]
+    },
+    {
+      "url": "https://www.impacto.com.pe/producto/mouse-logitech-g502-gaming-hero-kda-910-006096-gaming-led-rgb",
+      "domain": "www.impacto.com.pe",
+      "ok": false,
+      "fetch_mode": null,
+      "extraction": {
+        "name": "MOUSE LOGITECH G502 GAMING HERO K/DA ( 910-006096 ) GAMING | LED- RGB",
+        "price": null,
+        "currency": null,
+        "original_price": null,
+        "image_url": null,
+        "availability": null,
+        "method": "none",
+        "confidence": 0.0,
+        "candidates": [],
+        "warnings": [
+          "Lectura no confiable; enseñar un selector CSS o confirmar un candidato."
+        ]
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://www.impacto.com.pe/producto/mouse-logitech-g502-gaming-hero-kda-910-006096-gaming-led-rgb",
+          "bytes": 65157,
+          "title": "IMPACTO",
+          "html": "8659765c8b43-http.html",
+          "sha256": "ea0c903e9a1c39350841885858c9c663d92ada641ecdde43c1e4914c8ffe9238",
+          "method": "none",
+          "confidence": 0.0,
+          "extraction": {
+            "name": "MOUSE LOGITECH G502 GAMING HERO K/DA ( 910-006096 ) GAMING | LED- RGB",
+            "price": null,
+            "currency": null,
+            "original_price": null,
+            "image_url": null,
+            "availability": null,
+            "method": "none",
+            "confidence": 0.0,
+            "candidates": [],
+            "warnings": [
+              "Lectura no confiable; enseñar un selector CSS o confirmar un candidato."
+            ]
+          },
+          "reason": "sin precio confiable",
+          "seconds": 0.81
+        },
+        {
+          "mode": "dynamic",
+          "status": 200,
+          "final_url": "https://www.impacto.com.pe/producto/mouse-logitech-g502-gaming-hero-kda-910-006096-gaming-led-rgb",
+          "bytes": 102576,
+          "title": "IMPACTO",
+          "html": "8659765c8b43-dynamic.html",
+          "sha256": "09b7804000a3c755315679148b3973c6740420a7ff78b89335d14c079bac9e1c",
+          "method": "none",
+          "confidence": 0.0,
+          "extraction": {
+            "name": "MOUSE LOGITECH G502 GAMING HERO K/DA ( 910-006096 ) GAMING | LED- RGB",
+            "price": null,
+            "currency": null,
+            "original_price": null,
+            "image_url": null,
+            "availability": null,
+            "method": "none",
+            "confidence": 0.0,
+            "candidates": [],
+            "warnings": [
+              "Lectura no confiable; enseñar un selector CSS o confirmar un candidato."
+            ]
+          },
+          "reason": "sin precio confiable",
+          "seconds": 4.36
+        },
+        {
+          "mode": "stealth",
+          "status": 200,
+          "final_url": "https://www.impacto.com.pe/producto/mouse-logitech-g502-gaming-hero-kda-910-006096-gaming-led-rgb",
+          "bytes": 102576,
+          "title": "IMPACTO",
+          "html": "8659765c8b43-stealth.html",
+          "sha256": "f04590d63fec9a5f745aa68aab93f3b3e15fa6398d69456c51debde461521a1f",
+          "method": "none",
+          "confidence": 0.0,
+          "extraction": {
+            "name": "MOUSE LOGITECH G502 GAMING HERO K/DA ( 910-006096 ) GAMING | LED- RGB",
+            "price": null,
+            "currency": null,
+            "original_price": null,
+            "image_url": null,
+            "availability": null,
+            "method": "none",
+            "confidence": 0.0,
+            "candidates": [],
+            "warnings": [
+              "Lectura no confiable; enseñar un selector CSS o confirmar un candidato."
+            ]
+          },
+          "reason": "sin precio confiable",
+          "seconds": 4.27
+        }
+      ]
+    },
+    {
+      "url": "https://www.adafruit.com/product/4296",
+      "domain": "www.adafruit.com",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Raspberry Pi 4 Model B - 4 GB RAM",
+        "price": "120",
+        "currency": "USD",
+        "original_price": null,
+        "image_url": "https://cdn-shop.adafruit.com//970x728/4296-11.jpg",
+        "availability": "http://schema.org/InStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "120",
+            "currency": "USD",
+            "name": "Raspberry Pi 4 Model B - 4 GB RAM",
+            "availability": "http://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://www.adafruit.com/product/4296",
+          "bytes": 116533,
+          "title": "Raspberry Pi 4 Model B - 4 GB RAM : Adafruit Industries, Unique & fun DIY electronics and kits",
+          "html": "ed5747e0c85f-http.html",
+          "sha256": "3977294a6864ade4d81e03ee5759e50236522fdb6c0bafd2018e7b8ac9400394",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "Raspberry Pi 4 Model B - 4 GB RAM",
+            "price": "120",
+            "currency": "USD",
+            "original_price": null,
+            "image_url": "https://cdn-shop.adafruit.com//970x728/4296-11.jpg",
+            "availability": "http://schema.org/InStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "120",
+                "currency": "USD",
+                "name": "Raspberry Pi 4 Model B - 4 GB RAM",
+                "availability": "http://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "url": "https://shop.pimoroni.com/products/raspberry-pi-pico",
+      "domain": "shop.pimoroni.com",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Raspberry Pi Pico",
+        "price": "4.0",
+        "currency": "GBP",
+        "original_price": null,
+        "image_url": "https://shop.pimoroni.com/cdn/shop/products/PICOBOARDWHITEANGLE2_1024x1024.jpg?v=1616398924",
+        "availability": "http://schema.org/InStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "4.0",
+            "currency": "GBP",
+            "name": "Raspberry Pi Pico",
+            "availability": "http://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://shop.pimoroni.com/products/raspberry-pi-pico",
+          "bytes": 348687,
+          "title": "Raspberry Pi Pico - Pimoroni",
+          "html": "835a24e705f1-http.html",
+          "sha256": "8fb57cfbbfe9edade0d5e0d4bf080d32e78a1b0252b4a57206784e1ad4152023",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "Raspberry Pi Pico",
+            "price": "4.0",
+            "currency": "GBP",
+            "original_price": null,
+            "image_url": "https://shop.pimoroni.com/cdn/shop/products/PICOBOARDWHITEANGLE2_1024x1024.jpg?v=1616398924",
+            "availability": "http://schema.org/InStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "4.0",
+                "currency": "GBP",
+                "name": "Raspberry Pi Pico",
+                "availability": "http://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 0.86
+        }
+      ]
+    },
+    {
+      "url": "https://thepihut.com/products/raspberry-pi-pico",
+      "domain": "thepihut.com",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Raspberry Pi Pico",
+        "price": "3.80",
+        "currency": "GBP",
+        "original_price": null,
+        "image_url": "http://thepihut.com/cdn/shop/products/raspberry-pi-pico-raspberry-pi-sc0915-23240164475075.jpg?v=1646236269&width=2048",
+        "availability": null,
+        "method": "meta_microdata",
+        "confidence": 0.9,
+        "candidates": [],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://thepihut.com/products/raspberry-pi-pico",
+          "bytes": 536017,
+          "title": "Raspberry Pi Pico - The Pi Hut",
+          "html": "720dc7fbaee1-http.html",
+          "sha256": "362e7e2e440d17f98b29c2cfecc528ea0ccfc161a4e4a060534daeda64620a27",
+          "method": "meta_microdata",
+          "confidence": 0.9,
+          "extraction": {
+            "name": "Raspberry Pi Pico",
+            "price": "3.80",
+            "currency": "GBP",
+            "original_price": null,
+            "image_url": "http://thepihut.com/cdn/shop/products/raspberry-pi-pico-raspberry-pi-sc0915-23240164475075.jpg?v=1646236269&width=2048",
+            "availability": null,
+            "method": "meta_microdata",
+            "confidence": 0.9,
+            "candidates": [],
+            "warnings": []
+          },
+          "seconds": 1.3
+        }
+      ]
+    },
+    {
+      "url": "https://www.walmart.com/ip/43184295",
+      "domain": "www.walmart.com",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Logitech M185 Wireless Mouse",
+        "price": "13.99",
+        "currency": "USD",
+        "original_price": null,
+        "image_url": "https://i5.walmartimages.com/seo/Logitech-M185-Wireless-Mouse_99d1f93e-cb5d-4298-82b4-0cadc4da922d_1.1ff1027494cfbd18fc43bfefd55734b5.jpeg",
+        "availability": null,
+        "method": "meta_microdata",
+        "confidence": 0.9,
+        "candidates": [],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://www.walmart.com/ip/Logitech-M185-Wireless-Mouse/43184295",
+          "bytes": 509609,
+          "title": "Logitech, Wireless Mouse, M185, Reliable Plug-and-Play Wireless - Walmart.com",
+          "html": "f7fa8c681c2a-http.html",
+          "sha256": "7c4568f3bce8436fd7f3928d8cf6ae8da6f31e554396eb2c14e7f57729d73b99",
+          "method": "meta_microdata",
+          "confidence": 0.9,
+          "extraction": {
+            "name": "Logitech M185 Wireless Mouse",
+            "price": "13.99",
+            "currency": "USD",
+            "original_price": null,
+            "image_url": "https://i5.walmartimages.com/seo/Logitech-M185-Wireless-Mouse_99d1f93e-cb5d-4298-82b4-0cadc4da922d_1.1ff1027494cfbd18fc43bfefd55734b5.jpeg",
+            "availability": null,
+            "method": "meta_microdata",
+            "confidence": 0.9,
+            "candidates": [],
+            "warnings": []
+          },
+          "seconds": 2.17
+        }
+      ]
+    },
+    {
+      "url": "https://www.bestbuy.com/product/logitech-m185-wireless-optical-ambidextrous-mouse-wireless-swift-gray/J7H7ZLVWQJ/sku/12250365",
+      "domain": "www.bestbuy.com",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Logitech - M185 Wireless Optical Ambidextrous Mouse - Wireless - Swift Gray",
+        "price": "27.28",
+        "currency": "USD",
+        "original_price": null,
+        "image_url": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/a9575e17-9e8a-4b2a-8e6f-684cac3abfdc.jpg",
+        "availability": "https://schema.org/InStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "27.28",
+            "currency": "USD",
+            "name": "Logitech - M185 Wireless Optical Ambidextrous Mouse - Wireless - Swift Gray",
+            "availability": "https://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://www.bestbuy.com/product/logitech-m185-wireless-optical-ambidextrous-mouse-wireless-swift-gray/J7H7ZLVWQJ/sku/12250365",
+          "bytes": 1215620,
+          "title": "Logitech M185 Wireless Optical Ambidextrous Mouse Wireless Swift Gray - Best Buy",
+          "html": "64839e0b33e0-http.html",
+          "sha256": "e976018cb9bdd87e3b6add12cb91ad88f2f000300ebba255bc8483db0eee27af",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "Logitech - M185 Wireless Optical Ambidextrous Mouse - Wireless - Swift Gray",
+            "price": "27.28",
+            "currency": "USD",
+            "original_price": null,
+            "image_url": "https://pisces.bbystatic.com/image2/BestBuy_US/images/products/a9575e17-9e8a-4b2a-8e6f-684cac3abfdc.jpg",
+            "availability": "https://schema.org/InStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "27.28",
+                "currency": "USD",
+                "name": "Logitech - M185 Wireless Optical Ambidextrous Mouse - Wireless - Swift Gray",
+                "availability": "https://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 1.59
+        }
+      ]
+    },
+    {
+      "url": "https://store-usa.arduino.cc/products/arduino-uno-rev3",
+      "domain": "store-usa.arduino.cc",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Arduino Uno Rev3",
+        "price": "27.6",
+        "currency": "USD",
+        "original_price": null,
+        "image_url": "https://store-usa.arduino.cc/cdn/shop/files/A000066_03.front.jpg?crop=center&height=1024&v=1727102657&width=1024",
+        "availability": "http://schema.org/InStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "27.6",
+            "currency": "USD",
+            "name": "Arduino Uno Rev3",
+            "availability": "http://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://store-usa.arduino.cc/products/arduino-uno-rev3",
+          "bytes": 933607,
+          "title": "Arduino UNO Rev3 – Reliable ATmega328P Board with Digital & Analog I/O — Arduino Online Shop",
+          "html": "60b86afe0f50-http.html",
+          "sha256": "b06bfb093a552b91dd3c377a97ef1634feaf1241b42cdd61c474dcb4417f5389",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "Arduino Uno Rev3",
+            "price": "27.6",
+            "currency": "USD",
+            "original_price": null,
+            "image_url": "https://store-usa.arduino.cc/cdn/shop/files/A000066_03.front.jpg?crop=center&height=1024&v=1727102657&width=1024",
+            "availability": "http://schema.org/InStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "27.6",
+                "currency": "USD",
+                "name": "Arduino Uno Rev3",
+                "availability": "http://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 0.8
+        }
+      ]
+    },
+    {
+      "url": "https://hiraoka.com.pe/mouse-logitech-m90-910-004053",
+      "domain": "hiraoka.com.pe",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Mouse Logitech M90 910-004053 Alámbrico",
+        "price": "29.9",
+        "currency": "PEN",
+        "original_price": null,
+        "image_url": "https://hiraoka.com.pe/pub/media/catalog/product/m/9/m90-charcoal-gallery-1.jpg",
+        "availability": "https://schema.org/OutOfStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "29.9",
+            "currency": "PEN",
+            "name": "Mouse Logitech M90 910-004053 Alámbrico",
+            "availability": "https://schema.org/OutOfStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://hiraoka.com.pe/mouse-logitech-m90-910-004053",
+          "bytes": 264558,
+          "title": "Mouse Logitech M90 910-004053 Alámbrico",
+          "html": "bd0f5005d828-http.html",
+          "sha256": "5add7ce65acc6fc56b85116fc1134cbde3906f6b6ff3b3a38a3ad8a4332d334e",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "Mouse Logitech M90 910-004053 Alámbrico",
+            "price": "29.9",
+            "currency": "PEN",
+            "original_price": null,
+            "image_url": "https://hiraoka.com.pe/pub/media/catalog/product/m/9/m90-charcoal-gallery-1.jpg",
+            "availability": "https://schema.org/OutOfStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "29.9",
+                "currency": "PEN",
+                "name": "Mouse Logitech M90 910-004053 Alámbrico",
+                "availability": "https://schema.org/OutOfStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 0.89
+        }
+      ]
+    },
+    {
+      "url": "https://www.adafruit.com/product/4834",
+      "domain": "www.adafruit.com",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "micro:bit v2 Go Bundle - Batteries and USB Cable Included",
+        "price": "19.95",
+        "currency": "USD",
+        "original_price": null,
+        "image_url": "https://cdn-shop.adafruit.com//970x728/4834-05.jpg",
+        "availability": "http://schema.org/InStock",
+        "method": "json_ld",
+        "confidence": 0.98,
+        "candidates": [
+          {
+            "price": "19.95",
+            "currency": "USD",
+            "name": "micro:bit v2 Go Bundle - Batteries and USB Cable Included",
+            "availability": "http://schema.org/InStock",
+            "context": "JSON-LD",
+            "score": 0.98
+          }
+        ],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://www.adafruit.com/product/4834",
+          "bytes": 88807,
+          "title": "micro:bit v2 Go Bundle - Batteries and USB Cable Included : Adafruit Industries, Unique & fun DIY electronics and kits",
+          "html": "063b96ef3a34-http.html",
+          "sha256": "14b563c7a7fb01a9a03e166bd6573694e77215e84ff90e5dff085439b6047741",
+          "method": "json_ld",
+          "confidence": 0.98,
+          "extraction": {
+            "name": "micro:bit v2 Go Bundle - Batteries and USB Cable Included",
+            "price": "19.95",
+            "currency": "USD",
+            "original_price": null,
+            "image_url": "https://cdn-shop.adafruit.com//970x728/4834-05.jpg",
+            "availability": "http://schema.org/InStock",
+            "method": "json_ld",
+            "confidence": 0.98,
+            "candidates": [
+              {
+                "price": "19.95",
+                "currency": "USD",
+                "name": "micro:bit v2 Go Bundle - Batteries and USB Cable Included",
+                "availability": "http://schema.org/InStock",
+                "context": "JSON-LD",
+                "score": 0.98
+              }
+            ],
+            "warnings": []
+          },
+          "seconds": 0.91
+        }
+      ]
+    },
+    {
+      "url": "https://thepihut.com/products/raspberry-pi-pico-w",
+      "domain": "thepihut.com",
+      "ok": true,
+      "fetch_mode": "http",
+      "extraction": {
+        "name": "Raspberry Pi Pico W",
+        "price": "5.80",
+        "currency": "GBP",
+        "original_price": null,
+        "image_url": "http://thepihut.com/cdn/shop/products/raspberry-pi-pico-w-raspberry-pi-sc0918-37597037166787.jpg?v=1656522356&width=2048",
+        "availability": null,
+        "method": "meta_microdata",
+        "confidence": 0.9,
+        "candidates": [],
+        "warnings": []
+      },
+      "attempts": [
+        {
+          "mode": "http",
+          "status": 200,
+          "final_url": "https://thepihut.com/products/raspberry-pi-pico-w",
+          "bytes": 532687,
+          "title": "Raspberry Pi Pico W - The Pi Hut",
+          "html": "76097f9b1eba-http.html",
+          "sha256": "8b27be284d6adde787af107dfe5abc7d3a3224f0812ca52a16dc881e1684a240",
+          "method": "meta_microdata",
+          "confidence": 0.9,
+          "extraction": {
+            "name": "Raspberry Pi Pico W",
+            "price": "5.80",
+            "currency": "GBP",
+            "original_price": null,
+            "image_url": "http://thepihut.com/cdn/shop/products/raspberry-pi-pico-w-raspberry-pi-sc0918-37597037166787.jpg?v=1656522356&width=2048",
+            "availability": null,
+            "method": "meta_microdata",
+            "confidence": 0.9,
+            "candidates": [],
+            "warnings": []
+          },
+          "seconds": 0.95
+        }
+      ]
+    }
+  ],
+  "recipe_persistence": "local_json"
+}
