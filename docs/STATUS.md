@@ -1,4 +1,4 @@
 # STATUS
-Fase: 1 en validación el 2026-10-08; fase 0 conserva Supabase y latido aceptados.
-Hecho: CLI probe y extractor implementados; muestra local 12/15 (80%, JSON-LD 9, meta/microdatos 3, HTTP 12), evidencia guardada. 26 tests afectados aprobados; integración adaptativa JSON/Supabase restaurada en proceso nuevo y fila aislada eliminada. AGENTS.md conserva el cambio previo del usuario.
-Siguiente: ejecutar la misma muestra en Actions, comparar entornos y revisar resultados antes de cerrar la puerta del extractor (SPEC §8, §14–15); registrar duración con caché y consumo facturado si está disponible.
+Fase: 1 cerrada el 2026-10-08; puerta orientativa superada: local 12/15 (80%), Actions 11/15 (73,3%).
+Hecho: probe, fixtures e informes en scraper/results y README; Actions 37857815799 exitoso (job 234 s, workflow 238 s, caché hit, facturación aún 0 ms no confirmable). JSON-LD 9 local/8 Actions; meta/microdatos 3/3; Best Buy requiere dynamic en Actions, Ripley falla 403, Pimoroni cambia GBP→USD. 27 tests unitarios locales (26 en Actions), integración JSON/Supabase en ambos, ocho recetas verificadas y filas de prueba eliminadas; revisión sin bloqueos y 31 respuestas HTML reextraídas tras corrección @id. AGENTS.md conserva el cambio previo del usuario.
+Siguiente: fase 2, implementar validaciones de moneda, disponibilidad y cambios >50% con segunda lectura (SPEC §8.5, §14–15); mantener visibles los fallos Falabella/Sercoplus/Impacto/Ripley y revisar cobertura peruana (3/7 en Actions) y facturación cuando esté disponible.

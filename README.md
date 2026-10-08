@@ -98,6 +98,95 @@ test row. It never changes products or price history. Run against a test Supabas
 project for routine development; phase-one verification uses an isolated row in
 the configured project because no second project is configured.
 
+### Phase-one results (2026-10-08)
+
+The same 15 URLs were evaluated locally on Windows and on the Linux Actions
+runner: [run 37857815799](https://github.com/SRT0808/Scrappy/actions/runs/37857815799).
+Machine-readable reports are in `scraper/results/local.json` and
+`scraper/results/actions.json`; Actions includes the per-URL comparison.
+Local raw HTML is in `.scrappy/local-evidence/`; the downloaded remote evidence
+is in `.scrappy/remote/actions-evidence/`. Actions also retains it in the
+`probe-results` artifact for seven days. Successful rows were checked against
+their saved source markup; confidence is an estimate, not a guarantee.
+
+| Successful strategy / total sample | Local | Actions |
+|---|---:|---:|
+| JSON-LD | 9/15 (60.0%) | 8/15 (53.3%) |
+| Meta / microdata | 3/15 (20.0%) | 3/15 (20.0%) |
+| Owner recipe / heuristic / adaptive | 0/15 | 0/15 |
+| Total readable | **12/15 (80.0%)** | **11/15 (73.3%)** |
+| Unreadable | 3/15 | 4/15 |
+
+| Product / shop | Local price | Actions price | Method; required mode |
+|---|---|---|---|
+| Lenovo IdeaPad Slim 3i / Falabella | Failed | Failed | No trusted price; all modes attempted |
+| Logitech M90 / Ripley | 29 PEN | Failed | JSON-LD; HTTP locally; Actions 403 in all modes |
+| Logitech G203 white / Hiraoka | 109.00 PEN | 109.00 PEN | JSON-LD; HTTP |
+| Logitech MK120 / Sercoplus | Failed | Failed | Maintenance, HTTP 503 in all modes |
+| Logitech MK120 V2 / Memory Kings | 48.50 PEN | 48.50 PEN | JSON-LD; HTTP |
+| Logitech G502 K/DA / Impacto | Failed | Failed | Rendered prices need a recipe/payment choice |
+| Raspberry Pi 4 4 GB / Adafruit | 120 USD | 120 USD | JSON-LD; HTTP |
+| Raspberry Pi Pico / Pimoroni | 4.0 GBP | 6.0 USD | JSON-LD; HTTP; lowest available offer |
+| Raspberry Pi Pico / The Pi Hut | 3.80 GBP | 3.80 GBP | Meta; HTTP |
+| Logitech M185 / Walmart | 13.99 USD | 13.99 USD | Meta; HTTP |
+| Logitech M185 / Best Buy | 27.28 USD | 27.28 USD | JSON-LD; HTTP locally, dynamic in Actions |
+| Arduino Uno Rev3 / Arduino | 27.6 USD | 27.6 USD | JSON-LD; HTTP |
+| Logitech M90 / Hiraoka | 29.9 PEN | 29.9 PEN | JSON-LD; HTTP; out of stock |
+| micro:bit v2 Go Bundle / Adafruit | 19.95 USD | 19.95 USD | JSON-LD; HTTP |
+| Raspberry Pi Pico W / The Pi Hut | 5.80 GBP | 5.80 GBP | Meta; HTTP |
+
+All 12 local successes used HTTP; Actions required HTTP for 10 and dynamic for
+Best Buy after an HTTPError. No URL succeeded only in stealth. Falabella's HTTP
+HTML has an empty `offers` array; both browser modes timed out after 25 seconds.
+Sercoplus's 503 body says the shop is being updated. Impacto's rendered HTML
+contains PEN/USD cash and card prices and says out of stock; those values are not
+recognized confidently by the present generic strategies. An owner CSS recipe
+and explicit payment/currency choice are the next adjustment for that shop.
+Do not substitute a related product's price or infer zero for unavailable items.
+
+Ripley returns a Cloudflare challenge with 403 from Actions in all three modes,
+while the local IP reads it over HTTP. Pimoroni redirects Actions to `/en-us/`
+and returns USD; the same input URL returns GBP locally. These are observed
+environment/IP differences; the experiment does not isolate IP from OS/browser
+fingerprint or geographic storefront behavior. The subsequent engine must pin
+the confirmed currency and flag changes before any alert (SPEC 8.5).
+Memory Kings has meta amount 48.86 but both JSON-LD and the principal visible
+price are 48.50 PEN, supporting the structured-data priority for this sample.
+
+The overall sample clears the indicative 70% gate in both environments. Coverage
+is weaker for the seven Peruvian URLs: 4/7 locally and 3/7 in Actions. These
+figures describe this small sample and do not establish universal shop coverage.
+For the failing stores, use a current priced product URL for Falabella, retry
+Sercoplus after maintenance, teach a recipe for Impacto, and consider the free
+local-runner fallback for Ripley if the cloud challenge persists. No paid proxy
+or new service was introduced. Phase two can start with readable domains and
+must continue reporting the unsupported stores.
+
+Adaptive persistence is viable: local and Actions integration tests saved a
+versioned JSON fingerprint to Supabase, restored it in a fresh process without
+local state, relocated a changed class and read the changed price (99.90 to
+119.90 PEN). The relocated result correctly requires confirmation. Read-back
+confirmed eight successful domain recipes, including Best Buy `dynamic`; the
+other seven are `http`. Both uniquely named integration rows were removed.
+This validates the serialization and storage path; it does not establish reliable
+automatic relocation across every real shop redesign. CSS remains the primary
+owner recipe and adaptive matching stays a confirmation fallback.
+
+Validation: 26 affected unit tests and the isolated Supabase integration passed
+locally and in Actions. Closing review added one graph-order regression test,
+which passed locally; re-extraction of 16 local and 15 remote saved HTML responses
+confirmed unchanged report results after that correction. The remote run tested
+commit `68d32a9`; the reviewed reference-order fix is commit `6bb657c`.
+No blocking issue remained in the probe review; review-time validations,
+notification state and teaching UI belong to the next phases.
+
+The local probe took 191.80 seconds, the Actions probe 192.91 seconds, the complete
+job 234 seconds and the workflow 238 seconds. Browser cache hit was confirmed by
+the skipped browser installation; system dependency setup took 17 seconds.
+One manual probe is not a production-cycle estimate: the sample intentionally
+includes escalation failures. The timing API still returns zero billable
+milliseconds, so actual account billing remains unconfirmed.
+
 ## Supabase setup
 
 Create a Free project and apply `supabase/migrations/20261008000000_initial_schema.sql`
