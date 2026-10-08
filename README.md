@@ -1,8 +1,8 @@
 # Scrappy
 
 Personal, free price tracker. The phase-one probe evaluates product extraction;
-the scheduled scaffold records empty runs in Supabase and pings Healthchecks.io.
-The review/alert engine, notifications, API and web app are still pending.
+the scheduled runner validates and persists due reviews in Supabase and pings
+Healthchecks.io. Alert states, notifications, API and web app are still pending.
 
 ## Local setup (PowerShell)
 
@@ -19,11 +19,15 @@ Get-Content .env | ForEach-Object {
 .\.venv\Scripts\python.exe -m scrappy.run --mode all
 ```
 
-Python 3.11+ is required. The CLI validates its arguments and records a completed
-zero-check row in `runs`; connection errors exit nonzero with no credentials in logs.
-The scheduled entry point does not yet fetch pages or send notifications.
-Supported modes are `all`, `product` (requires `--product-id`) and
-`test_notification`. The CLI reads process environment variables; `.env` is loaded
+Python 3.11+ is required. The CLI selects overdue active products, uses saved domain
+recipes, validates fresh readings and atomically records each review and its
+attempts. Rejected readings preserve the last valid price and increment the failure
+counter; accepted readings reset it. Completed runs record review counts; interrupted
+runs retain partial counts without claiming completion. Connection errors exit
+nonzero with no credentials in logs. Notifications are not implemented yet.
+Supported modes are `all` and `product` (requires a UUID `--product-id`, bypasses the
+interval for an active product). `test_notification` currently exits with an error.
+The CLI reads process environment variables; `.env` is loaded
 by the PowerShell snippet above. Use unquoted values. Keep all credentials out of
 source control and client code.
 
@@ -52,7 +56,8 @@ arrays, offer references, price specifications and aggregate low prices.
 Unavailable offers retain their availability, and the lowest available offer is
 preferred. Out-of-stock products count as readable; alerts belong to phase two.
 Heuristics exclude installments, shipping, tax, struck prices and related products.
-Candidate selection/teaching UI and review-time price-change validation are pending.
+Candidate selection/teaching UI is pending. Review-time validation confirms large
+price changes with a fresh reading before persistence.
 
 JSON and Markdown reports contain each URL's name, price, currency, strategy,
 confidence and successful mode. Each attempt records HTTP status, final URL,
@@ -189,20 +194,38 @@ milliseconds, so actual account billing remains unconfirmed.
 
 ## Supabase setup
 
-Create a Free project and apply `supabase/migrations/20261008000000_initial_schema.sql`
-once, using the Dashboard SQL editor or `psql` with the connection string stored
-locally in `SUPABASE_DB_URL`. With the environment loaded as above:
+Create a Free project and apply these migrations once, in order, using the
+Dashboard SQL editor:
+
+1. `supabase/migrations/20261008000000_initial_schema.sql`
+2. `supabase/migrations/20261008010000_review_persistence.sql`
+
+Both migrations were already applied to the configured project; do not rerun them.
+All eight tables have RLS enabled, no public policies, and no public table grants.
+The review RPCs are executable only by `service_role`; concurrent stale writers
+are rejected before history or product state can change. Only trusted server code
+uses `SUPABASE_SERVICE_ROLE_KEY`.
+
+Persistence checks use Python, without `psql` or additional dependencies. Load
+`.env` with the setup snippet, then run:
 
 ```powershell
-psql --dbname=$env:SUPABASE_DB_URL --set=ON_ERROR_STOP=1 --file=supabase/migrations/20261008000000_initial_schema.sql
+.\.venv\Scripts\python.exe -c "from scrappy.persistence import Database; Database().request('GET', 'runs?select=id&limit=1'); print('Connection OK')"
+.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_run.py -v
+$env:SCRAPPY_TEST_SQL = '1'
+try {
+    .\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_persistence.py -v
+} finally {
+    Remove-Item Env:SCRAPPY_TEST_SQL
+}
 ```
 
-Use the session pooler connection if direct Postgres IPv6 is unavailable. All eight
-tables have RLS enabled, no public policies, and no `anon`/`authenticated` grants.
-Only trusted server code uses `SUPABASE_SERVICE_ROLE_KEY`. The migration is
-transactional; do not rerun it on an already initialized database.
-`SUPABASE_ACCESS_TOKEN` is an optional local management alternative to a database
-connection; neither setup credential belongs in Actions or Vercel.
+The SQL integration requires the local `SUPABASE_ACCESS_TOKEN` and calls the
+Supabase Management API. It tests the installed functions, interval boundaries,
+rejected and accepted reviews, stale writers, permissions and atomic rollback.
+All generated fixture data is rolled back; no migration is applied by the test.
+`SUPABASE_DB_URL` is optional for local database tools; neither setup credential
+belongs in Actions or Vercel.
 
 ## GitHub Actions scaffold
 
