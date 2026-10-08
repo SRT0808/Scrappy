@@ -98,6 +98,16 @@ class ExtractTests(unittest.TestCase):
         self.assertTrue(result.ok)
         self.assertTrue(result.warnings)
 
+    def test_offer_reference_is_independent_of_graph_order(self):
+        offer = '{"@id":"#offer","@type":"Offer","price":99,"priceCurrency":"USD"}'
+        product = '{"@type":"Product","name":"Main","offers":{"@id":"#offer"}}'
+        for nodes in ((offer, product), (product, offer)):
+            with self.subTest(nodes=nodes):
+                html = '<script type="application/ld+json">{"@graph":[' + ','.join(nodes) + ']}</script>'
+                result = extract(html, "https://shop.com/product")
+                self.assertTrue(result.ok)
+                self.assertEqual(result.price, Decimal("99"))
+
     def test_currency_conflict_and_out_of_stock(self):
         html = '<script type="application/ld+json">{"@type":"Product","name":"Main","offers":[{"price":99,"priceCurrency":"USD","availability":"https://schema.org/OutOfStock"}]}</script>'
         result = extract(html, "https://shop.com/product")

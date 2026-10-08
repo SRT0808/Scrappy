@@ -99,7 +99,12 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
             documents.extend(walk(json.loads(script.text or "")))
         except (ValueError, TypeError):
             base.warnings.append("JSON-LD inválido; se probarán otras estrategias.")
-    references = {item["@id"]: item for item in documents if isinstance(item.get("@id"), str)}
+    references = {}
+    for item in documents:
+        if isinstance(item.get("@id"), str):
+            previous = references.get(item["@id"], {})
+            # A later bare @id reference must not replace its full graph node.
+            references[item["@id"]] = {**previous, **item}
     for product in documents:
         if schema_types(product.get("@type")) & {"Product", "ProductGroup"}:
             products.append(product)
