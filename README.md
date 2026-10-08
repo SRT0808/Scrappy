@@ -48,7 +48,7 @@ connection; neither setup credential belongs in Actions or Vercel.
 
 `check-prices.yml` provides a three-hour schedule and manual dispatch, a shared
 concurrency group, a 20-minute timeout, pip/browser caches and the connected empty CLI run.
-GitHub schedules use the default branch; this task only prepares `develop`.
+GitHub schedules use the default branch, currently `develop`.
 Set repository Secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
 `HEALTHCHECK_URL` before dispatching this phase. The heartbeat is required and
 uses the check's `https://hc-ping.com/<uuid>` URL after success, or `/fail` on
@@ -60,6 +60,13 @@ hours without success. Local CLI runs do not ping the production heartbeat.
 Each execution reports elapsed runner time in the Actions summary. This is not
 account billing usage: verify the current free-minute allowance and actual
 account consumption before activating production scheduling.
+Phase 0 was accepted on 2026-10-08: [Actions run 37856046874](https://github.com/SRT0808/Scrappy/actions/runs/37856046874)
+recorded a completed empty run in Supabase and successfully pinged the heartbeat.
+The first job took 56 seconds (64 seconds for the entire execution), including
+browser installation. At eight runs daily, that observed job duration projects
+to about 224 runner minutes over 30 days, before billing rounding and cache effects.
+The timing API returned zero billable milliseconds at verification time; that
+does not establish actual billed consumption. Check account usage after it updates.
 As checked on 2026-10-08, GitHub Free includes 2,000 minutes per month for private
 repositories, shared across the owner's account ([GitHub billing documentation](https://docs.github.com/en/billing/concepts/product-billing/github-actions)).
 Healthchecks.io Hobbyist monitors 20 jobs for free ([pricing](https://healthchecks.io/pricing/)).
