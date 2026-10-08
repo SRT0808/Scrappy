@@ -1,0 +1,1 @@
+"""Scrappy price tracker package."""

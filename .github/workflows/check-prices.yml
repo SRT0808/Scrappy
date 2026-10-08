@@ -1,0 +1,103 @@
+name: Check prices
+
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Modo de ejecucion
+        type: choice
+        options:
+          - all
+          - product
+          - test_notification
+        default: all
+        required: true
+      product_id:
+        description: ID del producto (obligatorio en modo product)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scrappy-check-prices
+  cancel-in-progress: false
+
+jobs:
+  check-prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /home/runner/.cache/ms-playwright
+      HEALTHCHECK_URL: ${{ secrets.HEALTHCHECK_URL }}
+    steps:
+      - name: Start timing
+        run: echo "RUN_STARTED_AT=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: scraper/pyproject.toml
+
+      - name: Install dependencies
+        run: python -m pip install ./scraper
+
+      - name: Identify browser versions
+        id: browser-versions
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          from importlib.metadata import version
+          print(f"key={version('playwright')}-{version('patchright')}")
+          PY
+
+      - name: Cache browsers
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-browsers-${{ steps.browser-versions.outputs.key }}-${{ hashFiles('scraper/pyproject.toml') }}
+
+      - name: Install browsers
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: scrapling install
+
+      - name: Install browser system dependencies
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: python -m playwright install-deps chromium
+
+      - name: Run scaffold
+        env:
+          RUN_MODE: ${{ inputs.mode || 'all' }}
+          PRODUCT_ID: ${{ inputs.product_id }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
+        run: python -m scrappy.run --mode "$RUN_MODE" --product-id "$PRODUCT_ID"
+
+      - name: Ping heartbeat
+        if: success() && env.HEALTHCHECK_URL != ''
+        run: curl --fail --silent --output /dev/null --max-time 15 --retry 2 "$HEALTHCHECK_URL"
+
+      - name: Ping failure
+        if: failure() && env.HEALTHCHECK_URL != ''
+        run: curl --fail --silent --output /dev/null --max-time 15 --retry 2 "${HEALTHCHECK_URL%/}/fail"
+
+      - name: Report elapsed runner time
+        if: always()
+        run: |
+          elapsed=$(( $(date +%s) - RUN_STARTED_AT ))
+          echo "Tiempo transcurrido del runner: ${elapsed}s. Consulta el consumo facturado en GitHub Actions." >> "$GITHUB_STEP_SUMMARY"
