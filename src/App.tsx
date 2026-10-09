@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { AuthError, requestAuth } from './lib/auth';
+import { ListsScreen } from './components/ListsScreen';
 
 type SessionState = 'checking' | 'anonymous' | 'authenticated' | 'unavailable';
 
@@ -29,7 +30,7 @@ export function App() {
   }, [check]);
 
   useEffect(() => {
-    document.title = session === 'authenticated' ? 'Scrappy · Inicio' : 'Scrappy · Acceso';
+    document.title = session === 'authenticated' ? 'Scrappy · Listas' : 'Scrappy · Acceso';
     if (session === 'anonymous' && !busy) input.current?.focus();
   }, [session, busy]);
 
@@ -84,13 +85,13 @@ export function App() {
         <span className="text-lg font-semibold tracking-tight">scrappy<span className="text-primary">.</span></span>
       </header>
       <main className="flex flex-1 items-center justify-center px-5 py-10">
-        <div className="w-full max-w-sm">
+        {session === 'authenticated' ? <ListsScreen sessionBusy={busy} sessionError={error} onLogout={logout} onExpired={message => { setKey(''); setSession('anonymous'); setError(message); }} /> : <div className="w-full max-w-sm">
           <p className="mb-5 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p>
           <section aria-labelledby="access-title" aria-busy={busy || session === 'checking'} className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-black/20 sm:p-8">
             <div aria-hidden="true" className="mb-6 flex size-11 items-center justify-center rounded-xl border border-border bg-muted text-primary">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v2" /></svg>
             </div>
-            <h1 id="access-title" className="text-2xl font-semibold tracking-tight">{session === 'authenticated' ? 'Ya estás dentro.' : 'Tu próxima oferta empieza aquí.'}</h1>
+            <h1 id="access-title" className="text-2xl font-semibold tracking-tight">Tu próxima oferta empieza aquí.</h1>
             {session === 'checking' ? (
               <div role="status" className="mt-6 space-y-4">
                 <p className="text-sm text-muted-foreground">Comprobando tu sesión…</p>
@@ -110,13 +111,6 @@ export function App() {
                   {busy && <p role="status" className="sr-only">Validando tu clave y sesión.</p>}
                 </form>
               </>
-            ) : session === 'authenticated' ? (
-              <>
-                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">Tu sesión está activa. El espacio para tus listas estará disponible en el siguiente paso.</p>
-                {error && <p role="alert" className="mt-5 text-sm text-destructive">{error}</p>}
-                <Button variant="outline" className="mt-7 w-full" disabled={busy} onClick={logout}>{busy ? 'Cerrando sesión…' : 'Cerrar sesión'}</Button>
-                {busy && <p role="status" className="sr-only">Cerrando tu sesión.</p>}
-              </>
             ) : (
               <>
                 <p role="alert" className="mt-4 text-sm leading-relaxed text-destructive">{error}</p>
@@ -125,7 +119,7 @@ export function App() {
             )}
           </section>
           <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">Sigue el precio. Elige tu momento.</p>
-        </div>
+        </div>}
       </main>
       <footer className="px-6 py-6 text-center text-xs text-muted-foreground">Un espacio privado, solo para ti.</footer>
     </div>
