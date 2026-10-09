@@ -3,8 +3,8 @@
 Personal, free price tracker. The phase-one probe evaluates product extraction;
 the scheduled runner validates and persists due reviews in Supabase and pings
 Healthchecks.io. Alert states and push/email notifications are implemented;
-the session authentication API is implemented; the remaining API and web app
-are still pending.
+the session authentication API and web access screen are implemented; product
+routes and the remaining web screens are still pending.
 
 ## Local setup (PowerShell)
 
@@ -37,8 +37,8 @@ source control and client code.
 
 ## Session authentication API
 
-Node.js 22+ is required. Run `npm ci` to install the locked TypeScript development
-dependencies. Configure `ACCESS_KEY`, `SESSION_SECRET` (at least 32 UTF-8 bytes),
+Node.js 22.12+ is required. Run `npm ci` to install the locked dependencies.
+Configure `ACCESS_KEY`, `SESSION_SECRET` (at least 32 UTF-8 bytes),
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the Vercel server. Use a random
 session secret; these values must never use a `VITE_` prefix or enter a client
 bundle. `.env.example` lists the names without credentials.
@@ -89,8 +89,32 @@ expiration and pruning. Twelve concurrent service-role REST RPC requests using
 equivalent IPv6 spellings admitted exactly five and blocked seven; a concurrent
 request from a different IP succeeded, the exhausted IP also blocked a successful
 attempt, and exactly five rows remained before fixture cleanup. All concurrent
-fixture rows were confirmed removed. Vercel deployment and the access screen
-remain pending.
+fixture rows were confirmed removed. Vercel deployment remains pending.
+
+## Web access
+
+The React/Vite access screen uses locally bundled Inter, dark Tailwind tokens and
+shadcn/ui button/input primitives. Tailwind follows its official
+[Vite integration](https://tailwindcss.com/docs/installation/using-vite).
+It restores the session before showing the form, confirms cookie acceptance after
+login, and clears the entered key after each request. No credentials or session
+tokens enter browser storage. Failed restoration offers a retry; failed logout
+keeps the authenticated view so it can be retried. A 401 during logout returns to
+access because the session is already invalid. Authentication requests time out
+after 15 seconds and display fixed Spanish messages, including the rate-limit wait.
+
+```powershell
+npm run dev      # Frontend only; /api needs Vercel Functions.
+npm run test:web # UI flow, transport errors and boundary cases.
+npm run build    # Server/client type checks and production bundle.
+```
+
+For the complete local flow, configure the four server credentials above in the
+Vercel development environment and run `npx vercel dev` with the Vite framework
+preset. Use HTTPS when testing the secure session cookie; do not weaken its flags.
+On Vercel, Vite builds `dist/` and Functions serves `api/` from the same origin.
+The authenticated view is an explicit placeholder for the upcoming lists screen.
+PWA installation and the remaining phase-three acceptance flow are pending.
 
 ## Notifications
 
