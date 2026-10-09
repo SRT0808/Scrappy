@@ -17,7 +17,10 @@ from scrappy.run import execute_reviews, main, read_product, review_product
 
 NOW = datetime(2026, 10, 8, tzinfo=timezone.utc)
 PRODUCT = {"id": "00000000-0000-0000-0000-000000000001", "url": "https://shop.pe/product",
-           "domain": "shop.pe", "currency": "PEN", "last_price": "100.00", "last_checked_at": None}
+           "domain": "shop.pe", "currency": "PEN", "last_price": "100.00", "last_checked_at": None,
+           "target_type": "price", "target_price": "90", "reference_price": "120",
+           "alert_state": "armed", "last_alert_price": None, "last_alert_at": None,
+           "consecutive_failures": 0, "last_success_at": None}
 RUN_ID = "00000000-0000-0000-0000-000000000002"
 
 
@@ -30,7 +33,7 @@ class ReviewTests(unittest.TestCase):
         self.sleep = Mock()
 
     def review(self, product=None):
-        return review_product(self.database, product or PRODUCT, {}, read=self.read, now=lambda: NOW, sleep=self.sleep)
+        return review_product(self.database, product or PRODUCT, {}, read=self.read, now=lambda: NOW, sleep=self.sleep, alerts=Mock())
 
     def saved_checks(self):
         return self.database.save_review.call_args.args[3]
@@ -182,13 +185,20 @@ class DatabaseTests(unittest.TestCase):
                 main()
         self.assertEqual(caught.exception.code, 1)
 
-    def test_cli_invalid_product_and_pending_notifications_do_not_access_database(self):
-        for args in (["--mode", "product"], ["--mode", "product", "--product-id", "bad"], ["--mode", "test_notification"]):
+    def test_cli_invalid_product_does_not_access_database(self):
+        for args in (["--mode", "product"], ["--mode", "product", "--product-id", "bad"]):
             with self.subTest(args=args), patch("sys.argv", ["scrappy.run", *args]), patch("scrappy.run.Database") as database, redirect_stderr(io.StringIO()):
                 with self.assertRaises(SystemExit) as caught:
                     main()
                 self.assertEqual(caught.exception.code, 2)
                 database.assert_not_called()
+
+    def test_cli_test_notification_uses_both_channels_without_reviews(self):
+        with patch("sys.argv", ["scrappy.run", "--mode", "test_notification"]), patch("scrappy.run.Database") as database, patch("scrappy.run.test_notification") as notify, patch("scrappy.run.execute_reviews") as reviews:
+            main()
+        notify.assert_called_once()
+        self.assertIs(notify.call_args.args[0], database.return_value)
+        reviews.assert_not_called()
 
 
 if __name__ == "__main__":

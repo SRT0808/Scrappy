@@ -2,7 +2,8 @@
 
 Personal, free price tracker. The phase-one probe evaluates product extraction;
 the scheduled runner validates and persists due reviews in Supabase and pings
-Healthchecks.io. Alert states, notifications, API and web app are still pending.
+Healthchecks.io. Alert states and push/email notifications are implemented;
+the API and web app are still pending.
 
 ## Local setup (PowerShell)
 
@@ -24,12 +25,49 @@ recipes, validates fresh readings and atomically records each review and its
 attempts. Rejected readings preserve the last valid price and increment the failure
 counter; accepted readings reset it. Completed runs record review counts; interrupted
 runs retain partial counts without claiming completion. Connection errors exit
-nonzero with no credentials in logs. Notifications are not implemented yet.
-Supported modes are `all` and `product` (requires a UUID `--product-id`, bypasses the
-interval for an active product). `test_notification` currently exits with an error.
+nonzero with no credentials in logs. Apply the alert recovery migration before
+running this version: active and error products are reviewed, three consecutive
+failures set status to error, and an accepted reading restores active status.
+Supported modes are `all`, `product` (requires a UUID `--product-id`, bypasses the
+interval for an active/error product), and `test_notification` (no price reviews).
 The CLI reads process environment variables; `.env` is loaded
 by the PowerShell snippet above. Use unquoted values. Keep all credentials out of
 source control and client code.
+
+## Notifications
+
+Configure `NTFY_TOPIC` as a random private topic of at least 24 URL-safe characters,
+subscribe to it in the ntfy phone app, and set `GMAIL_USER`, `GMAIL_APP_PASSWORD`
+(Google app password with two-step verification) and `NOTIFY_EMAIL_TO`.
+The same four secrets are already wired into Actions. No new account is required
+for ntfy. Publishing uses [ntfy JSON](https://docs.ntfy.sh/publish/) over HTTPS;
+email uses [Gmail SMTP](https://support.google.com/a/answer/176600) over SSL on
+port 465, with plain text and escaped HTML.
+
+Both channels are attempted independently, with sent/failed rows in notifications;
+credentials, the private topic and raw transport errors are excluded from history.
+A goal triggers at or below the target and changes state only after at least one
+confirmed send. Both delivery failures leave it eligible for the next review.
+Triggered goals repeat only at an additional drop of at least 5% from the last
+notified price; rearming requires a price strictly above 103% of the target.
+Decimal arithmetic preserves exact inclusive/exclusive threshold comparisons.
+Unavailable and rejected readings cannot send goal alerts. Suspicious changes are
+reported after their review is persisted. Read-failure reminders are limited to
+one pair of attempts every seven days within a failure streak, including failed
+delivery attempts; a successful reading starts a new streak.
+
+Actions serializes runs in the existing concurrency group. Avoid simultaneous
+local and Actions runs. External delivery and database writes cannot be atomic:
+a process crash or database failure after delivery can cause a repeated message.
+Audit failures fail the run after still attempting both channels, and state writes
+reject a changed review/alert version.
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_alerts.py -v
+.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_notifications.py -v
+# Sends real push and email; only run after configuring the four secrets:
+.\.venv\Scripts\python.exe -m scrappy.run --mode test_notification
+```
 
 ## Extractor probe
 
@@ -199,8 +237,10 @@ Dashboard SQL editor:
 
 1. `supabase/migrations/20261008000000_initial_schema.sql`
 2. `supabase/migrations/20261008010000_review_persistence.sql`
+3. `supabase/migrations/20261008020000_alert_recovery.sql` (pending application)
 
-Both migrations were already applied to the configured project; do not rerun them.
+The first two migrations were already applied; do not rerun them. The third
+extends review selection/persistence for error recovery without altering tables.
 All eight tables have RLS enabled, no public policies, and no public table grants.
 The review RPCs are executable only by `service_role`; concurrent stale writers
 are rejected before history or product state can change. Only trusted server code
@@ -213,6 +253,8 @@ Persistence checks use Python, without `psql` or additional dependencies. Load
 .\.venv\Scripts\python.exe -c "from scrappy.persistence import Database; Database().request('GET', 'runs?select=id&limit=1'); print('Connection OK')"
 .\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_run.py -v
 $env:SCRAPPY_TEST_SQL = '1'
+# Before applying migration 3, preview it transactionally with:
+# $env:SCRAPPY_TEST_ALERT_MIGRATION = '1'
 try {
     .\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_persistence.py -v
 } finally {
@@ -223,7 +265,9 @@ try {
 The SQL integration requires the local `SUPABASE_ACCESS_TOKEN` and calls the
 Supabase Management API. It tests the installed functions, interval boundaries,
 rejected and accepted reviews, stale writers, permissions and atomic rollback.
-All generated fixture data is rolled back; no migration is applied by the test.
+All generated fixture data is rolled back; no migration is applied permanently.
+With `SCRAPPY_TEST_ALERT_MIGRATION=1`, migration 3 is included inside the same
+transaction and rolled back as well; remove the flag after testing.
 Verified on 2026-10-08: the Python client connection, 18 review unit tests and the
 transactional SQL integration passed against the configured project.
 `SUPABASE_DB_URL` is optional for local database tools; neither setup credential
@@ -237,7 +281,8 @@ GitHub schedules use the default branch, currently `develop`.
 Set repository Secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
 `HEALTHCHECK_URL` before dispatching this phase. The heartbeat is required and
 uses the check's `https://hc-ping.com/<uuid>` URL after success, or `/fail` on
-failure. Configure the other secrets in SPEC section 12 when implementing notifications.
+failure. Configure `NTFY_TOPIC`, `GMAIL_USER`, `GMAIL_APP_PASSWORD` and `NOTIFY_EMAIL_TO`
+before using notifications, and validate phone/email delivery with test mode.
 In Healthchecks.io, select a Simple schedule with a 3-hour period and 9-hour grace
 time, and enable a verified email integration: an alert arrives after about 12
 hours without success. Local CLI runs do not ping the production heartbeat.

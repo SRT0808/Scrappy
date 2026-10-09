@@ -17,10 +17,15 @@ class PersistenceIntegrationTests(unittest.TestCase):
             self.fail("Falta SUPABASE_ACCESS_TOKEN en el entorno local para ejecutar las pruebas SQL.")
         ref = urlsplit(os.environ["SUPABASE_URL"]).hostname.split(".")[0]
         assertions = (Path(__file__).parent / "fixtures/review_persistence.sql").read_text(encoding="utf-8")
+        # Preview the pending migration without changing the installed schema.
+        migration = ""
+        if os.environ.get("SCRAPPY_TEST_ALERT_MIGRATION") == "1":
+            migration = (Path(__file__).parents[2] / "supabase/migrations/20261008020000_alert_recovery.sql").read_text(encoding="utf-8")
+            migration = migration.removeprefix("begin;").removesuffix("commit;\n")
         request = Request(
             f"https://api.supabase.com/v1/projects/{ref}/database/query",
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            data=json.dumps({"query": "begin;\n" + assertions + "\nrollback;"}).encode(),
+            data=json.dumps({"query": "begin;\n" + migration + assertions + "\nrollback;"}).encode(),
             method="POST",
         )
         try:

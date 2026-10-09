@@ -14,6 +14,8 @@ from scrappy.extract import Extraction, extract
 from scrappy.persistence import Database
 from scrappy.probe import CHALLENGE, fetch
 from scrappy.validation import validate_review
+from scrappy.alerts import process_alerts
+from scrappy.notifications import test_notification
 
 
 def utcnow():
@@ -45,7 +47,7 @@ def check_row(reading, checked_at, result):
     }
 
 
-def review_product(database, product, recipe, *, read=read_product, now=utcnow, sleep=time.sleep, options=None):
+def review_product(database, product, recipe, *, read=read_product, now=utcnow, sleep=time.sleep, options=None, alerts=process_alerts):
     attempts = []
 
     def fresh_read():
@@ -66,7 +68,8 @@ def review_product(database, product, recipe, *, read=read_product, now=utcnow, 
     )
     checks = [check_row(item, timestamp, result) for item, timestamp in attempts]
     database.save_review(product, attempts[-1][1], result, checks)
-    # Only the persisted result may reach the future alert state machine.
+    alerts(database, product, result, attempts[-1][1],
+           suspicious_price=attempts[0][0].price if len(attempts) > 1 else None)
     return result
 
 
@@ -76,7 +79,7 @@ def execute_reviews(database, product_id=None, *, read=read_product, now=utcnow,
     run = database.request("POST", "runs", {"started_at": started.isoformat(), "trigger": trigger})[0]
     products = database.due_products(started, product_id)
     if product_id and not products:
-        raise ValueError("No existe un producto activo con ese ID.")
+        raise ValueError("No existe un producto activo o en error con ese ID.")
     recipes = {row["domain"]: row for row in database.request("GET", "domain_recipes?select=*")}
     settings = {row["key"]: row["value"] for row in database.request("GET", "settings?select=key,value")}
     options = {}
@@ -112,9 +115,11 @@ def main():
             product_id = str(UUID(args.product_id.strip()))
         except ValueError:
             parser.error("--product-id debe ser un UUID válido para --mode product")
-    if args.mode == "test_notification":
-        parser.error("Las notificaciones todavía no están implementadas.")
     try:
+        if args.mode == "test_notification":
+            test_notification(Database(), utcnow())
+            print("Notificación de prueba procesada; consulta el historial de cada canal.")
+            return
         counts = execute_reviews(Database(), product_id)
     except (ValueError, RuntimeError) as exc:
         print(f"Error: {exc}", file=sys.stderr)

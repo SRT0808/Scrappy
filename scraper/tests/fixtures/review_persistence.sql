@@ -31,7 +31,7 @@ begin
     update public.products set status = 'pending_confirmation' where id = product_id;
     assert not exists(select 1 from public.due_products(t) where id = product_id);
     update public.products set status = 'error' where id = product_id;
-    assert not exists(select 1 from public.due_products(t) where id = product_id);
+    assert exists(select 1 from public.due_products(t) where id = product_id);
     update public.products set status = 'active' where id = product_id;
 
     checks := jsonb_build_array(jsonb_build_object('checked_at', t, 'ok', false, 'price', '40.00',
@@ -40,6 +40,7 @@ begin
     select * into row from public.products where id = product_id;
     assert row.last_price = 100 and row.last_checked_at = t;
     assert row.last_success_at = t - interval '1 day' and row.last_method = 'json_ld';
+    assert row.status = 'error';
     assert row.consecutive_failures = 3 and row.alert_state = 'armed' and row.last_alert_price is null;
     assert (select count(*) = 1 from public.price_checks where price_checks.product_id = row.id and not ok and price = 40);
 
@@ -48,6 +49,7 @@ begin
     checks := checks || checks;
     perform public.save_review(product_id, t, t + interval '3 hours', true, checks);
     select * into row from public.products where id = product_id;
+    assert row.status = 'active';
     assert row.last_price = 40 and row.last_method = 'meta' and row.consecutive_failures = 0;
     assert row.last_success_at = t + interval '3 hours';
     assert (select count(*) = 3 from public.price_checks where price_checks.product_id = row.id);

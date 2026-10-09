@@ -87,7 +87,7 @@ jobs:
         if: steps.browsers.outputs.cache-hit == 'true'
         run: python -m playwright install-deps chromium
 
-      - name: Connect to Supabase and record empty run
+      - name: Review products and send notifications
         env:
           RUN_MODE: ${{ inputs.mode || 'all' }}
           PRODUCT_ID: ${{ inputs.product_id }}
