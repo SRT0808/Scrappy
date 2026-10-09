@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.web.json",
     "test:web": "vitest run",
     "test:auth": "tsc && node --test .scrappy/api-build/tests/auth.test.js",
-    "test:auth:sql": "node --env-file=.env tests/auth-sql.mjs"
+    "test:auth:sql": "node --env-file=.env tests/auth-sql.mjs",
+    "test:lists": "tsc && node --test .scrappy/api-build/tests/lists.test.js",
+    "test:lists:sql": "node --env-file=.env tests/lists-sql.mjs"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

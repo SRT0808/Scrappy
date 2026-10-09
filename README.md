@@ -3,7 +3,7 @@
 Personal, free price tracker. The phase-one probe evaluates product extraction;
 the scheduled runner validates and persists due reviews in Supabase and pings
 Healthchecks.io. Alert states and push/email notifications are implemented;
-the session authentication API and web access screen are implemented; product
+the session authentication and lists APIs and web access screen are implemented; product
 routes and the remaining web screens are still pending.
 
 ## Local setup (PowerShell)
@@ -90,6 +90,40 @@ equivalent IPv6 spellings admitted exactly five and blocked seven; a concurrent
 request from a different IP succeeded, the exhausted IP also blocked a successful
 attempt, and exactly five rows remained before fixture cleanup. All concurrent
 fixture rows were confirmed removed. Vercel deployment remains pending.
+
+## Lists API
+
+All routes require the existing signed session. Mutations require the same origin;
+POST, PATCH and PUT accept JSON only. Responses use `no-store` and Spanish errors.
+
+| Endpoint | Request and response |
+|---|---|
+| `GET /api/lists` | 200 `{ "lists": [...] }`, sorted by position, creation time and ID. |
+| `POST /api/lists` | `{ "name": "...", "emoji": "📱" }`; 201 `{ "list": {...} }`, appended to the order. Emoji is optional. |
+| `PATCH /api/lists/:id` | `{ "name": "..." }`; 200 `{ "list": {...} }`. Optional emoji replaces the current value; `null` clears it. |
+| `PUT /api/lists/reorder` | `{ "ids": ["uuid", "uuid"] }`; 200 `{ "lists": [...] }`. Include every list exactly once; an empty collection accepts `[]`. |
+| `DELETE /api/lists/:id` | 200 `{ "deleted": true }`; 409 if products still reference the list. |
+
+Names are trimmed and contain 1–100 Unicode code points; emoji accepts up to 16.
+Unknown fields and malformed IDs return 400. Missing lists return 404; a stale
+collection during reorder returns 409 so the client can reload. Storage failures
+return a generic 503 without exposing database details or credentials.
+Migration 5 provides the service-role-only invoker RPC `mutate_list`. A table lock
+serializes mutations, including direct table writes, while allowing reads. Reorder
+validates the complete ID set before updating; deletion compacts the remaining
+positions without removing products or their history. No client Supabase access
+or additional credentials are required.
+
+```powershell
+npm run test:lists
+npm run test:lists:sql # Preview migration and fixtures transactionally.
+npm run test:lists:sql -- --installed # Test the installed function; fixtures roll back.
+```
+
+Verified on 2026-10-08: 12 API tests and transactional PostgreSQL assertions passed,
+including session/origin rejection, validation, service-role permissions, reorder
+rollback, missing lists and nonempty deletion. Migration 5 is installed; the lists
+screen and Vercel deployment remain pending.
 
 ## Web access
 
@@ -329,10 +363,12 @@ Dashboard SQL editor:
 2. `supabase/migrations/20261008010000_review_persistence.sql`
 3. `supabase/migrations/20261008020000_alert_recovery.sql`
 4. `supabase/migrations/20261008030000_login_attempts.sql`
+5. `supabase/migrations/20261008040000_lists.sql`
 
-All four migrations were applied on 2026-10-08; do not rerun them. The third
+All five migrations were applied on 2026-10-08; do not rerun them. The third
 extends review selection/persistence for error recovery without altering tables;
-the fourth adds the atomic login rate-limit RPC without altering existing data.
+the fourth adds the atomic login rate-limit RPC; the fifth adds the lists mutation
+RPC. Neither changes existing data during installation.
 All eight tables have RLS enabled, no public policies, and no public table grants.
 The review RPCs are executable only by `service_role`; concurrent stale writers
 are rejected before history or product state can change. Only trusted server code
