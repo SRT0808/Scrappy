@@ -62,6 +62,14 @@ a process crash or database failure after delivery can cause a repeated message.
 Audit failures fail the run after still attempting both channels, and state writes
 reject a changed review/alert version.
 
+Phase 2 delivery acceptance passed on 2026-10-08: two local reviews of isolated
+product `587d4cb6-2192-4252-acd6-064ad3c1d82a` with a controlled HTML fixture at
+S/ 100 produced exactly one `goal_reached` sent record per channel. The second
+review added no notifications; the product ended triggered and was paused.
+The owner confirmed one phone push, one email, correct accents and a working link.
+The recovery migration SQL integration and final manual code review passed;
+configure the same four repository secrets before enabling production Actions.
+
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_alerts.py -v
 .\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_notifications.py -v
