@@ -5,6 +5,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/App';
 import { AuthError, requestAuth } from '../../src/lib/auth';
 
+vi.mock('virtual:pwa-register/react', () => ({
+  useRegisterSW: () => ({ needRefresh: [false, vi.fn()], updateServiceWorker: vi.fn() }),
+}));
+
 function response(status = 200, authenticated = true, headers: HeadersInit = {}) {
   return new Response(JSON.stringify({ authenticated }), { status, headers });
 }
@@ -47,7 +51,7 @@ describe('access screen', () => {
     const fetch = mockRequests(response(401), response(), response(), response(), response(200, false));
     const first = render(<App />);
     const user = await enterKey(' test-key ');
-    expect(await screen.findByRole('heading', { name: 'Tus listas' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
     expect(fetch).toHaveBeenNthCalledWith(2, '/api/login', expect.objectContaining({
       method: 'POST', credentials: 'same-origin', cache: 'no-store',
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: ' test-key ' }),
@@ -112,7 +116,7 @@ describe('access screen', () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole('button', { name: 'Cerrar sesión' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('El servicio no está disponible');
-    expect(screen.getByRole('heading', { name: 'Tus listas' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }));
     expect(await screen.findByLabelText('Clave de acceso')).toHaveFocus();
   });

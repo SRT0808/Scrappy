@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
 import { AuthError, requestAuth } from './lib/auth';
-import { ListsScreen } from './components/ListsScreen';
+import { HomeScreen } from './components/HomeScreen';
+import { PwaControls } from './components/PwaControls';
 
 type SessionState = 'checking' | 'anonymous' | 'authenticated' | 'unavailable';
 
@@ -30,7 +31,7 @@ export function App() {
   }, [check]);
 
   useEffect(() => {
-    document.title = session === 'authenticated' ? 'Scrappy · Listas' : 'Scrappy · Acceso';
+    if (session !== 'authenticated') document.title = 'Scrappy · Acceso';
     if (session === 'anonymous' && !busy) input.current?.focus();
   }, [session, busy]);
 
@@ -84,8 +85,9 @@ export function App() {
         </span>
         <span className="text-lg font-semibold tracking-tight">scrappy<span className="text-primary">.</span></span>
       </header>
+      <PwaControls />
       <main className="flex flex-1 items-center justify-center px-5 py-10">
-        {session === 'authenticated' ? <ListsScreen sessionBusy={busy} sessionError={error} onLogout={logout} onExpired={message => { setKey(''); setSession('anonymous'); setError(message); }} /> : <div className="w-full max-w-sm">
+        {session === 'authenticated' ? <HomeScreen sessionBusy={busy} sessionError={error} onLogout={logout} onExpired={message => { setKey(''); setSession('anonymous'); setError(message); }} /> : <div className="w-full max-w-sm">
           <p className="mb-5 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p>
           <section aria-labelledby="access-title" aria-busy={busy || session === 'checking'} className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-black/20 sm:p-8">
             <div aria-hidden="true" className="mb-6 flex size-11 items-center justify-center rounded-xl border border-border bg-muted text-primary">

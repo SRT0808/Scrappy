@@ -6,6 +6,10 @@ import { App } from '../../src/App';
 import { ListsScreen } from '../../src/components/ListsScreen';
 import { requestLists } from '../../src/lib/lists';
 
+vi.mock('virtual:pwa-register/react', () => ({
+  useRegisterSW: () => ({ needRefresh: [false, vi.fn()], updateServiceWorker: vi.fn() }),
+}));
+
 const first = { id: '11111111-1111-4111-8111-111111111111', name: 'Tecnología', emoji: null, position: 0, created_at: '2026-10-08' };
 const second = { ...first, id: '22222222-2222-4222-8222-222222222222', name: 'Hogar', position: 1 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -147,10 +151,11 @@ describe('lists screen', () => {
   });
 
   it.each(['read', 'create'] as const)('returns to access on expired session during %s', async action => {
-    mock(json({ authenticated: true }), ...(action === 'create' ? [json({ lists: [] })] : []), json({}, 401));
+    mock(json({ authenticated: true }), ...(action === 'create' ? [json({ lists: [] }), json({ lists: [] })] : []), json({}, 401));
     render(<App />);
     if (action === 'create') {
       await screen.findByText('Tu primera lista empieza aquí');
+      await userEvent.click(screen.getByRole('button', { name: 'Crear mi primera lista' }));
       fireEvent.change(screen.getByLabelText('Nombre de la nueva lista'), { target: { value: first.name } });
       await userEvent.click(screen.getByRole('button', { name: 'Crear lista' }));
     }

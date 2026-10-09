@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ListsError, requestLists, type List, type ListAction } from '../lib/lists';
+import { AddProduct } from './AddProduct';
 
-type Props = { onExpired: (message: string) => void; onLogout: () => void; sessionBusy: boolean; sessionError: string };
+type Props = { onExpired: (message: string) => void; onLogout: () => void; sessionBusy: boolean; sessionError: string; onHome?: () => void; onProductSaved?: () => void };
 
-export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError }: Props) {
+export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, onHome, onProductSaved }: Props) {
   const [lists, setLists] = useState<List[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -15,6 +16,8 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError }: 
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [needsRefresh, setNeedsRefresh] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const addButton = useRef<HTMLButtonElement>(null);
   const active = useRef<AbortController | null>(null);
   const field = useRef<HTMLInputElement>(null);
   const locked = busy || sessionBusy;
@@ -75,11 +78,14 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError }: 
     void run('reorder', { ids });
   }
 
+  if (adding) return <AddProduct lists={lists} onExpired={onExpired} onClose={() => { setAdding(false); setTimeout(() => addButton.current?.focus(), 0); }} onSaved={() => { setAdding(false); setNotice('Producto guardado y activo.'); onProductSaved?.(); setTimeout(() => addButton.current?.focus(), 0); }} />;
+
   return <section aria-labelledby="lists-title" aria-busy={locked} className="mx-auto w-full max-w-2xl self-start">
     <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
       <div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 id="lists-title" className="text-3xl font-semibold tracking-tight">Tus listas</h1><p className="mt-3 text-sm text-muted-foreground">Organiza lo que quieres seguir, a tu manera.</p></div>
       <Button variant="outline" disabled={locked} onClick={onLogout}>{sessionBusy ? 'Cerrando sesión…' : 'Cerrar sesión'}</Button>
     </div>
+    <div className="mb-6 flex flex-wrap gap-3">{onHome && <Button variant="outline" disabled={locked} onClick={onHome}>Volver a Inicio</Button>}<Button ref={addButton} disabled={mutationLocked || !loaded} onClick={() => { setAdding(true); setNotice(''); }}>Añadir producto</Button></div>
     <form onSubmit={save} className="mb-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
       <label htmlFor="list-name" className="text-sm font-medium">{editing ? 'Nuevo nombre' : 'Nombre de la nueva lista'}</label>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
