@@ -103,7 +103,7 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError }: 
           <Button variant="outline" disabled={mutationLocked} aria-label={`Eliminar ${list.name}`} onClick={() => { setDeleting(list.id); setError(''); }}>Eliminar</Button>
         </div>
         {deleting === list.id && <div className="mt-5 border-t border-border pt-4">
-          <p className="mb-3 text-sm">¿Eliminar «{list.name}»? Solo se puede eliminar si no contiene productos.</p>
+          <p className="mb-3 break-words text-sm">¿Eliminar «{list.name}»? Solo se puede eliminar si no contiene productos.</p>
           <div className="flex flex-wrap gap-2"><Button variant="outline" className="text-destructive" disabled={mutationLocked} onClick={() => void run('delete', undefined, list.id)}>Confirmar eliminación</Button><Button variant="outline" disabled={locked} onClick={() => setDeleting(null)}>Cancelar eliminación</Button></div>
         </div>}
       </li>)}</ol>}
