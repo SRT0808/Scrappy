@@ -17,6 +17,7 @@ from scrapling.fetchers import DynamicFetcher, Fetcher, StealthyFetcher
 
 from scrappy.extract import Extraction, extract
 from scrappy.recipes import RecipeStore
+from scrappy.network import public_proxy, public_url
 
 MODES = ("http", "dynamic", "stealth")
 CHALLENGE = re.compile(r"just a moment|verify (?:that )?you are human|access denied|attention required|checking your browser|robot check|captcha challenge|permission denied", re.I)
@@ -44,10 +45,14 @@ def ordered_urls(path: Path) -> list[str]:
 
 
 def fetch(url: str, mode: str, timeout: float):
+    public_url(url)
     if mode == "http":
         return Fetcher.get(url, timeout=timeout, retries=1, impersonate="chrome", selector_config={"adaptive": False})
     fetcher = DynamicFetcher if mode == "dynamic" else StealthyFetcher
-    return fetcher.fetch(url, headless=True, timeout=int(timeout * 1000), retries=1, wait=1500, network_idle=False, disable_resources=True, locale="es-PE", selector_config={"adaptive": False})
+    with public_proxy(timeout) as proxy:
+        return fetcher.fetch(url, headless=True, timeout=int(timeout * 1000), retries=1, wait=1500,
+                             network_idle=False, disable_resources=True, locale="es-PE", selector_config={"adaptive": False},
+                             proxy=proxy, extra_flags=["--proxy-bypass-list=<-loopback>", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"])
 
 
 def evaluate(url: str, store: RecipeStore, evidence: Path, timeout: float = 25, max_mode: str = "stealth", pause=None) -> dict:

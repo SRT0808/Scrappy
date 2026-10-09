@@ -78,6 +78,49 @@ def excluded(node) -> bool:
     return bool(EXCLUDED.search(context))
 
 
+def css_path(node) -> str:
+    parts = []
+    for item in reversed([node, *node.iterancestors()]):
+        if not isinstance(item.tag, str):
+            continue
+        position = 1 + sum(sibling.tag == item.tag for sibling in item.itersiblings(preceding=True))
+        parts.append(f"{item.tag}:nth-of-type({position})")
+    return " > ".join(parts)
+
+
+def recipe_read(page, base, recipe, cur, url, lang):
+    selector = recipe.get("price_selector")
+    if not selector:
+        return False
+    try:
+        exact = page.css(selector)
+        nodes = exact or page.css(selector, adaptive=True, percentage=80)
+        if nodes:
+            node = nodes[0]._root
+            amount = node.get("content") or text_of(node)
+            if recipe.get("match_index") is not None:
+                matches = list(MONEY.finditer(amount))
+                if len(matches) != recipe.get("match_count") or recipe["match_index"] >= len(matches):
+                    base.warnings.append("El contexto del precio elegido cambió; requiere confirmación.")
+                    return False
+                amount = matches[recipe["match_index"]].group()
+            base.price = normalize_price(amount)
+            base.currency = currency_for(amount, cur, url, lang)
+            base.method = "recipe" if exact else "adaptive"
+            base.confidence = 0.95 if exact and len(nodes) == 1 else 0.6
+            if name_selector := recipe.get("name_selector"):
+                names = page.css(name_selector)
+                if names:
+                    base.name = text_of(names[0]._root)
+            if base.ok:
+                page.css(selector, auto_save=True)
+                return True
+            base.warnings.append("Receta ambigua o recuperada adaptativamente; requiere confirmación.")
+    except (ValueError, TypeError) as exc:
+        base.warnings.append(f"Selector de receta inválido ({type(exc).__name__}).")
+    return False
+
+
 def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extraction:
     recipe = recipe or {}
     state = recipe.setdefault("adaptive_state", None)
@@ -90,8 +133,21 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
     name = text_of(h1[0]) if h1 else metadata(root, "og:title") or (titles[0].strip() if titles else None)
     lang = root.get("lang", "")
     cur = metadata(root, "product:price:currency", "og:price:currency", "priceCurrency")
+    confirmed = state.get("confirmed_candidates", {}).get(url, {})
+    cur = confirmed.get("currency") or cur
     image = metadata(root, "og:image")
     base = Extraction(name=name, image_url=urljoin(url, image) if image else None)
+    originals = {p for node in root.xpath('//s | //del | //strike | //*[@itemprop="highPrice"]')
+                 if (p := normalize_price(node.get("content") or text_of(node))) is not None}
+    if len(originals) == 1:
+        base.original_price = originals.pop()
+    if confirmed.get("selector") and not recipe.get("force_selector"):
+        recipe = {**recipe, "price_selector": confirmed["selector"], "force_selector": True,
+                  "match_index": confirmed.get("match_index"), "match_count": confirmed.get("match_count")}
+    if recipe.get("force_selector"):
+        recipe_read(page, base, recipe, cur, url, lang)
+        # An explicitly taught selector must never silently fall back to another price.
+        return base
     products = []
     documents = []
     for script in root.xpath('//script[contains(translate(@type,"ABCDEFGHIJKLMNOPQRSTUVWXYZ","abcdefghijklmnopqrstuvwxyz"),"ld+json")]'):
@@ -126,13 +182,19 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
             for source in sources:
                 amount = source.get("price", source.get("lowPrice"))
                 price = normalize_price(amount)
-                currency = currency_for(str(amount), source.get("priceCurrency") or offer.get("priceCurrency") or product.get("priceCurrency"), url, lang)
+                currency = currency_for(str(amount), source.get("priceCurrency") or offer.get("priceCurrency") or product.get("priceCurrency") or cur, url, lang)
                 if price is not None and currency:
                     availability = offer.get("availability") or product.get("availability")
                     candidate = {"price": str(price), "currency": currency, "name": product.get("name") or name, "availability": availability, "context": "JSON-LD", "score": 0.98}
                     valid.append((product, candidate))
                     break
     if valid:
+        selected = [pair for pair in valid if confirmed.get("name") and pair[1]["name"] == confirmed["name"] and pair[1]["currency"] == confirmed.get("currency")]
+        if confirmed.get("name") and not confirmed.get("selector") and not selected:
+            base.warnings.append("El producto confirmado cambió; requiere confirmación.")
+            return base
+        if selected:
+            valid = selected
         available = [pair for pair in valid if str(pair[1]["availability"]).rsplit("/", 1)[-1].lower() not in ("outofstock", "soldout", "discontinued")]
         pool = available or valid
         currencies = {c["currency"] for _, c in pool}
@@ -144,7 +206,7 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
             product_image = product_image[0] if product_image else None
         if isinstance(product_image, dict):
             product_image = product_image.get("url")
-        result = Extraction(name=chosen["name"], price=Decimal(chosen["price"]), currency=chosen["currency"], availability=chosen["availability"], image_url=urljoin(url, product_image) if isinstance(product_image, str) else base.image_url, method="json_ld", confidence=0.5 if ambiguous else 0.98, candidates=[c for _, c in pool][:5], warnings=base.warnings.copy())
+        result = Extraction(name=chosen["name"], price=Decimal(chosen["price"]), currency=chosen["currency"], original_price=base.original_price, availability=chosen["availability"], image_url=urljoin(url, product_image) if isinstance(product_image, str) else base.image_url, method="json_ld", confidence=0.5 if ambiguous else 0.98, candidates=[c for _, c in pool][:5], warnings=base.warnings.copy())
         if ambiguous:
             result.warnings.append("Varios productos o monedas; requiere confirmación.")
             return result
@@ -155,7 +217,8 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
     for key in ("product:price:amount", "og:price:amount"):
         amount = metadata(root, key)
         if amount:
-            meta_candidates.append((amount, cur))
+            meta_node = root.xpath('//meta[@property=$key or @name=$key or @itemprop=$key]', key=key)[0]
+            meta_candidates.append((amount, cur, css_path(meta_node)))
     for node in root.xpath('//*[@itemprop="price"]'):
         if excluded(node):
             continue
@@ -164,40 +227,23 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
             continue
         currency_nodes = scopes[-1].xpath('.//*[@itemprop="priceCurrency"]') if scopes else []
         micro_cur = (currency_nodes[0].get("content") or text_of(currency_nodes[0])) if currency_nodes else cur
-        meta_candidates.append((node.get("content") or text_of(node), micro_cur))
-    normalized = {(normalize_price(v), currency_for(v, c, url, lang)) for v, c in meta_candidates}
+        meta_candidates.append((node.get("content") or text_of(node), micro_cur, css_path(node)))
+    normalized = {(normalize_price(v), currency_for(v, c, url, lang)) for v, c, _ in meta_candidates}
     normalized = {(p, c) for p, c in normalized if p and c}
     if normalized:
         price, currency = sorted(normalized)[0]
         base.price, base.currency, base.method = price, currency, "meta_microdata"
         base.confidence = 0.9 if len(normalized) == 1 else 0.5
         if len(normalized) > 1:
-            base.candidates = [{"price": str(p), "currency": c, "context": "meta/microdatos", "score": 0.5} for p, c in sorted(normalized)[:5]]
+            base.candidates = [{"price": str(p), "currency": c, "context": "meta/microdatos", "score": 0.5,
+                                "selector": next(s for raw, currency, s in meta_candidates if normalize_price(raw) == p and currency_for(raw, currency, url, lang) == c)}
+                               for p, c in sorted(normalized)[:5]]
             base.warnings.append("Precios estructurados contradictorios; requiere confirmación.")
             return base
         if base.ok:
             return base
-    if selector := recipe.get("price_selector"):
-        try:
-            exact = page.css(selector)
-            nodes = exact or page.css(selector, adaptive=True, percentage=80)
-            if nodes:
-                node = nodes[0]._root
-                amount = node.get("content") or text_of(node)
-                base.price = normalize_price(amount)
-                base.currency = currency_for(amount, cur, url, lang)
-                base.method = "recipe" if exact else "adaptive"
-                base.confidence = 0.95 if exact and len(nodes) == 1 else 0.6
-                if name_selector := recipe.get("name_selector"):
-                    names = page.css(name_selector)
-                    if names:
-                        base.name = text_of(names[0]._root)
-                if base.ok:
-                    page.css(selector, auto_save=True)
-                    return base
-                base.warnings.append("Receta ambigua o recuperada adaptativamente; requiere confirmación.")
-        except (ValueError, TypeError) as exc:
-            base.warnings.append(f"Selector de receta inválido ({type(exc).__name__}).")
+    if recipe_read(page, base, recipe, cur, url, lang):
+        return base
     candidates = []
     for node in root.xpath('//*[not(self::script or self::style)]'):
         attrs = " ".join(node.get(key, "") for key in ("class", "id", "itemprop", "data-testid"))
@@ -206,7 +252,8 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
         content = text_of(node)
         if len(content) > 160:
             continue
-        for match in MONEY.finditer(content):
+        matches = list(MONEY.finditer(content))
+        for match_index, match in enumerate(matches):
             amount = match.group()
             price = normalize_price(amount)
             currency = currency_for(amount, cur, url, lang)
@@ -215,7 +262,8 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
                 score = 0.82 if re.search(r"sale|current|final|offer|special", attrs, re.I) else 0.7
                 if re.search(r"font-size:\s*(?:[2-9]\d)px", style):
                     score = min(0.86, score + 0.12)
-                candidates.append({"price": str(price), "currency": currency, "context": content[:160], "score": score})
+                candidates.append({"price": str(price), "currency": currency, "context": content[:160], "score": score,
+                                   "selector": css_path(node), "match_index": match_index, "match_count": len(matches)})
     unique = {}
     for candidate in candidates:
         key = (candidate["price"], candidate["currency"])

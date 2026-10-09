@@ -16,6 +16,7 @@ from scrappy.probe import CHALLENGE, fetch
 from scrappy.validation import validate_review
 from scrappy.alerts import process_alerts
 from scrappy.notifications import test_notification
+from scrappy.readings import execute_reading
 
 
 def utcnow():
@@ -106,8 +107,9 @@ def execute_reviews(database, product_id=None, *, read=read_product, now=utcnow,
 
 def main():
     parser = argparse.ArgumentParser(description="Scrappy price tracker")
-    parser.add_argument("--mode", choices=("all", "product", "test_notification"), default="all")
+    parser.add_argument("--mode", choices=("all", "product", "reading", "test_notification"), default="all")
     parser.add_argument("--product-id", default="")
+    parser.add_argument("--reading-id", default="")
     args = parser.parse_args()
     product_id = None
     if args.mode == "product":
@@ -115,7 +117,16 @@ def main():
             product_id = str(UUID(args.product_id.strip()))
         except ValueError:
             parser.error("--product-id debe ser un UUID válido para --mode product")
+    if args.mode == "reading":
+        try:
+            reading_id = str(UUID(args.reading_id.strip()))
+        except ValueError:
+            parser.error("--reading-id debe ser un UUID válido para --mode reading")
     try:
+        if args.mode == "reading":
+            execute_reading(Database(), reading_id)
+            print("Lectura procesada; confirma el producto en Scrappy.")
+            return
         if args.mode == "test_notification":
             test_notification(Database(), utcnow())
             print("Notificación de prueba procesada; consulta el historial de cada canal.")

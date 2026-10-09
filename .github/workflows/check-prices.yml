@@ -11,11 +11,16 @@ on:
         options:
           - all
           - product
+          - reading
           - test_notification
         default: all
         required: true
       product_id:
         description: ID del producto (obligatorio en modo product)
+        type: string
+        required: false
+      reading_id:
+        description: ID de lectura (obligatorio en modo reading)
         type: string
         required: false
 
@@ -28,6 +33,7 @@ concurrency:
 
 jobs:
   check-prices:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     defaults:
@@ -44,6 +50,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate heartbeat configuration
+        if: inputs.mode != 'reading'
         run: |
           if [[ -z "$HEALTHCHECK_URL" ]]; then
             echo "Falta el secreto HEALTHCHECK_URL." >&2
@@ -91,20 +98,21 @@ jobs:
         env:
           RUN_MODE: ${{ inputs.mode || 'all' }}
           PRODUCT_ID: ${{ inputs.product_id }}
+          READING_ID: ${{ inputs.reading_id }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
-        run: python -m scrappy.run --mode "$RUN_MODE" --product-id "$PRODUCT_ID"
+        run: python -m scrappy.run --mode "$RUN_MODE" --product-id "$PRODUCT_ID" --reading-id "$READING_ID"
 
       - name: Ping heartbeat
-        if: success()
+        if: success() && inputs.mode != 'reading'
         run: curl --fail --silent --output /dev/null --max-time 15 --retry 2 "${HEALTHCHECK_URL%/}"
 
       - name: Ping failure
-        if: failure() && env.HEALTHCHECK_URL != ''
+        if: failure() && inputs.mode != 'reading' && env.HEALTHCHECK_URL != ''
         run: curl --fail --silent --output /dev/null --max-time 15 --retry 2 "${HEALTHCHECK_URL%/}/fail"
 
       - name: Report elapsed runner time
