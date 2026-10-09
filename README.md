@@ -237,9 +237,9 @@ Dashboard SQL editor:
 
 1. `supabase/migrations/20261008000000_initial_schema.sql`
 2. `supabase/migrations/20261008010000_review_persistence.sql`
-3. `supabase/migrations/20261008020000_alert_recovery.sql` (pending application)
+3. `supabase/migrations/20261008020000_alert_recovery.sql`
 
-The first two migrations were already applied; do not rerun them. The third
+All three migrations were applied on 2026-10-08; do not rerun them. The third
 extends review selection/persistence for error recovery without altering tables.
 All eight tables have RLS enabled, no public policies, and no public table grants.
 The review RPCs are executable only by `service_role`; concurrent stale writers
@@ -269,7 +269,8 @@ All generated fixture data is rolled back; no migration is applied permanently.
 With `SCRAPPY_TEST_ALERT_MIGRATION=1`, migration 3 is included inside the same
 transaction and rolled back as well; remove the flag after testing.
 Verified on 2026-10-08: the Python client connection, 18 review unit tests and the
-transactional SQL integration passed against the configured project.
+transactional SQL integration passed against the configured project. The SQL
+integration also passed against the permanently installed recovery migration.
 `SUPABASE_DB_URL` is optional for local database tools; neither setup credential
 belongs in Actions or Vercel.
 
