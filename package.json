@@ -1,0 +1,15 @@
+{
+  "name": "scrappy",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:auth": "tsc && node --test .scrappy/api-build/tests/auth.test.js",
+    "test:auth:sql": "node --env-file=.env tests/auth-sql.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}

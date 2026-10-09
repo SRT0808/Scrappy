@@ -3,7 +3,8 @@
 Personal, free price tracker. The phase-one probe evaluates product extraction;
 the scheduled runner validates and persists due reviews in Supabase and pings
 Healthchecks.io. Alert states and push/email notifications are implemented;
-the API and web app are still pending.
+the session authentication API is implemented; the remaining API and web app
+are still pending.
 
 ## Local setup (PowerShell)
 
@@ -33,6 +34,63 @@ interval for an active/error product), and `test_notification` (no price reviews
 The CLI reads process environment variables; `.env` is loaded
 by the PowerShell snippet above. Use unquoted values. Keep all credentials out of
 source control and client code.
+
+## Session authentication API
+
+Node.js 22+ is required. Run `npm ci` to install the locked TypeScript development
+dependencies. Configure `ACCESS_KEY`, `SESSION_SECRET` (at least 32 UTF-8 bytes),
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the Vercel server. Use a random
+session secret; these values must never use a `VITE_` prefix or enter a client
+bundle. `.env.example` lists the names without credentials.
+
+| Endpoint | Behavior |
+|---|---|
+| `POST /api/login` | Same-origin JSON `{ "key": "..." }`; 200 on success, 401 for a wrong key, 429 with `Retry-After` when limited. |
+| `GET /api/session` | 200 with `{ "authenticated": true }` for a valid session; otherwise 401. |
+| `POST /api/logout` | Requires a valid session and same origin; clears the cookie. |
+
+Login uses a constant-time digest comparison. Sessions last 30 days and use the
+signed `__Host-scrappy_session` cookie with `Path=/`, `HttpOnly`, `Secure` and
+`SameSite=Strict`; HTTPS is required. Rotating either access credential invalidates
+existing sessions. Responses are never cached and never return the session token.
+All future protected API routes must use the existing `withSession` guard.
+
+Apply migration 4 below before using login. The RPC `record_login_attempt` admits
+five attempts per IP in a rolling 15-minute window, including successful attempts.
+A transaction-level advisory lock serializes the count and insert for equivalent
+addresses across serverless instances ([PostgreSQL advisory locks](https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS)).
+The sixth attempt is not inserted and returns the remaining wait in seconds;
+even a correct key cannot bypass it. An attempt exactly 15 minutes old is outside
+the window. Each new attempt removes records older than one day for that IP.
+Only `service_role` can execute the invoker-security RPC; the table retains RLS
+with no public policies. Missing trusted IPs and database failures return 503
+without issuing a session. On Vercel, only `x-vercel-forwarded-for` is used; local
+execution uses the socket address and ignores forwarded headers.
+
+```powershell
+npm run test:auth # Also compiles the affected TypeScript.
+# Before installing migration 4: preview it with all fixtures rolled back.
+npm run test:auth:sql
+# After installing migration 4: test permissions and real concurrent RPCs.
+npm run test:auth:sql -- --installed
+```
+
+SQL tests load `.env` directly and require the existing local
+`SUPABASE_ACCESS_TOKEN`. Installed-mode concurrency tests also require
+`SUPABASE_SERVICE_ROLE_KEY`: they create random documentation-only IP fixtures,
+wait for all requests to finish and remove the rows in `finally`. The migration
+remains installed; transactional fixtures are rolled back. Prefer a test project
+for routine checks. No access key or session secret is needed for these SQL tests.
+
+Verified on 2026-10-08: compilation and 13 authentication unit tests passed;
+migration preview and installed SQL assertions passed, including denied calls as
+`anon`/`authenticated`, permitted calls as `service_role`, invalid addresses,
+expiration and pruning. Twelve concurrent service-role REST RPC requests using
+equivalent IPv6 spellings admitted exactly five and blocked seven; a concurrent
+request from a different IP succeeded, the exhausted IP also blocked a successful
+attempt, and exactly five rows remained before fixture cleanup. All concurrent
+fixture rows were confirmed removed. Vercel deployment and the access screen
+remain pending.
 
 ## Notifications
 
@@ -246,9 +304,11 @@ Dashboard SQL editor:
 1. `supabase/migrations/20261008000000_initial_schema.sql`
 2. `supabase/migrations/20261008010000_review_persistence.sql`
 3. `supabase/migrations/20261008020000_alert_recovery.sql`
+4. `supabase/migrations/20261008030000_login_attempts.sql`
 
-All three migrations were applied on 2026-10-08; do not rerun them. The third
-extends review selection/persistence for error recovery without altering tables.
+All four migrations were applied on 2026-10-08; do not rerun them. The third
+extends review selection/persistence for error recovery without altering tables;
+the fourth adds the atomic login rate-limit RPC without altering existing data.
 All eight tables have RLS enabled, no public policies, and no public table grants.
 The review RPCs are executable only by `service_role`; concurrent stale writers
 are rejected before history or product state can change. Only trusted server code

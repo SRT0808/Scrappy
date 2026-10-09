@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "rootDir": ".",
+    "outDir": ".scrappy/api-build",
+    "types": ["node"],
+    "skipLibCheck": true
+  },
+  "include": ["api/**/*.ts", "lib/server/**/*.ts", "tests/**/*.ts"]
+}
