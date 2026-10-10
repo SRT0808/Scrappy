@@ -4,7 +4,8 @@ Personal, free price tracker. The phase-one probe evaluates product extraction;
 the scheduled runner validates and persists due reviews in Supabase and pings
 Healthchecks.io. Alert states and push/email notifications are implemented;
 session authentication, product/list/settings APIs and all phase-three web screens
-are implemented. Local web/PWA development is accepted; deployment remains pending.
+are implemented. Phase three is deployed and accepted, including physical PWA use;
+phase-four resilience and documentation checks remain pending.
 
 ## Local setup (PowerShell)
 
@@ -244,16 +245,19 @@ are present; all ten Vercel values exist locally, and the readings table has RLS
 with both creation/confirmation RPCs installed. Secret presence does not verify
 delivery. The owner configured Vercel using the existing private values from
 `.env`. Do not promote later documentation commits just to deploy this release.
-Local acceptance remains valid; full production and physical PWA acceptance
-remain open (SPEC 12/14).
+Local acceptance remains valid; phase-three production and physical PWA
+acceptance are complete (SPEC 12/14), as confirmed by the owner below.
 
 The owner deployed [Scrappy](https://scrappy-silk.vercel.app/) on 2026-10-10.
 Public HTTPS, API authentication/session/logout, cookie flags, protected routes,
 PWA static assets and both notification channels passed directed checks.
 `Check prices` is now enabled: notification/heartbeat run `38081645601` and
 Adafruit reading run `38081651363` succeeded on the reviewed `main` SHA.
-Product confirmation/review, a scheduled `all` run, Vercel release metadata and
-physical phone acceptance remain pending; phase three is still open.
+The owner confirmed successful physical PWA installation and all functionality
+on 2026-10-10, completing phase-three acceptance. Phone/browser details were not
+provided; this is the owner's acceptance, not an independently repeated UI test.
+A scheduled `all` run on `main`, Vercel release metadata, a later approved PWA
+update and the controlled heartbeat-outage test remain phase-four follow-ups.
 
 ### Configuration ready in the repository
 
