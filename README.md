@@ -239,13 +239,21 @@ Actions/integrations and physical PWA installation still require deployment acce
 
 The owner authorized release commit `1e7d765a293a466c7024db60d069b9bb5f7155be`;
 remote `main` now points to that exact commit and is GitHub's default branch.
-`Check prices` is manually disabled during setup. All seven repository Secrets
+`Check prices` was manually disabled during setup. All seven repository Secrets
 are present; all ten Vercel values exist locally, and the readings table has RLS
 with both creation/confirmation RPCs installed. Secret presence does not verify
-delivery. The owner will configure Vercel; continue at step 4 below, using the
-existing private values from `.env`. Do not promote later documentation commits
-just to deploy this release. Local acceptance remains valid; public production,
-Actions delivery/heartbeat and physical PWA acceptance remain open (SPEC 12/14).
+delivery. The owner configured Vercel using the existing private values from
+`.env`. Do not promote later documentation commits just to deploy this release.
+Local acceptance remains valid; full production and physical PWA acceptance
+remain open (SPEC 12/14).
+
+The owner deployed [Scrappy](https://scrappy-silk.vercel.app/) on 2026-10-10.
+Public HTTPS, API authentication/session/logout, cookie flags, protected routes,
+PWA static assets and both notification channels passed directed checks.
+`Check prices` is now enabled: notification/heartbeat run `38081645601` and
+Adafruit reading run `38081651363` succeeded on the reviewed `main` SHA.
+Product confirmation/review, a scheduled `all` run, Vercel release metadata and
+physical phone acceptance remain pending; phase three is still open.
 
 ### Configuration ready in the repository
 
@@ -261,8 +269,8 @@ See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-
 and [Git deployment rules](https://vercel.com/docs/project-configuration/git-configuration).
 
 `check-prices.yml` now guards the job with `github.ref == 'refs/heads/main'`.
-`main` is now GitHub's default branch; the disabled workflow must be enabled at
-release step 6 before API dispatch can work. The API dispatches `reading` and
+`main` is now GitHub's default branch; the workflow is enabled for cron and
+dispatch following the production checks above. The API dispatches `reading` and
 `product` with `ref: main`; `reading`
 requires `reading_id`, and `product` requires `product_id`. The workflow retains
 one shared queue, no cancellation, and a 20-minute timeout. Reading mode does not
