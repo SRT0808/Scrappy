@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import os
 import socket
 from threading import Thread
 import unittest
@@ -113,7 +114,7 @@ class NetworkTests(unittest.TestCase):
 
     def test_all_fetch_modes_validate_initial_url_and_browsers_use_proxy_without_bypass(self):
         for mode in ("http", "dynamic", "stealth"):
-            with self.subTest(mode=mode), patch("scrappy.probe.public_url", side_effect=ValueError("private")), patch("scrappy.probe.Fetcher.get") as http, patch("scrappy.probe.DynamicFetcher.fetch") as dynamic, patch("scrappy.probe.StealthyFetcher.fetch") as stealth:
+            with self.subTest(mode=mode), patch("scrappy.probe.public_url", side_effect=ValueError("private")), patch("scrappy.probe.http_get") as http, patch("scrappy.probe.DynamicFetcher.fetch") as dynamic, patch("scrappy.probe.StealthyFetcher.fetch") as stealth:
                 with self.assertRaises(ValueError):
                     fetch("http://127.0.0.1", mode, 1)
                 for transport in (http, dynamic, stealth):
@@ -131,6 +132,43 @@ class NetworkTests(unittest.TestCase):
                 session = (DynamicSession if mode == "dynamic" else StealthySession)(**options)
                 self.assertEqual(session._context_options["proxy"]["server"], options["proxy"])
                 self.assertIn("--proxy-bypass-list=<-loopback>", session._browser_options["args"])
+
+    def test_http_dns_rebinding_is_rejected_before_any_destination_connection(self):
+        dns_answers = [[address("8.8.8.8")], [address("127.0.0.1")]]
+        def connect(url, timeout):
+            with patch("scrappy.network.socket.socket") as connection:
+                try:
+                    return open_public(url, timeout)
+                finally:
+                    connection.assert_not_called()
+
+        with patch("scrappy.network.socket.getaddrinfo", side_effect=dns_answers) as dns, patch.dict(os.environ, {"NO_PROXY": "*", "no_proxy": "*"}), patch("scrappy.network.open_public", side_effect=connect):
+            # curl connects only to the proxy; destination DNS changes before
+            # the proxy connects and must fail closed despite NO_PROXY=*.
+            result = fetch("http://shop.example/product", "http", 2)
+            self.assertEqual(result.status, 403)
+            self.assertEqual(dns.call_count, 2)
+
+    def test_real_http_client_follows_public_redirect_then_blocks_private_target(self):
+        with fixture() as upstream:
+            def connect(url, timeout):
+                with patch("scrappy.network.socket.getaddrinfo", return_value=[address("8.8.8.8" if "shop.example" in url else "127.0.0.1")]):
+                    parsed, _, _ = public_destination(url)
+                return parsed, socket.create_connection(upstream.server_address, timeout)
+
+            with patch("scrappy.probe.public_url"), patch("scrappy.network.open_public", side_effect=connect), patch.dict(os.environ, {"NO_PROXY": "*", "no_proxy": "*"}):
+                result = fetch("http://shop.example/product", "http", 2)
+                self.assertEqual(result.status, 200)
+                self.assertEqual(result.body, b"public fixture")
+                # The native safe-redirect guard may reject before the proxy.
+                try:
+                    redirected = fetch("http://shop.example/redirect", "http", 2)
+                except Exception as error:
+                    from curl_cffi.requests import RequestsError
+                    self.assertIsInstance(error, RequestsError)
+                else:
+                    self.assertEqual(redirected.status, 403)
+            self.assertEqual([path for path, _ in upstream.requests], ["/product", "/redirect"])
 
 
 if __name__ == "__main__":

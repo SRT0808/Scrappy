@@ -14,3 +14,4 @@
 - 2026-10-09: PWA precaches only the static shell; API and external images stay network-only, updates require confirmation, and local acceptance uses the built shell over the existing HTTPS/API adapter.
 - 2026-10-09: Allow Vercel Git deployments and the review workflow only from main; keep production credentials scoped to Production, including notification credentials for Settings, and defer branch publication/default-branch changes to the owner.
 - 2026-10-09: Route browser fetches through a temporary standard-library localhost proxy that rejects nonpublic destinations and connects to validated numeric IPs; disable loopback proxy bypass/direct WebRTC UDP, preserving HTTPS end-to-end without installing certificates.
+- 2026-10-10: Use the same validated-IP proxy for HTTP via Scrapling's existing curl_cffi engine and response adapter; force an empty curl NOPROXY option to prevent DNS rebinding and environment bypass on the initial request as well as redirects.

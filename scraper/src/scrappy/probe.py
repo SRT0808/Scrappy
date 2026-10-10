@@ -13,7 +13,10 @@ import sys
 import time
 from urllib.parse import urlsplit
 
-from scrapling.fetchers import DynamicFetcher, Fetcher, StealthyFetcher
+from curl_cffi import CurlOpt
+from curl_cffi.requests import get as http_get
+from scrapling.engines.toolbelt.convertor import ResponseFactory
+from scrapling.fetchers import DynamicFetcher, StealthyFetcher
 
 from scrappy.extract import Extraction, extract
 from scrappy.recipes import RecipeStore
@@ -46,10 +49,15 @@ def ordered_urls(path: Path) -> list[str]:
 
 def fetch(url: str, mode: str, timeout: float):
     public_url(url)
-    if mode == "http":
-        return Fetcher.get(url, timeout=timeout, retries=1, impersonate="chrome", selector_config={"adaptive": False})
     fetcher = DynamicFetcher if mode == "dynamic" else StealthyFetcher
     with public_proxy(timeout) as proxy:
+        if mode == "http":
+            # Use Scrapling's existing HTTP engine and response adapter, with no
+            # environment bypass and no second DNS lookup outside the proxy.
+            response = http_get(url, timeout=timeout, impersonate="chrome", proxy=proxy,
+                                allow_redirects="safe", max_redirects=30,
+                                curl_options={CurlOpt.NOPROXY: ""})
+            return ResponseFactory.from_http_request(response, {"adaptive": False})
         return fetcher.fetch(url, headless=True, timeout=int(timeout * 1000), retries=1, wait=1500,
                              network_idle=False, disable_resources=True, locale="es-PE", selector_config={"adaptive": False},
                              proxy=proxy, extra_flags=["--proxy-bypass-list=<-loopback>", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"])
