@@ -235,14 +235,17 @@ and restored PWA mocks in the two affected web suites. Local development is read
 for deployment; moving to main is the owner's decision. Public HTTPS, production
 Actions/integrations and physical PWA installation still require deployment acceptance.
 
-## Phase-three deployment decision (prepared 2026-10-09)
+## Phase-three deployment handoff (2026-10-10)
 
-Preparation is complete on `develop`; nothing has been published by this task.
-The owner decides when to release the reviewed phase-three changes to `main`.
-Read-only `git ls-remote --heads origin main develop` currently returns only
-`develop`: remote `main` does not exist. Repository settings, secret presence,
-remaining Actions allowance and a Vercel project have not been verified here.
-Local acceptance remains valid; production acceptance is still open (SPEC 12/14).
+The owner authorized release commit `1e7d765a293a466c7024db60d069b9bb5f7155be`;
+remote `main` now points to that exact commit and is GitHub's default branch.
+`Check prices` is manually disabled during setup. All seven repository Secrets
+are present; all ten Vercel values exist locally, and the readings table has RLS
+with both creation/confirmation RPCs installed. Secret presence does not verify
+delivery. The owner will configure Vercel; continue at step 4 below, using the
+existing private values from `.env`. Do not promote later documentation commits
+just to deploy this release. Local acceptance remains valid; public production,
+Actions delivery/heartbeat and physical PWA acceptance remain open (SPEC 12/14).
 
 ### Configuration ready in the repository
 
@@ -258,8 +261,9 @@ See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-
 and [Git deployment rules](https://vercel.com/docs/project-configuration/git-configuration).
 
 `check-prices.yml` now guards the job with `github.ref == 'refs/heads/main'`.
-Until `main` becomes GitHub's default branch, scheduled jobs on `develop` will
-skip. The API dispatches `reading` and `product` with `ref: main`; `reading`
+`main` is now GitHub's default branch; the disabled workflow must be enabled at
+release step 6 before API dispatch can work. The API dispatches `reading` and
+`product` with `ref: main`; `reading`
 requires `reading_id`, and `product` requires `product_id`. The workflow retains
 one shared queue, no cancellation, and a 20-minute timeout. Reading mode does not
 send alerts or ping the production heartbeat. GitHub schedules run on the default

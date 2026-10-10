@@ -1,4 +1,7 @@
 # STATUS
+Promoción autorizada (2026-10-10): main remoto creado en 1e7d765a293a466c7024db60d069b9bb5f7155be y configurado como rama predeterminada; Check prices desactivado durante preparación. Trabajo local en develop; AGENTS.md del usuario conservado.
+Validación: SHA/default branch/estado disabled_manually confirmados por GitHub; siete secretos Actions y diez variables locales presentes, SESSION_SECRET con longitud válida; tabla product_readings con RLS y ambos RPC confirmados tras un 502 transitorio. Validaciones locales previas conservadas; README actualizado para entrega.
+Siguiente: usuario configura Vercel Hobby desde main (README, paso 4); después verificar HTTPS/API, habilitar Actions y aceptar entregas/latido/lectura/revisión e instalación y flujo PWA físico (SPEC §12 y §14). No hay despliegue Vercel ni aceptación de producción; Fase 3 sigue abierta por decisión del usuario de configurar Vercel personalmente.
 Commits revisados creados en develop: lectura segura/historial (9d98fc3), pantallas de productos/ajustes (2c93323) y HTTPS local/PWA (af44bbb). AGENTS.md del usuario conservado fuera de commits; .env ignorado y main intacta.
 Validación: diff-check aprobado antes de confirmar; el lote usa revisiones previas registradas (44 pruebas Python de red/lecturas/probe/runner, typecheck/build y suites web/API/SQL). No se repitieron pruebas.
 Siguiente: esperar decisión del usuario para promover develop a main; producción/Vercel/Actions y aceptación física PWA siguen pendientes.
