@@ -30,6 +30,7 @@ export function localApi(): Plugin {
         if (pathname !== '/api' && !pathname.startsWith('/api/')) { next(); return; }
         const path = pathname.replace(/\/$/, '');
         const modulePath = routes[path] ?? (/^\/api\/lists\/[^/]+$/.test(path) ? '/api/lists/[id].ts'
+          : /^\/api\/baskets\/[^/]+$/.test(path) ? '/api/baskets/[id].ts'
           : /^\/api\/products\/[^/]+$/.test(path) ? '/api/products/[id].ts' : undefined);
         if (!modulePath) { json(res, 404, { error: 'Ruta no encontrada.' }); return; }
         const req = incoming as ApiRequest;

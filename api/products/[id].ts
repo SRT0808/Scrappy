@@ -4,7 +4,7 @@ import { uuidPattern, intervals, percentageTarget } from '../../lib/product-cont
 import { historicalStatistics, historyRanges, isReview, validProductEdit, type Review } from '../../lib/detail-contract.js';
 import { normalize } from './index.js';
 
-const fields = 'id,list_id,url,domain,name,image_url,currency,reference_price,target_type,target_price,target_percent,last_price,status,last_checked_at,last_success_at,created_at,check_interval_hours';
+const fields = 'id,url,domain,name,image_url,currency,reference_price,target_type,target_price,target_percent,last_price,status,last_checked_at,last_success_at,created_at,check_interval_hours';
 const checkFields = 'id,checked_at,ok,price,currency,method,error_code';
 
 async function storage(table: string, params: Record<string, string>, method = 'GET', body?: unknown) {
@@ -53,7 +53,7 @@ export function createProductHandler(dispatch: (id: string) => Promise<void> = d
         && ['active', 'paused'].includes(String((b as { status: string }).status))) {
         update = { status: (b as { status: string }).status };
       } else if (validProductEdit(b)) {
-        update = { name: b.name.trim(), list_id: b.list_id, reference_price: b.reference_price, target_type: b.target_type,
+        update = { name: b.name.trim(), reference_price: b.reference_price, target_type: b.target_type,
           target_price: b.target_type === 'price' ? b.target_value : percentageTarget(b.reference_price, b.target_value),
           target_percent: b.target_type === 'percent' ? b.target_value : null, check_interval_hours: b.check_interval_hours };
       } else { json(res, 400, { error: 'Revisa el nombre, lista, referencia, meta e intervalo.' }); return; }

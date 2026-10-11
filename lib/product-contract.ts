@@ -10,7 +10,7 @@ export type Reading = {
   result: ReadingResult | null; product_id: string | null; created_at: string;
 };
 export type Confirmation = {
-  list_id: string; name: string; currency: string; candidate_index: number | null;
+  list_id: string | null; name: string; currency: string; candidate_index: number | null;
   reference_price: string; target_type: 'price' | 'percent'; target_value: string; check_interval_hours: number;
 };
 
@@ -45,7 +45,7 @@ export function validConfirmation(value: unknown): value is Confirmation {
   if (!value || typeof value !== 'object') return false;
   const body = value as Confirmation;
   return Object.keys(body).sort().join(',') === 'candidate_index,check_interval_hours,currency,list_id,name,reference_price,target_type,target_value'
-    && typeof body.list_id === 'string' && uuidPattern.test(body.list_id)
+    && (body.list_id === null || typeof body.list_id === 'string' && uuidPattern.test(body.list_id))
     && typeof body.name === 'string' && !!body.name.trim() && [...body.name.trim()].length <= 300
     && typeof body.currency === 'string' && /^[A-Z]{3}$/.test(body.currency)
     && (body.candidate_index === null || (Number.isInteger(body.candidate_index) && body.candidate_index >= 0 && body.candidate_index < 5))

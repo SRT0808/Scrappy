@@ -1,5 +1,6 @@
 import type { ApiRequest, Handler } from './auth.js';
 import { json, withSession } from './auth.js';
+import { isBasket } from '../../src/lib/baskets.js';
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type List = { id: string; name: string; emoji: string | null; position: number; created_at: string };
@@ -26,11 +27,12 @@ export async function listDatabase(operation: string, body?: unknown): Promise<u
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key || new URL(url).protocol !== 'https:') throw new Error('Missing database configuration');
   const response = await fetch(new URL(operation === 'read'
-    ? '/rest/v1/lists?select=id,name,emoji,position,created_at&order=position.asc,created_at.asc,id.asc'
+    ? '/rest/v1/rpc/read_lists_with_baskets'
+    : operation === 'basket' ? '/rest/v1/rpc/configure_list_basket'
     : '/rest/v1/rpc/mutate_list', url), {
-    method: operation === 'read' ? 'GET' : 'POST',
+    method: 'POST',
     headers: { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    ...(operation === 'read' ? {} : { body: JSON.stringify(body) }),
+    body: JSON.stringify(body ?? {}),
     signal: AbortSignal.timeout(5000),
   });
   if (!response.ok) {
@@ -44,12 +46,19 @@ export async function listDatabase(operation: string, body?: unknown): Promise<u
   }
   const result: unknown = await response.json();
   if (operation === 'delete' && result === null) return result;
-  if (['create', 'rename'].includes(operation) && Array.isArray(result)) throw new Error('Invalid list response');
+  if (['create', 'rename', 'basket'].includes(operation) && Array.isArray(result)) throw new Error('Invalid list response');
   const rows = Array.isArray(result) ? result : [result];
   if ((operation === 'read' || operation === 'reorder') && !Array.isArray(result)) throw new Error('Invalid lists response');
   if (!rows.every(row => row && typeof row === 'object' && typeof row.id === 'string' && UUID.test(row.id)
     && validName(row.name) && (row.emoji === null || typeof row.emoji === 'string')
-    && Number.isInteger(row.position) && typeof row.created_at === 'string')) throw new Error('Invalid list response');
+    && Number.isInteger(row.position) && typeof row.created_at === 'string'
+    && (row.basket === undefined || row.basket === null || isBasket(row.basket)))) throw new Error('Invalid list response');
+  if (operation !== 'read' && rows.some(row => row.budget !== undefined || row.basket_budget != null)) {
+    const current = await listDatabase('read') as Array<{ id: string }>;
+    const enriched = rows.map(row => current.find(list => list.id === row.id));
+    if (enriched.some(row => !row)) throw new Error('List changed during mutation');
+    return Array.isArray(result) ? enriched : enriched[0];
+  }
   return result;
 }
 

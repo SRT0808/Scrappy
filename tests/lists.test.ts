@@ -84,9 +84,9 @@ test('listing uses deterministic order, server credentials and no cache', async 
     assert.equal(result.status, 200);
     assert.deepEqual(result.body, { lists: rows });
     assert.equal(result.headers['cache-control'], 'no-store');
-    assert.ok(calls[0].url.endsWith('order=position.asc,created_at.asc,id.asc'));
-    assert.equal(calls[0].method, 'GET');
-    assert.equal(calls[0].body, null);
+    assert.ok(calls[0].url.endsWith('/rpc/read_lists_with_baskets'));
+    assert.equal(calls[0].method, 'POST');
+    assert.deepEqual(calls[0].body, {});
   }
 });
 
@@ -126,6 +126,31 @@ test('delete sends only the validated id and reports success', async () => {
   assert.equal(result.status, 200);
   assert.deepEqual(result.body, { deleted: true });
   assert.deepEqual(calls[0].body, { p_operation: 'delete', p_id: id });
+});
+
+test('optional basket configuration validates money and uses its own RPC', async () => {
+  const basket = { budget: 100, currency: 'PEN', total: 90, product_count: 1, valid_count: 1, complete: true };
+  const calls = database({ ...row, basket });
+  const result = await invoke(item, request('PATCH', { basket_budget: 100, basket_currency: 'PEN' }));
+  assert.equal(result.status, 200);
+  assert.deepEqual(result.body.list.basket, basket);
+  assert.ok(calls[0].url.endsWith('/rpc/configure_list_basket'));
+  assert.deepEqual(calls[0].body, { p_id: id, p_budget: 100, p_currency: 'PEN' });
+  assert.equal((await invoke(item, request('PATCH', { basket_budget: null, basket_currency: null }))).status, 200);
+  const count = calls.length;
+  for (const body of [{ basket_budget: -1, basket_currency: 'PEN' }, { basket_budget: 0, basket_currency: 'PEN' },
+    { basket_budget: 1.001, basket_currency: 'PEN' }, { basket_budget: '100', basket_currency: 'PEN' },
+    { basket_budget: 100, basket_currency: 'pen' }, { basket_budget: null, basket_currency: 'PEN' },
+    { basket_budget: 100, basket_currency: null }, { basket_budget: 100 },
+    { basket_budget: 100, basket_currency: 'PEN', name: 'Unexpected' }]) {
+    assert.equal((await invoke(item, request('PATCH', body))).status, 400);
+  }
+  assert.equal(calls.length, count);
+});
+
+test('malformed aggregate totals fail closed', async () => {
+  database([{ ...row, basket: { budget: 100, currency: 'PEN', total: -1, product_count: 1, valid_count: 1, complete: true } }]);
+  assert.equal((await invoke(collection, request('GET'))).status, 503);
 });
 
 test('invalid names, emoji, fields and body shapes never reach storage', async () => {

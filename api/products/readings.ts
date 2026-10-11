@@ -14,14 +14,30 @@ export function createReadingsHandler(dispatch = dispatchReading) {
       if (!reading) { json(res, 404, { error: 'La lectura no existe.' }); return; }
     } else {
       const body = objectBody(req);
-      if (body?.action === 'confirm') {
+      if (body?.action === 'confirm_repair') {
+        const { action: _, ...confirmation } = body;
+        if (Object.keys(confirmation).sort().join(',') !== 'candidate_index,currency,name,same_product'
+          || confirmation.same_product !== true || typeof confirmation.name !== 'string'
+          || !confirmation.name.trim() || [...confirmation.name.trim()].length > 300
+          || typeof confirmation.currency !== 'string' || !/^[A-Z]{3}$/.test(confirmation.currency)
+          || !(confirmation.candidate_index === null || (Number.isInteger(confirmation.candidate_index)
+            && Number(confirmation.candidate_index) >= 0 && Number(confirmation.candidate_index) < 5))) {
+          json(res, 400, { error: 'Confirma el mismo artículo, su nombre leído y moneda.' }); return;
+        }
+        reading = await productDatabase('rpc/confirm_product_reading', { p_id: id,
+          p_confirmation: { ...confirmation, name: confirmation.name.trim() } });
+      } else if (body?.action === 'confirm') {
         const { action: _, ...confirmation } = body;
         if (!validConfirmation(confirmation)) { json(res, 400, { error: 'Revisa los datos del producto.' }); return; }
         reading = await productDatabase('rpc/confirm_product_reading', { p_id: id, p_confirmation: { ...confirmation, name: confirmation.name.trim() } });
       } else if (body?.action === 'read' && productUrl(body.url)
         && (body.selector === undefined || (typeof body.selector === 'string' && body.selector.trim().length > 0 && body.selector.length <= 500))
-        && Object.keys(body).every(key => ['action', 'url', 'selector'].includes(key))) {
-        reading = await productDatabase('rpc/create_product_reading', { p_id: id, p_url: productUrl(body.url), p_selector: typeof body.selector === 'string' ? body.selector.trim() : null });
+        && (body.repair_product_id === undefined || (typeof body.repair_product_id === 'string' && uuidPattern.test(body.repair_product_id)))
+        && Object.keys(body).every(key => ['action', 'url', 'selector', 'repair_product_id'].includes(key))) {
+        reading = await productDatabase(body.repair_product_id ? 'rpc/create_product_repair' : 'rpc/create_product_reading', {
+          p_id: id, p_url: productUrl(body.url), p_selector: typeof body.selector === 'string' ? body.selector.trim() : null,
+          ...(body.repair_product_id ? { p_product_id: body.repair_product_id } : {}),
+        });
         if (isReading(reading) && reading.status === 'queued') await dispatch(id);
       } else { json(res, 400, { error: 'Indica una URL HTTP(S) pública y un selector válido.' }); return; }
     }

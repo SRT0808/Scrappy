@@ -4,16 +4,16 @@ import { intervals, money, uuidPattern } from './product-contract.js';
 export const historyRanges = ['7', '30', '90', 'all'] as const;
 export type HistoryRange = typeof historyRanges[number];
 export type Review = { id: string; checked_at: string; ok: boolean; price: number | null; currency: string | null; method: string | null; error_code: string | null };
-export type ProductEdit = { name: string; list_id: string; reference_price: string; target_type: 'price' | 'percent'; target_value: string; check_interval_hours: number };
+export type ProductEdit = { name: string; reference_price: string; target_type: 'price' | 'percent'; target_value: string; check_interval_hours: number };
 export type Statistics = { count: number; min: number | null; max: number | null; average: number | null; discount_change: number | null };
 export type ProductDetail = { product: ProductSummary & { check_interval_hours: number }; history: PricePoint[]; reviews: Review[]; statistics: Statistics };
 
 export function validProductEdit(value: unknown): value is ProductEdit {
   if (!value || typeof value !== 'object') return false;
   const b = value as ProductEdit;
-  return Object.keys(b).sort().join(',') === 'check_interval_hours,list_id,name,reference_price,target_type,target_value'
+  return Object.keys(b).sort().join(',') === 'check_interval_hours,name,reference_price,target_type,target_value'
     && typeof b.name === 'string' && !!b.name.trim() && [...b.name.trim()].length <= 300
-    && typeof b.list_id === 'string' && uuidPattern.test(b.list_id) && money(b.reference_price)
+    && money(b.reference_price)
     && intervals.includes(b.check_interval_hours) && (b.target_type === 'price' ? money(b.target_value, true)
       : b.target_type === 'percent' && money(b.target_value) && Number(b.target_value) <= 100);
 }

@@ -77,10 +77,10 @@ test('ranges, empty statistics and zero reference have defined behavior', async 
 });
 test('edits only allowed fields with exact percentage math and preserves alert state', async () => {
   const calls = mock();
-  const edit = { name: ' Monitor nuevo ', list_id: listId, reference_price: '123.45', target_type: 'percent', target_value: '12.34', check_interval_hours: 6 };
+  const edit = { name: ' Monitor nuevo ', reference_price: '123.45', target_type: 'percent', target_value: '12.34', check_interval_hours: 6 };
   assert.equal((await invoke(request('PATCH', edit))).status, 200);
   const update = JSON.parse(String(calls[0].options?.body));
-  assert.deepEqual(update, { name: 'Monitor nuevo', list_id: listId, reference_price: '123.45', target_type: 'percent', target_price: '108.22', target_percent: '12.34', check_interval_hours: 6 });
+  assert.deepEqual(update, { name: 'Monitor nuevo', reference_price: '123.45', target_type: 'percent', target_price: '108.22', target_percent: '12.34', check_interval_hours: 6 });
   assert.equal(calls[0].url.searchParams.get('status'), 'neq.pending_confirmation');
   for (const invalid of [{ ...edit, alert_state: 'armed' }, { ...edit, reference_price: '0' }, { ...edit, target_value: '101' }, { ...edit, check_interval_hours: 1 }, { status: 'pending_confirmation' }])
     assert.equal((await invoke(request('PATCH', invalid))).status, 400);

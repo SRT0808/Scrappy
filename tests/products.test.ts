@@ -46,6 +46,29 @@ function mock(...responses: (Response | Error)[]) {
 }
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 
+test('repair reads through the local dispatcher and confirms only owner-approved identity', async () => {
+  const dispatched: string[] = [];
+  const local = createReadingsHandler(async id => { dispatched.push(id); });
+  let calls = mock(json({ ...row, repair_product_id: id }));
+  assert.equal((await invoke(request('POST', { action: 'read', url: row.url, repair_product_id: id }), local)).status, 200);
+  assert.ok(calls[0].url.endsWith('/rpc/create_product_repair'));
+  assert.equal(calls[0].body.p_product_id, id);
+  assert.deepEqual(dispatched, [id]);
+  const repair = { action: 'confirm_repair', same_product: true, name: 'Monitor', currency: 'PEN', candidate_index: null };
+  calls = mock(json({ ...row, status: 'confirmed', result, product_id: id }));
+  assert.equal((await invoke(request('POST', repair), local)).status, 200);
+  assert.ok(calls[0].url.endsWith('/rpc/confirm_product_reading'));
+  calls = mock();
+  for (const changes of [{ same_product: false }, { candidate_index: 5 }, { name: '' }, { target_value: '1' }]) {
+    assert.equal((await invoke(request('POST', { ...repair, ...changes }), local)).status, 400);
+  }
+  const anonymous = request('POST', repair); delete anonymous.headers.cookie;
+  assert.equal((await invoke(anonymous, local)).status, 401);
+  const foreign = request('POST', repair); foreign.headers.origin = 'https://other.example';
+  assert.equal((await invoke(foreign, local)).status, 403);
+  assert.equal(calls.length, 0);
+});
+
 test('development dispatch uses the CLI hook only after session, origin and database checks', async () => {
   const dispatched: string[] = [];
   const local = createReadingsHandler(async id => { dispatched.push(id); });

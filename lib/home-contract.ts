@@ -2,7 +2,7 @@ import { uuidPattern } from './product-contract.js';
 
 export type PricePoint = { checked_at: string; price: number; currency: string };
 export type ProductSummary = {
-  id: string; list_id: string; url: string; domain: string; name: string | null; image_url: string | null;
+  id: string; list_id: string | null; url: string; domain: string; name: string | null; image_url: string | null;
   currency: string | null; reference_price: number | null; target_type: 'price' | 'percent' | null;
   target_price: number | null; target_percent: number | null; last_price: number | null;
   status: 'pending_confirmation' | 'active' | 'paused' | 'error';
@@ -25,7 +25,7 @@ const currency = (value: unknown) => typeof value === 'string' && /^[A-Z]{3}$/.t
 export function isProductSummary(value: unknown): value is ProductSummary {
   if (!value || typeof value !== 'object') return false;
   const row = value as ProductSummary;
-  return typeof row.id === 'string' && uuidPattern.test(row.id) && typeof row.list_id === 'string' && uuidPattern.test(row.list_id)
+  return typeof row.id === 'string' && uuidPattern.test(row.id) && (row.list_id === null || typeof row.list_id === 'string' && uuidPattern.test(row.list_id))
     && !!safeWebUrl(row.url) && typeof row.domain === 'string' && row.domain.length > 0
     && (row.name === null || typeof row.name === 'string') && (row.image_url === null || !!safeWebUrl(row.image_url))
     && (row.currency === null || currency(row.currency))

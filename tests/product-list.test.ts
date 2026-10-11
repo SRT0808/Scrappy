@@ -17,7 +17,7 @@ const product = { id: '22222222-2222-4222-8222-222222222222', list_id: id,
   status: 'active', last_checked_at: '2026-10-09T12:00:00Z', last_success_at: '2026-10-09T12:00:00Z', created_at: '2026-10-08T12:00:00Z',
   price_checks: [{ checked_at: '2026-10-09T12:00:00Z', price: '90.00', currency: 'PEN' }, { checked_at: '2026-10-08T12:00:00Z', price: 100, currency: 'PEN' }],
 };
-function request(query = `list_id=${id}`, method = 'GET'): ApiRequest {
+function request(query = '', method = 'GET'): ApiRequest {
   return { method, url: `/api/products?${query}`, socket: { encrypted: true }, headers: {
     host: 'scrappy.example', origin: 'https://scrappy.example', cookie: `${COOKIE_NAME}=${createSession()}`,
   } } as unknown as ApiRequest;
@@ -50,7 +50,7 @@ test('product listing requires a valid unique session before storage access', as
 });
 test('invalid, duplicated and injected list filters are rejected before storage access', async () => {
   const calls = database();
-  for (const query of ['', 'list_id=invalid', `list_id=${id}&list_id=${id}`, `list_id=${id}&select=*`, `list_id=${id},or(status.eq.active)`]) assert.equal((await invoke(request(query))).status, 400);
+  for (const query of ['list_id=invalid', `list_id=${id}&list_id=${id}`, `list_id=${id}&select=*`, `list_id=${id},or(status.eq.active)`]) assert.equal((await invoke(request(query))).status, 400);
   assert.equal((await invoke(request(`list_id=${id}`, 'POST'))).status, 405);
   assert.equal(calls.length, 0);
 });
@@ -62,7 +62,9 @@ test('reads only the selected list, limits successful history and normalizes mon
   assert.equal(result.body.products[0].last_price, 90);
   assert.deepEqual(result.body.products[0].history.map((point: { price: number }) => point.price), [100, 90]);
   assert.ok(!JSON.stringify(result.body).includes('secret'));
-  assert.equal(calls[0].searchParams.get('list_id'), `eq.${id}`);
+  assert.equal(calls[0].searchParams.get('list_id'), null);
+  assert.ok(!calls[0].searchParams.get('select')!.includes('id,list_id'));
+  assert.equal(result.body.products[0].list_id, null);
   assert.equal(calls[0].searchParams.get('price_checks.limit'), '20');
   assert.equal(calls[0].searchParams.get('price_checks.ok'), 'eq.true');
   assert.equal(calls[0].searchParams.get('price_checks.order'), 'checked_at.desc,id.desc');
@@ -76,7 +78,7 @@ test('empty lists and missing prices remain valid; unsafe image URLs are replace
   assert.equal(result.body.products[0].image_url, null);
 });
 test('storage errors and malformed responses do not expose private details', async () => {
-  for (const rows of [{ error: 'private details' }, [{ ...product, last_price: -1 }], [{ ...product, list_id: product.id }], [{ ...product, url: 'javascript:alert(1)' }]]) {
+  for (const rows of [{ error: 'private details' }, [{ ...product, last_price: -1 }],  [{ ...product, url: 'javascript:alert(1)' }]]) {
     database(rows);
     const result = await invoke(request());
     assert.equal(result.status, 503);
@@ -95,4 +97,10 @@ test('continues reading when the storage row cap is smaller than the requested p
   const result = await invoke(request());
   assert.equal(result.body.products.length, 2);
   assert.deepEqual(offsets, ['0', '1']);
+});
+
+test('membership filtering uses basket lines rather than the removed products column', async () => {
+ const calls=database(); assert.equal((await invoke(request(`list_id=${id}`))).status,200);
+ assert.equal(calls[0].searchParams.get('basket_items.list_id'),`eq.${id}`);
+ assert.ok(calls[0].searchParams.get('select')!.includes('basket_items!inner'));
 });
