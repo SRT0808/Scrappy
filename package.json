@@ -18,6 +18,9 @@
     "test:auth:sql": "node --env-file=.env tests/auth-sql.mjs",
     "test:lists": "tsc && node --test .scrappy/api-build/tests/lists.test.js",
     "test:lists:sql": "node --env-file=.env tests/lists-sql.mjs",
+    "test:baskets:sql": "node --env-file=.env tests/baskets-sql.mjs",
+    "test:baskets:local": "node tests/basket-snapshots-sql.mjs",
+    "test:baskets:alerts:local": "node tests/basket-alerts-sql.mjs",
     "test:products": "tsc && node --test .scrappy/api-build/tests/products.test.js",
     "test:products:sql": "node --env-file=.env tests/products-sql.mjs"
   },
