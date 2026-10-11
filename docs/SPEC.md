@@ -1,6 +1,6 @@
 # Scrappy: especificación técnica
 
-*Documento para el agente de desarrollo · v1.0 · 8 de octubre de 2026*
+*Documento para el agente de desarrollo · v1.1 · 11 de octubre de 2026*
 
 ## 0. Cómo usar este documento
 
@@ -14,7 +14,7 @@ Este documento es la **única fuente de contexto** del proyecto: el agente no ha
 
 ## 1. Objetivo y principio rector
 
-**Scrappy** es una herramienta **personal y 100% gratuita** que vigila el precio de productos de **cualquier tienda online** (Amazon, Mercado Libre, Falabella, Ripley, tiendas pequeñas o locales, etc.) a partir de su URL, y avisa al celular del dueño cuando el precio llega a la meta que él definió.
+**Scrappy** es una herramienta **personal y 100% gratuita** que vigila el precio de productos de **cualquier tienda online** (Amazon, Mercado Libre, Falabella, Ripley, tiendas pequeñas o locales, etc.) a partir de su URL, y avisa al celular del dueño cuando el precio llega a la meta individual o el total de una canasta llega a su gasto máximo.
 
 **Problema:** hoy, enterarse de un descuento exige suscribirse a newsletters (que anuncian campañas, no el producto concreto que uno quiere) o entrar a la tienda una y otra vez.
 
@@ -36,7 +36,8 @@ Este documento es la **única fuente de contexto** del proyecto: el agente no ha
 **Dentro de la v1:**
 
 - Registrar productos por URL, con extracción de nombre, precio, moneda e imagen, y pantalla de confirmación.
-- Múltiples listas de productos.
+- Seguimiento de productos individuales sin exigir que pertenezcan a una lista o canasta.
+- Canastas que agrupan productos seguidos, permiten cantidades por producto y analizan su precio total en conjunto.
 - Condición de alerta por precio objetivo o por porcentaje de descuento.
 - Revisión automática periódica con historial de precios.
 - Gráficos de historial y tendencias.
@@ -46,20 +47,25 @@ Este documento es la **única fuente de contexto** del proyecto: el agente no ha
 
 **Fuera de la v1:** cuentas y multiusuario, búsqueda por nombre de producto, APIs por tienda, app móvil nativa, WhatsApp, servidor propio, comparación entre tiendas, extensión de navegador. Ver backlog (sección 17).
 
+**Fuera de la primera entrega de canastas:** monedas distintas de PEN/USD, predicciones de precios o una recomendación automática de compra, comparación del mismo artículo entre tiendas y uso de promedios para inventar precios presentes. Las estadísticas históricas serán descriptivas y se mostrarán solo con datos completos suficientes.
+
 ## 4. Flujo de usuario
 
 1. El dueño abre Scrappy e ingresa su clave de acceso.
-2. Pulsa **Añadir producto** y pega la URL.
+2. Pulsa **Añadir producto** y pega la URL. Se conserva el flujo actual de lectura, confirmación, referencia y revisión individual.
 3. Se dispara una lectura inmediata (workflow\_dispatch de GitHub Actions). La UI muestra progreso y consulta el resultado en la base de datos.
 4. La UI muestra una **tarjeta de confirmación**: nombre, imagen, precio, moneda, método de extracción usado y nivel de confianza. Si la lectura falló o es ambigua, muestra hasta 5 precios candidatos con su texto de contexto para elegir, o un campo para pegar un selector CSS.
 5. El dueño confirma o edita el **precio de referencia** (el «precio sin descuento»). Por defecto es el precio detectado; si la tienda expone un precio original o tachado, se sugiere ese.
-6. Elige una lista, define la condición y el intervalo:
+6. Define la condición individual y el intervalo, y opcionalmente agrega el producto a una o varias canastas:
    - Precio objetivo en la moneda del producto, o porcentaje de descuento sobre la referencia. La UI muestra siempre el equivalente del otro.
    - Intervalo de revisión: 3, 6, 12 o 24 horas (por defecto 6).
-7. Guarda. El producto pasa a estado `active`.
-8. Cada 3 horas el cron revisa los productos que toquen, guarda el historial y evalúa la condición.
-9. Si se cumple, llega una notificación push y un correo, una sola vez según la máquina de estados (sección 9).
-10. Si no se puede leer, si el precio es sospechoso o si el sistema deja de correr, llega una alerta distinta.
+7. Guardar inicia el seguimiento individual aunque el producto no pertenezca a ninguna canasta. Las canastas no crean una copia del producto ni cambian su condición individual.
+8. El dueño crea una canasta, selecciona productos ya seguidos, ajusta la cantidad de cada uno y elige la moneda del total (PEN por defecto). Un producto puede pertenecer a varias canastas.
+9. Scrappy calcula el precio de referencia agregado, el total actual, el ahorro y el porcentaje ahorrado. Puede definirse un gasto máximo agregado, expresado como monto o porcentaje equivalente del precio de referencia agregado.
+10. Cada 3 horas el cron revisa los productos que toquen, guarda el historial y evalúa tanto las metas individuales como las canastas afectadas.
+11. Al cumplirse una meta individual o agregada completa, llega una notificación push y un correo según las máquinas de estados de la sección 9.
+12. Si falla una lectura, el último precio válido se conserva como estimación visual con su antigüedad; el fallo no se guarda como precio cero, no genera una lectura de precio ni habilita alertas de meta de canasta.
+13. Si cambia el enlace del mismo producto, el dueño puede actualizarlo conservando el ID, historial, configuración de alerta y pertenencia a canastas tras confirmar su identidad. Un artículo distinto requiere un seguimiento separado.
 
 ## 5. Arquitectura
 
@@ -82,6 +88,8 @@ Decisiones de arquitectura (Decidido, salvo que se marque Validar):
 - El paquete Python debe poder ejecutarse por CLI **sin depender de GitHub Actions**, para correrlo en la PC o en una Raspberry del dueño si las IPs de centro de datos de Actions son bloqueadas por las tiendas (plan B). Usa el mismo Supabase.
 - Todo el estado persistente está en Supabase. El runner de Actions es efímero y no hace commits al repositorio.
 - Las funciones de Vercel solo hacen CRUD, sesión y dispatch (operaciones rápidas). **No** ejecutar scraping ni navegadores en Vercel.
+
+Modelo funcional: `products` representa seguimientos individuales; `lists` pasa a representar canastas, que agrupan referencias mediante líneas. Un producto puede estar fuera de cualquier canasta o pertenecer a varias. La revisión y la alerta individual pertenecen siempre al producto; el total, el historial agregado y la meta de gasto pertenecen a la canasta.
 
 ## 6. Stack
 
@@ -107,11 +115,15 @@ Decisiones de arquitectura (Decidido, salvo que se marque Validar):
 
 Todas las tablas con RLS activado y sin políticas públicas. Migraciones versionadas en `supabase/migrations/`. Precios como `numeric(12,2)`; monedas en ISO 4217.
 
-- **lists:** `id`, `name`, `emoji`, `position`, `created_at`.
-- **products:** `id`, `list_id`, `url`, `domain`, `name`, `image_url`, `currency`, `reference_price`, `target_type` (`price` o `percent`), `target_price`, `target_percent`, `check_interval_hours` (3, 6, 12 o 24), `status` (`pending_confirmation`, `active`, `paused`, `error`), `last_price`, `last_checked_at`, `last_success_at`, `consecutive_failures`, `alert_state` (`armed` o `triggered`), `last_alert_price`, `last_alert_at`, `last_method`, `created_at`.
-- **price\_checks:** `id`, `product_id`, `checked_at`, `ok`, `price`, `currency`, `method`, `confidence`, `error_code`, `warnings` (jsonb). Una fila por intento, exitoso o no.
+- **lists (canastas):** `id`, `name`, `emoji`, `position`, `currency` (PEN por defecto), `budget` (máximo agregado opcional), `basket_alert_state`, `last_basket_alert_at`, `created_at`.
+- **products:** `id`, `url`, `domain`, `name`, `image_url`, `currency`, `reference_price`, `target_type` (`price` o `percent`), `target_price`, `target_percent`, `check_interval_hours` (3, 6, 12 o 24), `status` (`pending_confirmation`, `active`, `paused`, `error`), `last_price` (último precio confirmado; nunca se borra por un fallo de lectura), `last_checked_at`, `last_success_at`, `consecutive_failures`, `alert_state` (`armed` o `triggered`), `last_alert_price`, `last_alert_at`, `last_method`, `created_at`.
+- **basket\_items:** `id`, `list_id`, `product_id`, `quantity` (entero positivo; por defecto 1), `position`, `created_at`. Única fila por producto y canasta. El mismo producto e historial se comparten entre canastas.
+- **basket\_snapshots:** `id`, `list_id`, `composition_version`, `calculated_at`, `reference_total`, `current_total` (estimación con últimos precios confirmados disponibles), `complete`, `valid_count`, `item_count`, `stale_count`, `unavailable_count`, `exchange_rates` (jsonb con tasa, fecha y fuente por conversión). Guardar snapshots para describir la evolución; las fallas no crean precios observados. Cambiar moneda, cantidad, composición o precio de referencia inicia una versión nueva, para que la gráfica compare el mismo carrito.
+- **exchange\_rates:** tasas de referencia por fecha, moneda origen/destino, valor y fuente. Consultar BCRPData en servidor para conversiones entre USD y PEN; guardar la tasa empleada con cada snapshot. Mostrar fecha y carácter referencial. Conservar y mostrar la última tasa cacheada; si supera 5 días calendario o no existe, el total convertido queda incompleto y no puede disparar la meta.
+- **basket\_events:** evento único por transición de meta de canasta (`basket_id`, `composition_version`, total, meta, tasa usada, hora y estado). Reclamarlo bajo bloqueo transaccional antes de enviar para que ejecuciones concurrentes no dupliquen el aviso. Vincular cada intento de canal mediante `notifications`; un evento ambiguo se conserva para inspección y no se reenvía automáticamente.
+- **price\_checks:** `id`, `product_id`, `checked_at`, `ok`, `price`, `currency`, `availability`, `method`, `confidence`, `error_code`, `warnings` (jsonb). Una fila por intento, exitoso o no. Los precios rechazados/fallidos no sustituyen `products.last_price` ni se interpretan como cero.
 - **domain\_recipes:** `domain` (clave), `fetch_mode` (`http`, `dynamic` o `stealth`), `price_selector`, `name_selector`, `adaptive_state` (según lo que resulte viable al validar la persistencia de Scrapling), `updated_at`.
-- **notifications:** `id`, `product_id` (nulo si es de sistema), `type`, `channel` (`ntfy` o `email`), `status` (`sent` o `failed`), `payload` (jsonb), `error`, `sent_at`.
+- **notifications:** `id`, `product_id` (nulo si es de sistema), `basket_id` y `basket_event_id` (nulos para avisos no agregados), `type`, `channel` (`ntfy` o `email`), `status` (`sent` o `failed`), `payload` (jsonb), `error`, `sent_at`.
 - **runs:** `id`, `started_at`, `finished_at`, `trigger` (`cron`, `dispatch` o `local`), `checked`, `ok_count`, `fail_count`.
 - **login\_attempts:** `ip`, `attempted_at`, `success`. Para limitar intentos de acceso.
 - **settings:** `key`, `value` (jsonb). Intervalo por defecto, umbrales de validación y similares.
@@ -159,6 +171,19 @@ Cada extracción devuelve: `name`, `price`, `currency`, `original_price` (opcion
 - Descuento % = (precio de referencia − precio actual) / precio de referencia × 100.
 - Si el tipo es `percent`, el precio objetivo derivado = referencia × (1 − porcentaje/100).
 - La condición se cumple si el precio actual es menor o igual al precio objetivo.
+- Las metas individuales son de precio máximo: si una meta es 50% de descuento y el producto llega a 75%, también cumple (`precio_actual <= precio_objetivo`). No se exige coincidir exactamente con el valor objetivo.
+
+**Cálculo y frescura de canasta:**
+
+- Por línea: multiplicar precio de referencia y último precio confirmado por la cantidad. Sumar referencias convertidas para obtener `reference_total`; sumar precios actuales para `current_total`; `savings = reference_total - current_total`; `savings_percent = savings / reference_total * 100` cuando la referencia es mayor que cero.
+- Los productos con la moneda de la canasta no necesitan conversión. Para USD/PEN usar la última tasa diaria publicada por BCRPData, consultada solo en el servidor. El total y cada snapshot guardan tasa, fecha y fuente. La tasa es referencial, no una cotización de tarjeta o tienda. Una actualización de tasa puede cambiar el total en PEN; si por sí sola cruza la meta, la notificación debe explicitar la tasa y que el cambio fue de conversión.
+- Cada producto aporta su último precio confirmado multiplicado por la cantidad. Una lectura fallida conserva ese dato como último conocido y marca la línea desactualizada desde el primer fallo. Mostrar el total con el aviso «estimado» y la edad del precio; si falta un primer precio válido, mostrar solo el subtotal conocido y la cantidad faltante.
+- Una canasta está completa solo cuando todas sus líneas tienen precio confirmado y disponible, sin fallos pendientes, y cada conversión necesaria usa una tasa de máximo 5 días. Una canasta incompleta no dispara alertas de gasto.
+- Nunca sustituir una lectura fallida por cero, promedio móvil ni un punto sintético. Los promedios son estadísticas derivadas de observaciones confirmadas; no se guardan como lectura. Los gráficos identifican segmentos estimados y huecos de lecturas faltantes.
+- Crear snapshot agregado después de cada lectura validada de producto que afecte la canasta, aunque el precio no haya cambiado, y tras cambios de composición, cantidad, referencia o tasa. Incluir versión de composición y frescura para evitar atribuir todos los precios al mismo instante.
+- Un límite de gasto puede editarse como monto o como porcentaje ahorrado sobre `reference_total`; mantener una sola meta monetaria persistida y mostrar ambas equivalencias. El aviso se activa cuando una canasta completa cae al límite o por debajo. Se rearma cuando vuelve a superar el límite en más de 3%. Cambio de composición o meta abre un estado/versionado nuevo; los snapshots anteriores se conservan.
+- La canasta usa un máximo de gasto de una sola dirección; no admite un rango de mínimo/máximo, que podría no avisar al caer por debajo de su límite inferior. Los límites individuales por producto siguen siendo independientes.
+- Un producto en estado `error` sigue perteneciendo a la canasta y su último precio confirmado sirve solo para la estimación; nunca se excluye como si costara cero. Al volver una lectura válida, vuelve a contribuir al total completo.
 
 **Máquina de estados de alerta (evita repeticiones):**
 
@@ -167,6 +192,8 @@ Cada extracción devuelve: `name`, `price`, `currency`, `original_price` (opcion
 - `triggered` → `armed`: cuando el precio supere el objetivo en más de 3%.
 
 **Fallos de lectura:** incrementar `consecutive_failures`. Al llegar a 3, enviar **una** alerta de fallo y pasar el producto a `error` (se sigue reintentando). Repetir el recordatorio como máximo cada 7 días. Un éxito reinicia el contador.
+
+La alerta de fallo existente se conserva: tres intentos consecutivos, recordatorio máximo semanal, sin un aviso adicional por cada canasta afectada. Un fallo marca el precio desactualizado inmediatamente; el precio confirmado sigue disponible para mostrar un total estimado. La meta agregada queda suspendida hasta recuperar todas las líneas. Actualizar la URL de un mismo producto conserva su ID, alertas, snapshots de producto y membresías de canasta; exige volver a leer y confirmar nombre/moneda. Si apunta a un artículo distinto, no se reutiliza el historial.
 
 **Registro:** cada ejecución escribe una fila en `runs`, y cada intento en `price_checks`.
 
@@ -185,6 +212,7 @@ Son la función más importante del proyecto: tienen que ser claras, fiables y a
 | Tipo | Prioridad | Contenido |
 | --- | --- | --- |
 | `goal_reached` | Alta | Título «🔥 {nombre}». Mensaje: «Ahora S/ 1,790 · tu meta S/ 1,800 · −22% vs referencia S/ 2,300». Enlace al producto. |
+| `basket_goal_reached` | Alta | Título «🧺 Canasta alcanzada: {nombre}». Monto total, meta y ahorro acumulado. Incluir fecha/tasa BCRP utilizada si hay conversión. Solo enviar en una canasta completa. |
 | `dropped_further` | Alta | «📉 {nombre} bajó aún más: S/ X (antes S/ Y)». |
 | `extraction_failed` | Normal | «⚠️ No pude leer {nombre}. Revísalo en Scrappy.» |
 | `suspicious_change` | Normal | «🤔 Precio raro en {nombre}: S/ X (antes S/ Y). Verificando.» |
@@ -206,11 +234,14 @@ Si GitHub Actions deja de ejecutar el cron, nadie avisaría. Por eso, al final d
 **Pantallas:**
 
 1. **Acceso:** un campo para la clave.
-2. **Inicio:** listas como pestañas o barra lateral. Tarjetas de producto con imagen, nombre, dominio, precio actual, meta, barra de progreso hacia la meta, variación contra la referencia, sparkline e insignias de estado (activo, pausado, error, meta alcanzada). Orden y filtro básicos.
-3. **Añadir producto** (panel o modal): URL → progreso de lectura → tarjeta de confirmación (con candidatos o selector si falla) → lista, condición con equivalente en vivo, intervalo → guardar.
+2. **Productos:** catálogo de seguimientos individuales. Los productos funcionan sin listas; sus tarjetas conservan imagen, nombre, dominio, precio actual, meta, progreso, variación contra referencia, sparkline y estados (activo, pausado, error, meta alcanzada, precio desactualizado). Filtro y orden básicos.
+3. **Añadir producto** (panel o modal): URL → progreso de lectura → tarjeta de confirmación (con candidatos o selector si falla) → referencia, meta individual con equivalente en vivo e intervalo → guardar. Agregarlo a canastas es opcional y se puede hacer después. Mantener intacto el flujo individual ya implementado.
 4. **Detalle de producto:** gráfico de líneas del historial (rangos 7 días, 30 días, 90 días y todo), con líneas horizontales de meta y referencia. Estadísticas: mínimo, máximo y promedio históricos, tendencia del descuento. Registro de las últimas revisiones. Acciones: editar, pausar, eliminar, **revisar ahora**, abrir tienda.
-5. **Listas:** crear, renombrar, reordenar y eliminar.
-6. **Ajustes:** botón **enviar notificación de prueba** (ambos canales), intervalo por defecto, estado de la última ejecución, historial de notificaciones.
+5. **Canastas:** crear, renombrar, reordenar y eliminar; agregar/quitar productos existentes y cambiar cantidades. Mostrar subtotal de referencia, total actual/estimado, ahorro en moneda y porcentaje, meta equivalente, productos válidos, faltantes/desactualizados/agotados, antigüedad de precios y conversión con tasa/fecha.
+6. **Detalle de canasta:** gráfica de subtotal de referencia y total actual para 7, 14, 30, 90 días y todo; línea de meta; ahorro y porcentaje acumulados; mínimos, máximos, promedio y mediana sobre snapshots completos, con fecha. Snapshots estimados se distinguen y no entran en estadísticas de compra recomendada.
+7. **Ajustes:** botón **enviar notificación de prueba** (ambos canales), intervalo por defecto, estado de la última ejecución e historial de notificaciones individuales y de canasta.
+
+Las conclusiones estadísticas son descriptivas (por ejemplo, «el total está por debajo de la mediana observada de 30 días») y requieren al menos 14 días y 10 snapshots completos. Scrappy no predice precios futuros ni declara un momento de compra óptimo en esta fase.
 
 ## 12. Seguridad y secretos
 
@@ -253,9 +284,21 @@ scrappy/
 
 **Fase 4: Resiliencia y documentación.** Alertas de fallo, latido verificado (apagar el cron y confirmar que llega el aviso), README con la guía paso a paso de configuración (Supabase, Vercel, GitHub Secrets, app ntfy en el celular, contraseña de aplicación de Gmail) y documentación del plan B local. *Aceptación:* un tercero puede desplegar el proyecto siguiendo solo el README.
 
+**Fase 5: Catálogo individual y canastas (desarrollo local, sin adelantar despliegue).** El flujo de producto individual de la Fase 3 está cerrado y se conserva. Trabajar por estos módulos dependientes, sin mezclar commits:
+
+1. **Contrato y migración de datos:** convertir las listas existentes en canastas conservando sus IDs, nombres, orden, presupuesto configurado, referencias de productos, IDs, historial y alertas; permitir productos fuera de canastas y que un producto pertenezca a varias. Crear líneas y cantidades. *Aceptación:* comprobaciones SQL demuestran que ningún producto, histórico ni estado individual se pierde o duplica.
+2. **Agregación, monedas e historial:** calcular referencia, subtotal conocido/estimado, ahorro y porcentaje; almacenar tasas USD/PEN con fecha/fuente y snapshots versionados. *Aceptación:* totales con decimales y cantidades reproducibles; falla, primera lectura ausente, artículo agotado, FX no disponible/caducado y cambios de composición se marcan incompletos y nunca generan ceros/precios sintéticos ni metas agregadas.
+3. **Alertas de canasta y recuperación:** aplicar meta de gasto agregado y su histeresis, tres fallos individuales/aviso semanal ya existentes y actualización del URL conservando el producto. *Aceptación:* cada tipo de alerta se prueba aislado; una canasta incompleta jamás dispara su meta; reparar el URL del mismo artículo recupera la canasta sin perder la historia.
+4. **Experiencia y estadísticas:** vistas independientes de Productos y Canastas, resumen y detalle/gráfico, frescura por línea y enlaces editables. *Aceptación:* móvil local visualmente validado; historial segmentado por composición; estadísticas descriptivas exigen al menos 14 días y 10 snapshots completos.
+5. **Verificación de cierre:** fixtures SQL/Python/API/web para los casos de aceptación de §15. *Aceptación:* build y suites afectadas pasan en Windows/local; registrar el estado; presentar revisión del conjunto antes de preparar un release. No probar Vercel, Actions en producción, HTTPS público ni teléfonos físicos durante esta fase.
+
 ## 15. Pruebas
 
 - Pruebas unitarias del parser de precios (formatos y monedas), de cada estrategia de extracción con **fixtures de HTML guardado**, de la máquina de estados y de las validaciones.
+- Canastas: suma decimal por cantidad; descuento agregado; producto independiente, en varias canastas o retirado; monedas nativas/USD→PEN; vigencia de tasa; lectura válida, error, relectura fallida, primera lectura ausente, agotado y recuperación.
+- Alertas agregadas: total igual/menor/mayor a la meta, porcentaje equivalente, rearme al superar 3%, cambio de moneda/meta/composición, cruce impulsado solo por FX, deduplicación concurrente e incompletitud sin falso positivo; comprobar en paralelo que la máquina de alertas individuales no cambia.
+- Historial: las lecturas fallidas no guardan cero ni promedio como observación; estimaciones identifican su antigüedad; precio no confirmado/unavailable y tasas ausentes o mayores a 5 días bloquean la meta; snapshots no mezclan versiones de composición; estadísticas ignoran puntos incompletos.
+- URL reparada para el mismo artículo conserva el ID, lecturas, objetivo individual y membresías. Artículo/currency distintos se detectan y no se anexan al historial anterior sin confirmación.
 - Prueba de integración contra un proyecto Supabase de pruebas.
 - Lista de verificación manual: llegada real de push al celular (incluyendo con la app cerrada), correo, enlace de la notificación, flujo de la UI en móvil.
 

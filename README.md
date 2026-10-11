@@ -7,6 +7,44 @@ session authentication, product/list/settings APIs and all phase-three web scree
 are implemented. Phase three is deployed and accepted, including physical PWA use;
 phase-four resilience and documentation checks remain pending.
 
+## Product catalog and baskets
+
+Phase 5 is accepted in local development. Its migrations
+`20261011000000` through `20261011040000` must be applied in filename order during
+deployment, together with the adapted API, web and scraper. They have not been
+installed in Supabase as part of this local closure. Validate without `.env`,
+Supabase or production notifications using PostgreSQL 18 on Windows:
+
+```powershell
+node tests/basket-items-sql.mjs
+node tests/basket-snapshots-sql.mjs
+node tests/basket-alerts-sql.mjs
+node tests/basket-experience-sql.mjs
+```
+
+Each runner creates and removes its own isolated database. `POSTGRES_BIN`
+overrides the PostgreSQL binary directory.
+
+**Productos** contains independent trackers. A product can belong to several
+**Canastas**, each with its own positive integer quantities, currency and optional
+maximum spend (two decimal places). The server sums quantities using decimal
+arithmetic, including paused products, with USD/PEN conversion from BCRPData.
+Rates remain valid through five calendar days in Lima. Missing, unconfirmed,
+failed or unavailable readings and missing/expired conversions block aggregate
+alerts. Incomplete totals retain dated estimates or known subtotals; no known
+price means a null total. Composition versions separate history; descriptive
+statistics require both 14 days and 10 complete snapshots in the selected series.
+
+After product reviews, the runner sends one aggregate event through the existing
+ntfy/email channels when a complete total is at or below the budget. It rearms
+only when a complete total exceeds the budget by more than 3%, or a new
+budget/currency/composition version starts.
+Individual alerts keep their own state. A durable claim prevents concurrent or
+repeated runs from sending the same event twice. Claims are never automatically
+resent after a crash or ambiguous receipt; `basket_events.status = 'claimed'`
+needs inspection, and channel attempts appear in Settings. This favors avoiding
+duplicate notices over automatic retries after uncertain delivery.
+
 ## Local setup (PowerShell)
 
 ```powershell
@@ -669,6 +707,20 @@ disabled. HTTP mode retains Scrapling's safe-redirect checks. The proxy uses onl
 Python's standard library; no service, certificate or account is required.
 Run `python -m unittest discover -s scraper/tests -p test_network.py -v` in the
 existing virtual environment for mocked DNS and localhost transport fixtures.
+
+Phase 5 includes `20261011030000_basket_alerts_repair.sql`; installation of the
+complete migration sequence remains a deployment task.
+Run `npm run test:baskets:alerts:local` with PostgreSQL 18 on Windows
+(`POSTGRES_BIN` overrides its binary directory). The fixture uses an isolated
+database, concurrent sessions and rollback, without `.env` or Supabase.
+The authenticated readings API accepts `action: read` with `repair_product_id`
+and a new URL; `action: confirm_repair` requires `same_product: true`, the extracted
+`name`, original `currency` and `candidate_index` (null for an unambiguous reading).
+An unrelated article must use normal product creation. Repair preserves product
+identity, individual goals/alert state, memberships and history; conflicting
+reviews require another reading. Product detail provides the repair controls.
+Basket claims retry confirmed failures of both channels; an ambiguous receipt
+stays claimed for manual investigation to avoid duplicate notifications.
 
 ## GitHub Actions scaffold
 
