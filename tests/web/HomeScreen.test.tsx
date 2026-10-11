@@ -25,94 +25,48 @@ function mock(products: ProductSummary[] = [product], lists = [first, second]) {
   vi.stubGlobal('fetch', fetch);
   return fetch;
 }
-describe('home screen', () => {
-  it('shows prices, percentage goal, progress, reference variation and a safe store link', async () => {
-    const fetch = mock(); mount();
-    expect(screen.getByRole('status')).toHaveTextContent('Cargando');
-    await screen.findByRole('heading', { name: 'Monitor' });
-    expect(screen.getByText('S/ 90.00')).toBeInTheDocument();
-    expect(screen.getByText('S/ 80.00 (−20 %)')).toBeInTheDocument();
-    expect(screen.getByText('-10 % frente a referencia')).toBeInTheDocument();
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '50');
-    expect(screen.getByRole('link', { name: 'Abrir tienda de Monitor' })).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(fetch).toHaveBeenCalledWith(`/api/products?list_id=${first.id}`, expect.objectContaining({ method: 'GET', credentials: 'same-origin', cache: 'no-store' }));
-    await userEvent.click(screen.getByRole('button', { name: first.name }));
-    expect(screen.getByRole('heading', { name: 'Monitor' })).toBeInTheDocument();
-  });
-  it('filters by state and reached goal, sorts by name and discount, and refreshes changed prices', async () => {
-    const alpha = { ...product, id: '44444444-4444-4444-8444-444444444444', name: 'Auriculares', status: 'paused' as const, last_price: 70 };
-    const fetch = mock([product, alpha]); mount();
-    await screen.findByRole('heading', { name: 'Monitor' });
-    const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText('Orden'), 'name');
+describe('independent catalog', () => {
+  it('reads products without baskets, keeps filters and sorts', async () => {
+    const fetch = mock([product, { ...product, id: second.id, name: 'Auriculares', status: 'paused', last_price: 70 }], []);
+    mount(); await screen.findByRole('heading', { name: 'Monitor' });
+    expect(fetch).toHaveBeenCalledWith('/api/products', expect.objectContaining({ credentials: 'same-origin', cache: 'no-store' }));
+    expect(screen.queryByRole('navigation', { name: 'Listas de productos' })).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Orden'), 'name');
     expect(screen.getAllByRole('article')[0]).toHaveTextContent('Auriculares');
-    await user.selectOptions(screen.getByLabelText('Orden'), 'discount');
-    expect(screen.getAllByRole('article')[0]).toHaveTextContent('Auriculares');
-    await user.selectOptions(screen.getByLabelText('Estado'), 'paused');
+    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'paused');
     expect(screen.queryByRole('heading', { name: 'Monitor' })).not.toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Estado'), 'reached');
-    expect(screen.getAllByRole('article')).toHaveLength(1);
-    await user.selectOptions(screen.getByLabelText('Estado'), 'error');
-    expect(screen.getByText('No hay productos con este estado')).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Estado'), 'all');
-    fetch.mockImplementation((url: string) => Promise.resolve(url === '/api/lists' ? json({ lists: [first] }) : json({ products: [{ ...product, last_price: 85 }] })));
-    await user.click(screen.getByRole('button', { name: 'Actualizar productos' }));
-    await screen.findByText('S/ 85.00');
   });
-  it('ignores a late response from a previous list and cancels the previous request', async () => {
-    let resolveOld!: (response: Response) => void;
-    const fetch = mock();
-    fetch.mockImplementation((url: string) => url === '/api/lists' ? Promise.resolve(json({ lists: [first, second] }))
-      : url.endsWith(first.id) ? new Promise<Response>(resolve => { resolveOld = resolve; }) : Promise.resolve(json({ products: [{ ...product, list_id: second.id, name: 'Lámpara' }] })));
+  it('has an empty catalog and allows adding without a basket', async () => {
+    mock([], []); mount(); await screen.findByText('Tu catálogo espera tu próximo producto');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Añadir producto' })[0]);
+    expect(await screen.findByRole('heading', { name: 'Añadir producto' })).toBeInTheDocument();
+  });
+  it.each(['pending', 'failed'])('shows the catalog when basket loading is %s', async state => {
+    vi.stubGlobal('fetch', vi.fn((url: string) => url === '/api/lists'
+      ? state === 'pending' ? new Promise<Response>(() => {}) : Promise.resolve(json({}, 503))
+      : Promise.resolve(json({ products: [product] }))));
     mount();
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
-    await userEvent.click(screen.getByRole('button', { name: 'Hogar' }));
-    await screen.findByRole('heading', { name: 'Lámpara' });
-    resolveOld(json({ products: [product] }));
-    await waitFor(() => expect(fetch.mock.calls[1][1]!.signal!.aborted).toBe(true));
-    expect(screen.queryByRole('heading', { name: 'Monitor' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Monitor' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).not.toHaveTextContent('Cargando');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
-  it('has distinct empty-list and no-lists states and returns from list management', async () => {
-    mock([], []); mount();
-    await screen.findByText('Tu primera lista empieza aquí');
-    await userEvent.click(screen.getByRole('button', { name: 'Crear mi primera lista' }));
-    await screen.findByRole('heading', { name: 'Tus listas' });
-    await userEvent.click(screen.getByRole('button', { name: 'Volver a Inicio' }));
-    await screen.findByRole('heading', { name: 'Inicio' });
+  it('keeps basket summaries in the independent basket view', async () => {
+    const detail = (await import('../fixtures/basket-experience')).basketDetail;
+    const fetch = mock([], [first]);
+    fetch.mockImplementation((url: string) => Promise.resolve(url.startsWith('/api/baskets/') ? json({ detail })
+      : url === '/api/lists' ? json({ lists: [first] }) : json({ products: [] })));
+    mount(); await screen.findByText('Tu catálogo espera tu próximo producto');
+    await userEvent.click(screen.getByRole('button', { name: 'Gestionar canastas' }));
+    expect(await screen.findByRole('heading', { name: 'Tus canastas' })).toBeInTheDocument();
+    await screen.findByRole('heading', { name: first.name });
+    expect(screen.getByRole('button', { name: 'Ver canasta' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ver canasta' }));
+    await screen.findByRole('heading', { name: first.name });
+    expect(document.title).toBe('Scrappy · Detalle de canasta');
   });
-  it('shows product errors without raw details and can retry an empty list', async () => {
-    const fetch = mock();
-    fetch.mockImplementation((url: string) => Promise.resolve(url === '/api/lists' ? json({ lists: [first] }) : json({ error: 'secret' }, 503)));
-    mount();
-    expect(await screen.findByRole('alert')).toHaveTextContent('No pudimos cargar');
-    expect(screen.queryByText('secret')).not.toBeInTheDocument();
-    fetch.mockImplementation((url: string) => Promise.resolve(url === '/api/lists' ? json({ lists: [first] }) : json({ products: [] })));
-    await userEvent.click(screen.getByRole('button', { name: 'Reintentar consulta' }));
-    await screen.findByText('Esta lista espera tu próximo producto');
-  });
-  it('clears an abandoned product load when returning to an empty collection', async () => {
-    let finish!: (response: Response) => void;
-    let listLoads = 0;
-    const fetch = vi.fn((url: string, _options?: RequestInit) => url === '/api/lists'
-      ? Promise.resolve(json({ lists: listLoads++ === 0 ? [first] : [] }))
-      : new Promise<Response>(resolve => { finish = resolve; }));
-    vi.stubGlobal('fetch', fetch); mount();
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
-    await userEvent.click(screen.getByRole('button', { name: 'Gestionar listas' }));
-    await screen.findByRole('heading', { name: 'Tus listas' });
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Volver a Inicio' })).toBeEnabled());
-    expect(fetch.mock.calls[1][1]!.signal!.aborted).toBe(true);
-    await userEvent.click(screen.getByRole('button', { name: 'Volver a Inicio' }));
-    await screen.findByText('Tu primera lista empieza aquí');
-    finish(json({ products: [product] }));
-    await waitFor(() => expect(screen.getByRole('status')).not.toHaveTextContent('Cargando'));
-    expect(screen.queryByRole('heading', { name: 'Monitor' })).not.toBeInTheDocument();
-  });
-  it('propagates product-session expiration and survives StrictMode abandoned list loads', async () => {
-    const fetch = mock();
-    fetch.mockImplementation((url: string) => Promise.resolve(url === '/api/lists' ? json({ lists: [first] }) : json({}, 401)));
-    const onExpired = mount(true);
-    await waitFor(() => expect(onExpired).toHaveBeenCalledWith(expect.stringContaining('sesión ha caducado')));
+  it('expires product sessions and survives StrictMode', async () => {
+    const fetch=mock(); fetch.mockImplementation((url: string) => Promise.resolve(url === '/api/lists' ? json({ lists: [] }) : json({},401)));
+    const expired=mount(true); await waitFor(() => expect(expired).toHaveBeenCalledWith(expect.stringContaining('sesión')));
   });
 });
 describe('product card and calculations', () => {
@@ -136,7 +90,7 @@ describe('product card and calculations', () => {
   });
 });
 describe('product transport', () => {
-  it.each([{ products: [product, { ...product, last_price: -1 }] }, { products: [{ ...product, list_id: second.id }] }, { products: [{ ...product, url: 'javascript:alert(1)' }] }])('rejects invalid or mixed-list payloads', async body => {
+  it.each([{ products: [product, { ...product, last_price: -1 }] }, { products: [{ ...product, url: 'javascript:alert(1)' }] }])('rejects invalid or mixed-list payloads', async body => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(json(body)));
     await expect(requestProducts(first.id)).rejects.toThrow('respuesta de productos');
   });

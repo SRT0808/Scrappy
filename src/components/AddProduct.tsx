@@ -5,11 +5,11 @@ import { loadDefaultInterval } from '../lib/settings';
 import { ListsError, requestLists, type List } from '../lib/lists';
 import { money, percentageTarget, productUrl, ProductsError, requestReading, validConfirmation, type Reading, type Confirmation } from '../lib/products';
 
-type Props = { lists: List[]; onClose: () => void; onSaved: (id: string, listId: string) => void; onExpired: (message: string) => void };
+type Props = { repair?: { id: string; name: string; currency: string | null }; lists: List[]; onClose: () => void; onCloseLabel?: string; onSaved: (id: string, listId: string) => void; onExpired: (message: string) => void };
 const selectClass = 'h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50';
 const currencies = ['PEN', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CLP', 'COP', 'MXN', 'ARS', 'BRL', 'JPY', 'CHF'];
 
-export function AddProduct({ lists: initialLists, onClose, onSaved, onExpired }: Props) {
+export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volver a listas', onSaved, onExpired, repair }: Props) {
   const [lists, setLists] = useState(initialLists);
   const [url, setUrl] = useState('');
   const [selector, setSelector] = useState('');
@@ -22,7 +22,7 @@ export function AddProduct({ lists: initialLists, onClose, onSaved, onExpired }:
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState('');
   const [reference, setReference] = useState('');
-  const [listId, setListId] = useState(initialLists[0]?.id ?? '');
+  const [listId, setListId] = useState('');
   const [candidate, setCandidate] = useState<number | null>(null);
   const [targetType, setTargetType] = useState<'price' | 'percent'>('price');
   const [target, setTarget] = useState('');
@@ -32,7 +32,7 @@ export function AddProduct({ lists: initialLists, onClose, onSaved, onExpired }:
   const active = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const resultTitle = useRef<HTMLHeadingElement>(null);
-  const lastRequest = useRef<{ action: 'read'; url: string; selector?: string } | null>(null);
+  const lastRequest = useRef<{ action: 'read'; url: string; selector?: string; repair_product_id?: string } | null>(null);
   const applied = useRef<string | null>(null);
   const expired = useRef(onExpired);
   const saved = useRef(onSaved);
@@ -102,7 +102,7 @@ export function AddProduct({ lists: initialLists, onClose, onSaved, onExpired }:
     active.current = controller;
     setBusy(true); setError('');
     try {
-      if (body?.action === 'read' && applied.current === null) {
+      if (body?.action === 'read' && applied.current === null && !repair) {
         const defaultHours = await loadDefaultInterval(controller.signal);
         if (controller.signal.aborted) return;
         setInterval(defaultHours);
@@ -124,7 +124,7 @@ export function AddProduct({ lists: initialLists, onClose, onSaved, onExpired }:
       setError('Introduce una URL HTTP(S) pública y un selector de hasta 500 caracteres.'); return;
     }
     const id = crypto.randomUUID();
-    const body = { action: 'read' as const, url: normalized, ...(withSelector ? { selector: selector.trim() } : {}) };
+    const body = { action: 'read' as const, url: normalized, ...(repair ? { repair_product_id: repair.id } : {}), ...(withSelector ? { selector: selector.trim() } : {}) };
     lastRequest.current = body;
     setRequestId(id); setReading(null); setConfirmed(false); setUncertain(false); setWaiting(false);
     void run(body, id);
@@ -142,7 +142,11 @@ export function AddProduct({ lists: initialLists, onClose, onSaved, onExpired }:
   function save(event: FormEvent) {
     event.preventDefault();
     if (active.current || waiting || uncertain || !canConfirm) return;
-    const body: Confirmation = { list_id: listId, name: name.trim(), currency, candidate_index: candidate,
+    if (repair) {
+      if (!confirmed || !chosen?.name || currency !== repair.currency || !chosen.currency) { setError('Confirma el mismo artículo con nombre y moneda leídos, sin cambiar la moneda original.'); return; }
+      void run({ action: 'confirm_repair', candidate_index: candidate, name: chosen.name.trim(), currency, same_product: true }); return;
+    }
+    const body: Confirmation = { list_id: listId || null, name: name.trim(), currency, candidate_index: candidate,
       reference_price: reference, target_type: targetType, target_value: target, check_interval_hours: interval };
     if (!confirmed || !validConfirmation(body)) {
       setError('Confirma el precio y la moneda, elige una lista y revisa la referencia y la condición.'); return;
@@ -155,14 +159,14 @@ export function AddProduct({ lists: initialLists, onClose, onSaved, onExpired }:
     const controller = new AbortController(); active.current = controller; setBusy(true); setError('');
     try {
       const rows = await requestLists('read', undefined, undefined, controller.signal);
-      if (!controller.signal.aborted) { setLists(rows); if (!rows.some(row => row.id === listId)) setListId(rows[0]?.id ?? ''); }
+      if (!controller.signal.aborted) { setLists(rows); if (!rows.some(row => row.id === listId)) setListId(''); }
     } catch (problem) { if (!controller.signal.aborted) failure(problem as ListsError); }
     finally { if (!controller.signal.aborted) { active.current = null; setBusy(false); } }
   }
 
   const locked = busy || waiting;
   return <section aria-labelledby="add-title" className="mx-auto w-full max-w-2xl self-start">
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><p className="mb-2 text-xs tracking-[0.16em] text-primary uppercase">Tu próxima oferta</p><h1 id="add-title" className="text-3xl font-semibold">Añadir producto</h1></div><Button variant="outline" disabled={busy} onClick={onClose}>Volver a listas</Button></div>
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><p className="mb-2 text-xs tracking-[0.16em] text-primary uppercase">Tu próxima oferta</p><h1 id="add-title" className="text-3xl font-semibold">{repair ? 'Reparar enlace' : 'Añadir producto'}</h1></div><Button variant="outline" disabled={busy} onClick={onClose}>{onCloseLabel}</Button></div>
     <p className="mb-6 text-sm text-muted-foreground">1. Leer la tienda · 2. Confirmar el precio · 3. Definir tu meta</p>
     <form onSubmit={event => start(event)} className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
       <label htmlFor="product-url" className="text-sm font-medium">URL del producto</label>
@@ -188,17 +192,19 @@ export function AddProduct({ lists: initialLists, onClose, onSaved, onExpired }:
         <label htmlFor="price-selector" className="text-sm font-medium">Enseñar un selector CSS</label><p className="text-xs text-muted-foreground">Si el precio falta o es incorrecto, indica el selector y vuelve a leer la tienda.</p><Input id="price-selector" value={selector} disabled={locked} onChange={event => setSelector(event.target.value)} placeholder=".precio-final" maxLength={500} /><Button type="submit" variant="outline" disabled={locked || uncertain}>Leer con selector</Button>
       </form>
       {reading?.status === 'ready' && <form onSubmit={save} className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <h2 className="text-lg font-semibold">Define tu meta</h2>
+        <h2 className="text-lg font-semibold">{repair ? `Confirmar reparación de ${repair.name}` : 'Define tu meta'}</h2>
         <fieldset disabled={locked || uncertain} className="space-y-5">
-          <div className="space-y-2"><label htmlFor="product-name" className="text-sm font-medium">Nombre del producto</label><Input id="product-name" value={name} onChange={event => setName(event.target.value)} required /></div>
+          {!repair && <> <div className="space-y-2"><label htmlFor="product-name" className="text-sm font-medium">Nombre del producto</label><Input id="product-name" value={name} onChange={event => setName(event.target.value)} required /></div>
           <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><label htmlFor="product-currency" className="text-sm font-medium">Moneda</label><select id="product-currency" className={selectClass} value={currency} disabled={!!chosen?.currency} onChange={event => { setCurrency(event.target.value); setConfirmed(false); }} required><option value="">Elige la moneda</option>{[...new Set([...currencies, ...(currency ? [currency] : [])])].map(code => <option key={code}>{code}</option>)}</select></div>
           <div className="space-y-2"><label htmlFor="reference-price" className="text-sm font-medium">Precio de referencia</label><Input id="reference-price" inputMode="decimal" value={reference} onChange={event => setReference(event.target.value)} required /><p className="text-xs text-muted-foreground">Precio sin descuento; puedes editarlo.</p></div></div>
-          <div className="space-y-2"><label htmlFor="product-list" className="text-sm font-medium">Lista</label><select id="product-list" className={selectClass} value={listId} onChange={event => setListId(event.target.value)} required><option value="">Elige una lista</option>{lists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}</select>{lists.length === 0 && <p className="text-sm text-muted-foreground">Crea una lista antes de guardar el producto.</p>}<Button type="button" variant="outline" onClick={() => void refreshLists()}>Actualizar listas disponibles</Button></div>
+          <div className="space-y-2"><label htmlFor="product-list" className="text-sm font-medium">Canasta opcional</label><select id="product-list" className={selectClass} value={listId} onChange={event => setListId(event.target.value)}><option value="">Sin canasta</option>{lists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}</select>{lists.length === 0 && <p className="text-sm text-muted-foreground">Puedes guardar el producto sin canasta.</p>}<Button type="button" variant="outline" onClick={() => void refreshLists()}>Actualizar listas disponibles</Button></div>
           <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><label htmlFor="target-type" className="text-sm font-medium">Condición</label><select id="target-type" className={selectClass} value={targetType} onChange={event => { setTargetType(event.target.value as 'price' | 'percent'); setTarget(''); }}><option value="price">Precio objetivo</option><option value="percent">Porcentaje de descuento</option></select></div><div className="space-y-2"><label htmlFor="target-value" className="text-sm font-medium">{targetType === 'price' ? 'Precio objetivo' : 'Descuento (%)'}</label><Input id="target-value" inputMode="decimal" value={target} onChange={event => setTarget(event.target.value)} required /></div></div>
           <p aria-live="polite" className="text-sm text-primary tabular-nums">Equivalente: {equivalent}</p>
           <div className="space-y-2"><label htmlFor="check-interval" className="text-sm font-medium">Intervalo de revisión</label><select id="check-interval" className={selectClass} value={interval} onChange={event => setInterval(Number(event.target.value))}>{[3, 6, 12, 24].map(hours => <option key={hours} value={hours}>Cada {hours} horas</option>)}</select></div>
-          <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} className="mt-1 shrink-0 accent-emerald-500" /><span>Confirmo el precio y la moneda del producto.</span></label>
-          <Button type="submit" className="w-full" disabled={!canConfirm || !confirmed || !lists.length}>Guardar producto</Button>
+          </>}
+          {repair && <p className="text-sm text-muted-foreground">Artículo leído: {chosen?.name || 'Sin nombre'} · {chosen?.currency || 'Sin moneda'}. Original: {repair.name} · {repair.currency}. Se conservan ID, metas, historial y membresías. Si es otro artículo, añádelo como producto nuevo.</p>}
+          <label className="flex items-start gap-3 text-sm"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)} className="mt-1 shrink-0 accent-emerald-500" /><span>{repair ? 'Confirmo que es el mismo artículo y la misma moneda, y que su precio es correcto.' : 'Confirmo el precio y la moneda del producto.'}</span></label>
+          <Button type="submit" className="w-full" disabled={!canConfirm || !confirmed}>{repair ? 'Confirmar reparación' : 'Guardar producto'}</Button>
         </fieldset>
       </form>}
     </div>}

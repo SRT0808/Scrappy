@@ -65,7 +65,7 @@ describe('product detail', () => {
     await waitFor(() => expect(screen.queryByRole('form')).not.toBeInTheDocument());
     const calls = fetch.mock.calls.filter(([, options]) => options?.method === 'PATCH');
     expect(calls).toHaveLength(3);
-    expect(JSON.parse(String(calls[2][1]?.body))).toEqual({ name: 'Monitor', list_id: list.id, reference_price: '100', target_type: 'percent', target_value: '25', check_interval_hours: 12 });
+    expect(JSON.parse(String(calls[2][1]?.body))).toEqual({ name: 'Monitor', reference_price: '100', target_type: 'percent', target_value: '25', check_interval_hours: 12 });
   });
   it('requires explicit deletion confirmation and supports cancellation', async () => {
     const fetch = mock(); const { onDeleted } = mount(); await screen.findByRole('heading', { name: 'Monitor' });
@@ -123,14 +123,14 @@ describe('product detail', () => {
     await expect(requestDetail(detail.product.id)).rejects.toThrow('no es válida');
   });
   it('opens detail from home and returns to reload the selected list', async () => {
-    const fetch = vi.fn(async (url: string) => url === '/api/lists' ? json({ lists: [list] }) : url.includes('?list_id=') ? json({ products: [detail.product] }) : json({ detail }));
+    const fetch = vi.fn(async (url: string) => url === '/api/lists' ? json({ lists: [list] }) : url === '/api/products' ? json({ products: [detail.product] }) : json({ detail }));
     vi.stubGlobal('fetch', fetch);
     render(<HomeScreen onExpired={vi.fn()} onLogout={vi.fn()} sessionBusy={false} sessionError="" />);
     await userEvent.click(await screen.findByRole('button', { name: 'Ver detalle de Monitor' }));
     await screen.findByRole('heading', { name: 'Estadísticas históricas' });
     await userEvent.click(screen.getByRole('button', { name: /Volver/ }));
-    await screen.findByRole('heading', { name: 'Inicio' });
+    await screen.findByRole('heading', { name: 'Productos' });
     expect(await within(screen.getByRole('article')).findByRole('button', { name: 'Ver detalle de Monitor' })).toBeInTheDocument();
-    expect(fetch.mock.calls.filter(([url]) => url.includes('?list_id='))).toHaveLength(2);
+    expect(fetch.mock.calls.filter(([url]) => url === '/api/products')).toHaveLength(2);
   });
 });

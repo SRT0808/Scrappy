@@ -53,7 +53,7 @@ describe('add product', () => {
     expect(screen.getByText('Equivalente: 90.00 PEN')).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Confirmo el precio y la moneda del producto.'));
     await userEvent.click(screen.getByRole('button', { name: 'Guardar producto' }));
-    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(id, list.id));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(id, ''));
     expect(JSON.parse(fetch.mock.calls[1][1].body)).toMatchObject({ action: 'confirm', reference_price: '120.00', target_type: 'percent', target_value: '25', check_interval_hours: 6, candidate_index: null });
     expect(fetch.mock.calls.every(call => call[1].credentials === 'same-origin' && call[1].cache === 'no-store')).toBe(true);
   });
@@ -94,18 +94,22 @@ describe('add product', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Consulta la lectura');
     expect(save).toBeDisabled();
     await userEvent.click(screen.getByRole('button', { name: 'Consultar lectura' }));
-    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(id, list.id));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(id, ''));
     expect(fetch.mock.calls[2][0]).toBe(`/api/products/readings?id=${id}`);
     expect(fetch.mock.calls[2][1].method).toBe('GET');
   });
 
-  it('rejects invalid reference and percentages and handles empty lists', async () => {
-    const fetch = mock(json({ reading: row })); mount([]); await start();
-    expect(screen.getByText('Crea una lista antes de guardar el producto.')).toBeInTheDocument();
-    fill(); expect(screen.getByRole('button', { name: 'Guardar producto' })).toBeDisabled();
+  it('saves a product without baskets and rejects an invalid reference', async () => {
+    const fetch = mock(json({ reading: row }), json({ reading: { ...row, status: 'confirmed', product_id: id } }));
+    mount([]); await start(); fill();
+    expect(screen.getByText('Puedes guardar el producto sin canasta.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Precio de referencia'), { target: { value: '0' } });
     fireEvent.submit(screen.getByRole('button', { name: 'Guardar producto' }).closest('form')!);
     expect(fetch).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('alert')).toHaveTextContent('elige una lista');
+    fireEvent.change(screen.getByLabelText('Precio de referencia'), { target: { value: '120.00' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar producto' }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(fetch.mock.calls[1][1].body).list_id).toBeNull();
   });
 
   it('polls sequentially and aborts pending polling on unmount', async () => {
@@ -129,7 +133,9 @@ describe('add product', () => {
   it('returns to access when the session expires during the reading', async () => {
     mock(json({ authenticated: true }), json({ lists: [list] }), json({ products: [] }), json({}, 401));
     render(<App />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Añadir producto' }));
+    await screen.findByRole('heading', { name: 'Productos' });
+    await userEvent.click(screen.getByRole('button', { name: 'Menú' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir producto' }));
     fireEvent.change(screen.getByLabelText('URL del producto'), { target: { value: row.url } });
     await userEvent.click(screen.getByRole('button', { name: 'Leer producto' }));
     expect(await screen.findByLabelText('Clave de acceso')).toHaveValue('');

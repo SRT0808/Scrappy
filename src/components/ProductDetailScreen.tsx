@@ -1,3 +1,4 @@
+import { AddProduct } from './AddProduct';
 import { lazy, Suspense, useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -13,6 +14,7 @@ const statuses = { active: 'Activo', paused: 'Pausado', error: 'Error', pending_
 type Props = { id: string; lists: List[]; onBack: () => void; onDeleted: () => void; onExpired: (message: string) => void };
 
 export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }: Props) {
+  const [repairing, setRepairing] = useState(false);
   const [detail, setDetail] = useState<ProductDetail | null>(null);
   const [range, setRange] = useState<HistoryRange>('30');
   const [refresh, setRefresh] = useState(0);
@@ -66,7 +68,7 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }:
   function beginEdit() {
     if (!detail) return;
     const p = detail.product;
-    setEdit({ name: p.name || p.domain, list_id: p.list_id, reference_price: String(p.reference_price ?? ''),
+    setEdit({ name: p.name || p.domain, reference_price: String(p.reference_price ?? ''),
       target_type: p.target_type ?? 'price', target_value: String((p.target_type === 'percent' ? p.target_percent : p.target_price) ?? ''), check_interval_hours: p.check_interval_hours });
     setDeleting(false); setError('');
   }
@@ -80,6 +82,8 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }:
   const stats = detail?.statistics;
   let equivalent = '';
   if (edit?.target_type === 'percent' && validProductEdit(edit)) equivalent = percentageTarget(edit.reference_price, edit.target_value);
+
+  if (repairing && p) return <AddProduct lists={[]} repair={{ id, name: p.name || p.domain, currency: p.currency }} onExpired={onExpired} onClose={() => setRepairing(false)} onCloseLabel="Volver al producto" onSaved={() => { setRepairing(false); setRefresh(n => n+1); setNotice('Enlace reparado; historial y metas conservados.'); }} />;
 
   return <section aria-labelledby="detail-title" aria-busy={loading || busy} className="mx-auto w-full min-w-0 max-w-4xl self-start">
     <Button variant="outline" onClick={onBack} disabled={busy}>← Volver a Inicio</Button>
@@ -111,6 +115,7 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }:
         <p className="mt-5 text-sm text-muted-foreground">Tendencia del descuento: {stats.discount_change === null ? 'se necesitan dos lecturas y una referencia positiva.' : `${stats.discount_change > 0 ? '+' : ''}${new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 }).format(stats.discount_change)} puntos porcentuales desde la primera lectura.`}</p>
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
+        <Button variant="outline" disabled={busy || loading} onClick={() => setRepairing(true)}>Reparar enlace</Button>
         <Button variant="outline" disabled={busy || loading || p.status === 'pending_confirmation'} onClick={beginEdit}>Editar</Button>
         <Button variant="outline" disabled={busy || loading || p.status === 'pending_confirmation'} onClick={() => void act(p.status === 'paused' ? 'resume' : 'pause')}>{p.status === 'paused' ? 'Reanudar' : 'Pausar'}</Button>
         <Button disabled={busy || loading || !['active', 'error'].includes(p.status) || reviewQueued !== undefined} onClick={() => void act('review')}>Revisar ahora</Button>
@@ -121,7 +126,6 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }:
       {deleting && <div role="group" aria-label="Confirmar eliminación" className="mt-5 rounded-xl border border-destructive/40 p-5"><p className="text-sm">Se eliminarán el producto y todo su historial de precios.</p><div className="mt-4 flex flex-wrap gap-3"><Button disabled={busy} onClick={() => void act('delete')}>Eliminar definitivamente</Button><Button variant="outline" disabled={busy} onClick={() => setDeleting(false)}>Cancelar</Button></div></div>}
       {edit && <form onSubmit={save} aria-label="Editar producto" className="mt-5 grid min-w-0 gap-5 rounded-2xl border border-border bg-card p-5 sm:grid-cols-2">
         <label className="min-w-0 text-sm">Nombre<Input className="mt-2" value={edit.name} disabled={busy} required maxLength={300} onChange={e => setEdit({ ...edit, name: e.target.value })} /></label>
-        <label className="min-w-0 text-sm">Lista<select className={selectClass} value={edit.list_id} disabled={busy} onChange={e => setEdit({ ...edit, list_id: e.target.value })}>{lists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}</select></label>
         <label className="min-w-0 text-sm">Precio de referencia ({p.currency})<Input className="mt-2" inputMode="decimal" value={edit.reference_price} disabled={busy} required onChange={e => setEdit({ ...edit, reference_price: e.target.value.replace(',', '.') })} /></label>
         <label className="min-w-0 text-sm">Tipo de meta<select className={selectClass} value={edit.target_type} disabled={busy} onChange={e => setEdit({ ...edit, target_type: e.target.value as ProductEdit['target_type'], target_value: '' })}><option value="price">Precio máximo</option><option value="percent">Descuento porcentual</option></select></label>
         <label className="min-w-0 text-sm">{edit.target_type === 'percent' ? 'Descuento (%)' : `Precio meta (${p.currency})`}<Input className="mt-2" inputMode="decimal" value={edit.target_value} disabled={busy} required onChange={e => setEdit({ ...edit, target_value: e.target.value.replace(',', '.') })} />{equivalent && <span className="mt-2 block text-xs text-primary">Equivale a {formatPrice(Number(equivalent), p.currency)}</span>}</label>

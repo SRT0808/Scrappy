@@ -20,7 +20,7 @@ export function ProductCard({ product, onDetail }: { product: ProductSummary; on
         : <div className="flex flex-col items-center gap-2 text-muted-foreground"><svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></svg><span className="text-xs">Sin imagen</span></div>}
     </div>
     <div className="space-y-5 p-5">
-      {onDetail && <Button className="w-full" variant="outline" onClick={onDetail} aria-label={`Ver detalle de ${title}`}>Ver detalle</Button>}
+      {onDetail && <div><Button className="w-full" variant="outline" onClick={onDetail} aria-label={`Ver detalle de ${title}`}>Ver detalle</Button><p className="mt-2 text-center text-xs text-muted-foreground">Desde el detalle puedes editar, pausar o eliminarlo.</p></div>}
       <div>
         <div className="mb-3 flex flex-wrap gap-2 text-xs">
           <span className={`rounded-full border px-2.5 py-1 ${product.status === 'error' ? 'border-destructive/40 text-destructive' : 'border-border text-muted-foreground'}`}>{statuses[product.status]}</span>

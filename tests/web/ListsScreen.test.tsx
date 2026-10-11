@@ -41,8 +41,8 @@ describe('lists screen', () => {
     await screen.findByRole('heading', { name: first.name });
     expect(screen.getByRole('button', { name: 'Subir Tecnología' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Bajar Tecnología' })).toBeDisabled();
-    await user.type(screen.getByLabelText('Nombre de la nueva lista'), ' Hogar ');
-    await user.click(screen.getByRole('button', { name: 'Crear lista' }));
+    await user.type(screen.getByLabelText('Nombre de la nueva canasta'), ' Hogar ');
+    await user.click(screen.getByRole('button', { name: 'Crear canasta' }));
     await screen.findByRole('heading', { name: 'Hogar' });
     await user.click(screen.getByRole('button', { name: 'Renombrar Hogar' }));
     await user.clear(screen.getByLabelText('Nuevo nombre'));
@@ -75,8 +75,8 @@ describe('lists screen', () => {
     const fetch = mock(json({ lists: [] }), json({ list: { ...first, name: '😀'.repeat(100) } }));
     mount();
     expect(screen.getByRole('status')).toHaveTextContent('cargando');
-    await screen.findByText('Tu primera lista empieza aquí');
-    const input = screen.getByLabelText('Nombre de la nueva lista');
+    await screen.findByText('Tu primera canasta empieza aquí');
+    const input = screen.getByLabelText('Nombre de la nueva canasta');
     for (const name of ['   ', '😀'.repeat(101)]) {
       fireEvent.change(input, { target: { value: name } });
       fireEvent.submit(input.closest('form')!);
@@ -107,10 +107,10 @@ describe('lists screen', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Subir Hogar' }));
     await screen.findByRole('alert');
     expect(screen.getAllByRole('listitem')[0]).toHaveTextContent(first.name);
-    expect(screen.getByRole('button', { name: 'Crear lista' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Actualizar listas' }));
+    expect(screen.getByRole('button', { name: 'Crear canasta' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Actualizar canastas' }));
     await waitFor(() => expect(screen.getAllByRole('listitem')[0]).toHaveTextContent(second.name));
-    expect(screen.getByRole('button', { name: 'Crear lista' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Crear canasta' })).toBeEnabled();
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
@@ -118,8 +118,8 @@ describe('lists screen', () => {
     mock(json({}, 503), json({ lists: [first] }), json({}, 400));
     mount();
     await screen.findByRole('alert');
-    expect(screen.getByRole('button', { name: 'Crear lista' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Actualizar listas' }));
+    expect(screen.getByRole('button', { name: 'Crear canasta' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Actualizar canastas' }));
     await screen.findByText(first.name);
     await userEvent.click(screen.getByRole('button', { name: 'Renombrar Tecnología' }));
     const input = screen.getByLabelText('Nuevo nombre');
@@ -129,7 +129,7 @@ describe('lists screen', () => {
     expect(input).toHaveValue('Nuevo');
     expect(screen.getByRole('heading', { name: first.name })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
-    expect(screen.getByLabelText('Nombre de la nueva lista')).toHaveValue('');
+    expect(screen.getByLabelText('Nombre de la nueva canasta')).toHaveValue('');
   });
 
   it('blocks simultaneous mutations and logout while saving', async () => {
@@ -137,31 +137,31 @@ describe('lists screen', () => {
     const fetch = mock(json({ lists: [] }));
     fetch.mockImplementationOnce(() => new Promise<Response>(resolve => { finish = resolve; }));
     mount();
-    await screen.findByText('Tu primera lista empieza aquí');
-    const input = screen.getByLabelText('Nombre de la nueva lista');
+    await screen.findByText('Tu primera canasta empieza aquí');
+    const input = screen.getByLabelText('Nombre de la nueva canasta');
     fireEvent.change(input, { target: { value: first.name } });
     fireEvent.submit(input.closest('form')!);
     fireEvent.submit(input.closest('form')!);
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Actualizar listas' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Actualizar canastas' })).toBeDisabled();
     expect(screen.queryByRole('heading', { name: first.name })).not.toBeInTheDocument();
     finish(json({ list: first }));
     await screen.findByRole('heading', { name: first.name });
   });
 
   it.each(['read', 'create'] as const)('returns to access on expired session during %s', async action => {
-    mock(json({ authenticated: true }), ...(action === 'create' ? [json({ lists: [] }), json({ lists: [] })] : []), json({}, 401));
+    mock(json({ authenticated: true }), ...(action === 'create' ? [json({ lists: [] }), json({ products: [] }), json({ lists: [] })] : []), json({}, 401));
     render(<App />);
     if (action === 'create') {
-      await screen.findByText('Tu primera lista empieza aquí');
-      await userEvent.click(screen.getByRole('button', { name: 'Crear mi primera lista' }));
-      fireEvent.change(screen.getByLabelText('Nombre de la nueva lista'), { target: { value: first.name } });
-      await userEvent.click(screen.getByRole('button', { name: 'Crear lista' }));
+      await screen.findByText('Tu catálogo espera tu próximo producto');
+      await userEvent.click(screen.getByRole('button', { name: 'Gestionar canastas' }));
+      fireEvent.change(screen.getByLabelText('Nombre de la nueva canasta'), { target: { value: first.name } });
+      await userEvent.click(screen.getByRole('button', { name: 'Crear canasta' }));
     }
     expect(await screen.findByLabelText('Clave de acceso')).toHaveValue('');
     expect(screen.getByRole('alert')).toHaveTextContent('Tu sesión ha caducado');
-    expect(screen.queryByRole('heading', { name: 'Tus listas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Tus canastas' })).not.toBeInTheDocument();
   });
 
   it('ignores abandoned reads in StrictMode', async () => {

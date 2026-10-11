@@ -1,5 +1,7 @@
-export type List = { id: string; name: string; emoji: string | null; position: number; created_at: string };
-export type ListAction = 'read' | 'create' | 'rename' | 'reorder' | 'delete';
+import { isBasket, type Basket } from './baskets';
+export type List = { id: string; name: string; emoji: string | null; position: number; created_at: string; basket?: Basket | null };
+export type ListAction = 'read' | 'create' | 'rename' | 'reorder' | 'delete' | 'basket';
+export type ListBody = { name: string } | { ids: string[] } | { basket_budget: number | null; basket_currency: string | null };
 
 export class ListsError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -11,14 +13,14 @@ function isList(value: unknown): value is List {
   return typeof row.id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(row.id)
     && typeof row.name === 'string' && !!row.name.trim() && [...row.name.trim()].length <= 100
     && (row.emoji === null || typeof row.emoji === 'string') && Number.isInteger(row.position)
-    && typeof row.created_at === 'string';
+    && typeof row.created_at === 'string' && (row.basket === undefined || row.basket === null || isBasket(row.basket));
 }
 
-export async function requestLists(action: ListAction, body?: { name: string } | { ids: string[] }, id?: string, signal?: AbortSignal): Promise<List[]> {
+export async function requestLists(action: ListAction, body?: ListBody, id?: string, signal?: AbortSignal): Promise<List[]> {
   let response: Response;
   try {
     response = await fetch(action === 'reorder' ? '/api/lists/reorder' : id ? `/api/lists/${encodeURIComponent(id)}` : '/api/lists', {
-      method: { read: 'GET', create: 'POST', rename: 'PATCH', reorder: 'PUT', delete: 'DELETE' }[action],
+      method: { read: 'GET', create: 'POST', rename: 'PATCH', basket: 'PATCH', reorder: 'PUT', delete: 'DELETE' }[action],
       credentials: 'same-origin', cache: 'no-store',
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
@@ -29,7 +31,7 @@ export async function requestLists(action: ListAction, body?: { name: string } |
   }
   if (!response.ok) {
     const messages: Record<number, string> = {
-      400: 'Revisa el nombre: debe tener de 1 a 100 caracteres.',
+      400: action === 'basket' ? 'Revisa el gasto máximo y la moneda: importe positivo con hasta dos decimales y código de tres letras.' : 'Revisa el nombre: debe tener de 1 a 100 caracteres.',
       401: 'Tu sesión ha caducado. Introduce tu clave para volver a entrar.',
       403: 'No se pudo validar la solicitud. Recarga la página e inténtalo de nuevo.',
       404: 'La lista ya no existe. Actualiza las listas antes de continuar.',

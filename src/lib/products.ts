@@ -41,7 +41,7 @@ async function detailRequest(id: string, method: string, body?: unknown, range: 
 export async function requestProducts(listId: string, signal?: AbortSignal): Promise<ProductSummary[]> {
   let response: Response;
   try {
-    response = await fetch(`/api/products?list_id=${encodeURIComponent(listId)}`, {
+    response = await fetch(listId ? `/api/products?list_id=${encodeURIComponent(listId)}` : '/api/products', {
       method: 'GET', credentials: 'same-origin', cache: 'no-store',
       signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(15_000)]) : AbortSignal.timeout(15_000),
     });
@@ -51,12 +51,12 @@ export async function requestProducts(listId: string, signal?: AbortSignal): Pro
     : 'No pudimos cargar los productos. Inténtalo de nuevo.');
   try {
     const payload = await response.json();
-    if (!Array.isArray(payload?.products) || !payload.products.every((row: unknown) => isProductSummary(row) && row.list_id === listId)) throw new Error('Invalid products');
+    if (!Array.isArray(payload?.products) || !payload.products.every((row: unknown) => isProductSummary(row))) throw new Error('Invalid products');
     return payload.products;
   } catch { throw new ProductsError(0, 'La respuesta de productos no es válida. Reintenta la consulta.'); }
 }
 
-export async function requestReading(id: string, body?: { action: 'read'; url: string; selector?: string } | ({ action: 'confirm' } & Confirmation), signal?: AbortSignal): Promise<Reading> {
+export async function requestReading(id: string, body?: { action: 'read'; url: string; selector?: string; repair_product_id?: string } | { action: 'confirm_repair'; candidate_index: number | null; name: string; currency: string; same_product: true } | ({ action: 'confirm' } & Confirmation), signal?: AbortSignal): Promise<Reading> {
   let response: Response;
   try {
     response = await fetch(`/api/products/readings?id=${encodeURIComponent(id)}`, {
