@@ -4,12 +4,13 @@ import { SettingsScreen } from '../../src/components/SettingsScreen';
 import { HomeScreen } from '../../src/components/HomeScreen';
 import { AddProduct } from '../../src/components/AddProduct';
 import { loadSettings, sendTest } from '../../src/lib/settings';
+import { PwaInstallProvider } from '../../src/components/PwaInstallProvider';
 
 const empty = { default_interval_hours: 6, last_run: null, notifications: [], has_more: false };
 const json = (body: unknown, status = 200) => Response.json(body, { status });
 function mount() {
   const onExpired = vi.fn(); const onBack = vi.fn();
-  render(<SettingsScreen onExpired={onExpired} onBack={onBack} />);
+  render(<PwaInstallProvider><SettingsScreen onExpired={onExpired} onBack={onBack} /></PwaInstallProvider>);
   return { onExpired, onBack };
 }
 describe('settings', () => {
@@ -61,7 +62,7 @@ describe('settings', () => {
   });
   it('opens Ajustes from Inicio', async () => {
     vi.stubGlobal('fetch', vi.fn((url: string) => Promise.resolve(json(url === '/api/lists' ? { lists: [] } : empty))));
-    render(<HomeScreen onExpired={vi.fn()} onLogout={vi.fn()} sessionBusy={false} sessionError="" />);
+    render(<PwaInstallProvider><HomeScreen onExpired={vi.fn()} onLogout={vi.fn()} sessionBusy={false} sessionError="" /></PwaInstallProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'Ajustes' }));
     await screen.findByLabelText('Intervalo por defecto'); expect(document.title).toBe('Scrappy · Ajustes');
   });

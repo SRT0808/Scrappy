@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from './ui/button';
 import { loadSettings, saveInterval, sendTest, type Settings, type Delivery } from '../lib/settings';
+import { usePwaInstall } from './PwaInstallProvider';
 
 type Props = { onBack: () => void; onExpired: (message: string) => void };
 const date = (value: string) => new Date(value).toLocaleString('es-PE');
-const types: Record<string, string> = { test: 'Prueba', goal_reached: 'Meta alcanzada', dropped_further: 'Nueva bajada', extraction_failed: 'Error de lectura', suspicious_change: 'Precio sospechoso', heartbeat: 'Latido' };
+const types: Record<string, string> = { test: 'Prueba', goal_reached: 'Meta alcanzada', basket_goal_reached: 'Canasta alcanzada', dropped_further: 'Nueva bajada', extraction_failed: 'Error de lectura', suspicious_change: 'Precio sospechoso', heartbeat: 'Latido' };
 export function SettingsScreen({ onBack, onExpired }: Props) {
+  const pwa = usePwaInstall();
   const [data, setData] = useState<Settings | null>(null);
   const [interval, setInterval] = useState(6);
   const [page, setPage] = useState(0);
@@ -54,6 +56,10 @@ export function SettingsScreen({ onBack, onExpired }: Props) {
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4"><div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 id="settings-title" className="text-3xl font-semibold tracking-tight">Ajustes</h1><p className="mt-3 text-sm text-muted-foreground">Configura tus revisiones y comprueba tus avisos.</p></div><Button variant="outline" disabled={busy} onClick={onBack}>Volver a Inicio</Button></div>
     {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
     <p role="status" className="mb-4 text-sm text-primary">{loading ? 'Cargando ajustes…' : busy ? 'Procesando…' : notice}</p>
+    <section aria-labelledby="install-title" className="mb-5 rounded-2xl border border-border bg-card p-5 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-4"><div><h2 id="install-title" className="text-lg font-semibold">Instalación de la app</h2><p className="mt-2 text-sm text-muted-foreground">{pwa.installed ? 'Scrappy ya está instalada en este dispositivo.' : 'Añade Scrappy a tu dispositivo para abrirla desde tu pantalla de inicio.'}</p></div>{!pwa.installed && <Button variant="outline" onClick={() => void pwa.install()} disabled={pwa.busy} aria-expanded={pwa.help} aria-controls="install-help">{pwa.busy ? 'Abriendo instalación…' : 'Instalar Scrappy'}</Button>}</div>
+      {!pwa.installed && pwa.help && <div id="install-help" className="mt-4 space-y-2 rounded-xl border border-border bg-background p-4 text-sm text-muted-foreground"><p>Android: abre el menú de Chrome y elige «Instalar aplicación» o «Añadir a pantalla de inicio».</p><p>iPhone: abre esta página en Safari, pulsa Compartir y «Añadir a pantalla de inicio». Activa «Abrir como app» si aparece.</p><p>Después, abre Scrappy desde su icono e introduce tu clave si te la pide.</p></div>}
+      {pwa.error && <p role="alert" className="mt-3 text-sm text-destructive">{pwa.error}</p>}
+    </section>
     {loading && !data ? <div aria-hidden="true" className="h-64 rounded-2xl border border-border bg-card motion-safe:animate-pulse" /> : data && <div className="space-y-5">
       <section aria-labelledby="interval-title" className="rounded-2xl border border-border bg-card p-5 sm:p-6"><h2 id="interval-title" className="text-lg font-semibold">Frecuencia de revisión</h2><p className="mt-2 text-sm text-muted-foreground">Solo cambia el intervalo de los productos que añadas a partir de ahora.</p>
         <form onSubmit={(event: FormEvent) => { event.preventDefault(); void act('save'); }} className="mt-5 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end"><label className="min-w-0 flex-1 text-sm" htmlFor="default-interval">Intervalo por defecto<select id="default-interval" value={interval} disabled={disabled} onChange={event => setInterval(Number(event.target.value))} className="mt-2 h-12 w-full rounded-lg border border-input bg-background px-3 focus-visible:outline-2 focus-visible:outline-ring">{[3, 6, 12, 24].map(hours => <option key={hours} value={hours}>Cada {hours} horas</option>)}</select></label><Button disabled={disabled || interval === data.default_interval_hours}>Guardar intervalo</Button></form>

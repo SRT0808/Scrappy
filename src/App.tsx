@@ -4,6 +4,7 @@ import { Input } from './components/ui/input';
 import { AuthError, requestAuth } from './lib/auth';
 import { HomeScreen } from './components/HomeScreen';
 import { PwaControls } from './components/PwaControls';
+import { PwaInstallProvider } from './components/PwaInstallProvider';
 
 type SessionState = 'checking' | 'anonymous' | 'authenticated' | 'unavailable';
 
@@ -78,16 +79,17 @@ export function App() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="flex items-center gap-3 px-6 py-6 sm:px-10">
-        <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 9 6 6L20 5M13 5h7v7" /></svg>
-        </span>
-        <span className="text-lg font-semibold tracking-tight">scrappy<span className="text-primary">.</span></span>
-      </header>
+    <PwaInstallProvider><div className="flex min-h-dvh flex-col">
+      {session !== 'authenticated' && <header className="w-full px-5">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 py-5 sm:py-6">
+          <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 9 6 6L20 5M13 5h7v7" /></svg>
+          </span>
+          <span className="text-lg font-semibold tracking-tight">scrappy<span className="text-primary">.</span></span>
+        </div>
+      </header>}
       <PwaControls />
-      <main className="flex flex-1 items-center justify-center px-5 py-10">
-        {session === 'authenticated' ? <HomeScreen sessionBusy={busy} sessionError={error} onLogout={logout} onExpired={message => { setKey(''); setSession('anonymous'); setError(message); }} /> : <div className="w-full max-w-sm">
+      {session === 'authenticated' ? <HomeScreen sessionBusy={busy} sessionError={error} onLogout={logout} onExpired={message => { setKey(''); setSession('anonymous'); setError(message); }} /> : <main className="flex flex-1 items-center justify-center px-5 py-10"><div className="w-full max-w-sm">
           <p className="mb-5 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p>
           <section aria-labelledby="access-title" aria-busy={busy || session === 'checking'} className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-black/20 sm:p-8">
             <div aria-hidden="true" className="mb-6 flex size-11 items-center justify-center rounded-xl border border-border bg-muted text-primary">
@@ -121,9 +123,8 @@ export function App() {
             )}
           </section>
           <p className="mt-5 text-center text-xs leading-relaxed text-muted-foreground">Sigue el precio. Elige tu momento.</p>
-        </div>}
-      </main>
-      <footer className="px-6 py-6 text-center text-xs text-muted-foreground">Un espacio privado, solo para ti.</footer>
-    </div>
+        </div></main>}
+      {session !== 'authenticated' && <footer className="px-6 py-6 text-center text-xs text-muted-foreground">Un espacio privado, solo para ti.</footer>}
+    </div></PwaInstallProvider>
   );
 }
