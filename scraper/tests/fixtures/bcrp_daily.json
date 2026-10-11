@@ -1,0 +1,7 @@
+{
+  "config": {"title": "Tipo de cambio", "series": [{"name": "Tipo de cambio - TC Interbancario (S/ por US$) - Venta", "dec": "3"}]},
+  "periods": [
+    {"name": "06.Oct.26", "values": ["3.43471428571429"]},
+    {"name": "07.Oct.26", "values": ["3.44978571428571"]}
+  ]
+}

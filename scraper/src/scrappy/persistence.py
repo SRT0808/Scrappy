@@ -40,6 +40,15 @@ class Database:
             "p_now": now.isoformat(), "p_product_id": product_id,
         })
 
+    def claim_basket_events(self, list_id=None):
+        return self.request("POST", "rpc/claim_basket_events", {"p_list_id": list_id})
+
+    def save_exchange_rate(self, rate):
+        return self.request("POST", "rpc/cache_exchange_rate", {"p_rate": rate})
+
+    def finish_basket_event(self, event_id, sent):
+        self.request("POST", "rpc/finish_basket_event", {"p_id": str(UUID(event_id)), "p_sent": sent})
+
     def save_review(self, product, checked_at, result, checks):
         return self.request("POST", "rpc/save_review", {
             "p_product_id": product["id"],

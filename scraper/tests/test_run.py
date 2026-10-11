@@ -17,6 +17,7 @@ from scrappy.run import execute_reviews, main, read_product, review_product
 
 NOW = datetime(2026, 10, 8, tzinfo=timezone.utc)
 PRODUCT = {"id": "00000000-0000-0000-0000-000000000001", "url": "https://shop.pe/product",
+           "list_id": "00000000-0000-0000-0000-000000000003",
            "domain": "shop.pe", "currency": "PEN", "last_price": "100.00", "last_checked_at": None,
            "target_type": "price", "target_price": "90", "reference_price": "120",
            "alert_state": "armed", "last_alert_price": None, "last_alert_at": None,
@@ -26,6 +27,9 @@ RUN_ID = "00000000-0000-0000-0000-000000000002"
 
 class ReviewTests(unittest.TestCase):
     def setUp(self):
+        patcher = patch("scrappy.run.refresh_exchange_rate")
+        self.addCleanup(patcher.stop)
+        patcher.start()
         self.reading = extract((Path(__file__).parent / "fixtures/json_ld.html").read_bytes(), PRODUCT["url"])
         self.reading = replace(self.reading, price=Decimal("100"))
         self.database = Mock()
@@ -85,6 +89,7 @@ class ReviewTests(unittest.TestCase):
         self.assertTrue(result.accepted)
         self.assertFalse(result.alert_allowed)
         self.assertTrue(self.saved_checks()[0]["warnings"])
+        self.assertEqual(self.saved_checks()[0]["availability"], "OutOfStock")
 
     def test_invalid_numbers_fit_database_and_cannot_be_accepted(self):
         for value in ("-1", "NaN", "Infinity", "10000000000"):
@@ -99,6 +104,7 @@ class ReviewTests(unittest.TestCase):
             self.review()
 
     def configure_run(self, products):
+        self.database.claim_basket_events.return_value = []
         self.database.due_products.return_value = products
         self.database.request.side_effect = [[{"id": RUN_ID}], [], [], None]
 

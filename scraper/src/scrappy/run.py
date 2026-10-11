@@ -17,6 +17,8 @@ from scrappy.validation import validate_review
 from scrappy.alerts import process_alerts
 from scrappy.notifications import test_notification
 from scrappy.readings import execute_reading
+from scrappy.baskets import process_baskets
+from scrappy.exchange_rates import refresh_exchange_rate
 
 
 def utcnow():
@@ -42,6 +44,7 @@ def check_row(reading, checked_at, result):
         "checked_at": checked_at.isoformat(), "ok": result.accepted,
         "price": str(price) if safe_price else None,
         "currency": reading.currency if reading.currency and re.fullmatch(r"[A-Z]{3}", reading.currency) else None,
+        "availability": reading.availability,
         "method": reading.method,
         "confidence": str(reading.confidence), "error_code": result.error_code,
         "warnings": list(reading.warnings) + list(result.warnings),
@@ -92,10 +95,12 @@ def execute_reviews(database, product_id=None, *, read=read_product, now=utcnow,
     checked = ok = 0
     completed = False
     try:
+        refresh_exchange_rate(database, started)
         for product in products:
             result = review_product(database, product, recipes.get(product["domain"], {}), read=read, now=now, sleep=sleep, options=options)
             checked += 1
             ok += int(result.accepted)
+        process_baskets(database, now())
         completed = True
     finally:
         counts = {"checked": checked, "ok_count": ok, "fail_count": checked - ok}

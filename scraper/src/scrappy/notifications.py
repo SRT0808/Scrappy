@@ -43,7 +43,7 @@ def send_email(payload):
             raise RuntimeError("El destinatario rechazó el correo.")
 
 
-def deliver(database, product_id, kind, payload, now, *, channels=None):
+def deliver(database, product_id, kind, payload, now, *, channels=None, audit_context=None):
     """Try both channels even on delivery/audit failure; never store raw errors."""
     channels = channels if channels is not None else {"ntfy": send_ntfy, "email": send_email}
     sent = False
@@ -58,7 +58,7 @@ def deliver(database, product_id, kind, payload, now, *, channels=None):
         try:
             database.request("POST", "notifications", {
                 "product_id": product_id, "type": kind, "channel": channel,
-                "status": "failed" if error else "sent", "payload": payload,
+                "status": "failed" if error else "sent", "payload": {**payload, **(audit_context or {})},
                 "error": error, "sent_at": now.isoformat(),
             })
         except Exception:
