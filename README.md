@@ -45,6 +45,89 @@ resent after a crash or ambiguous receipt; `basket_events.status = 'claimed'`
 needs inspection, and channel attempts appear in Settings. This favors avoiding
 duplicate notices over automatic retries after uncertain delivery.
 
+### Phase-five promotion handoff (2026-10-11)
+
+Procedure reviewed against SPEC 14/15 and the repository contracts. The reviewed
+implementation is `221a530c1234daa776a159803b3f89e3fa1050c2` on local `develop`;
+this handoff adds documentation only. Read-only remote verification on 2026-10-11
+found `main` at `1e7d765a293a466c7024db60d069b9bb5f7155be` and remote `develop`
+at `df13cf07b734ef03f9fd998911f3fb5f44a6a9bb`. Recheck these refs at execution
+time and record the final approved documentation commit. No push, promotion,
+database installation, workflow change or deployment is authorized by this handoff.
+Phase-four outstanding checks remain separate.
+
+Local closure evidence is recorded in STATUS: four isolated PostgreSQL suites,
+76 web tests, 43 API tests, 111 Python tests (two opt-in Supabase integrations
+skipped), build/typecheck and mobile visual acceptance. Documentation changes
+do not require repeating those suites. No new environment names, paid services
+or dependencies are needed for this release.
+
+1. **Owner authorization.** Present the exact final `develop` SHA and obtain
+   explicit approval for promotion and the coordinated deployment below. Confirm
+   whether approval includes production writes, real notifications and cron
+   reactivation. Updating `main` can deploy automatically under `vercel.json`;
+   do not push it as an isolated preparation step. Preserve the owner's uncommitted
+   `AGENTS.md` changes; never include secrets, certificates or `.scrappy/`.
+2. **Quiesce before promotion or SQL.** After authorization, disable **Check prices**,
+   prevent automatic Vercel publication for the maintenance window, and block
+   access to the old production API, including existing authenticated sessions.
+   Agree and verify the access-blocking mechanism with the owner before proceeding;
+   this repository has no maintenance switch. Closing the UI or disabling cron
+   alone is insufficient: old tabs can still mutate data and dispatch readings.
+   Wait for all running/queued Actions jobs, API requests and local processes using
+   production credentials to drain; disabling a workflow does not cancel jobs.
+   If writes cannot be stopped, postpone the migration. Keep maintenance shorter
+   than the heartbeat grace window, or agree monitoring maintenance with the owner.
+3. **Recoverable baseline.** Record the accepted Vercel deployment, production SHA,
+   installed migration ledger, and private schema/data backup location. Verify a
+   restore in an isolated database before altering production; do not assume a
+   managed backup is available. Record IDs, list names/order/budgets, product
+   memberships, history and individual alert states for comparison after migration.
+   Never store the backup or credentials in Git. Use a disposable Supabase test
+   project for the deferred integration acceptance in SPEC 15; local SQL evidence
+   does not claim that integration has passed.
+4. **Promote and install as one release.** Recheck refs and ancestry, then publish
+   only the approved `develop` SHA and advance `main` without rewriting history;
+   promotion remains the owner's decision. Keep Vercel publication and Actions
+   blocked while installing these files once, in this exact order:
+   `20261011000000_list_baskets.sql`, `20261011010000_basket_items.sql`,
+   `20261011020000_basket_snapshots.sql`, `20261011030000_basket_alerts_repair.sql`,
+   `20261011040000_basket_experience.sql`. Existing migrations through
+   `20261009000000` must already be installed; do not replay them. Each file has
+   its own transaction: stop on the first error and record the last committed
+   file; the five files are not one atomic transaction. Confirm SQL/API visibility,
+   RLS and service-role RPC permissions, plus baseline conservation. Do not run
+   `test:baskets:sql`: its legacy fixtures target the intermediate list contract.
+5. **Publish matching components.** Deploy API and web from the approved `main`
+   SHA, keeping public access blocked until authenticated smoke checks pass.
+   Confirm the added `api/baskets/[id].ts` function is included, existing secret
+   scopes remain server-only, and the production scraper checkout will use the
+   same SHA. Do not run the old scraper or API against the migrated database:
+   migration `20261011010000` removes `products.list_id` and renames basket fields.
+   Check anonymous API rejection, session/logout, independent catalog, converted
+   memberships/quantities, totals/completeness and segmented history before reopening.
+6. **Controlled acceptance and resume.** With the approved test project and channels,
+   verify decimal quantities, fresh/expired USD/PEN FX, incomplete baskets blocking
+   alerts, one aggregate crossing without duplicates, strict 3% rearming and URL
+   repair preserving identity/history/memberships. Confirm individual alerts remain
+   unchanged. Production `product` mode also evaluates basket alerts; it is not an
+   isolated single-product notification test. Enable Actions only when approved
+   for real alerts and cron; inspect run `head_sha`, channel receipts and heartbeat.
+   Confirm the installed PWA updates on the existing origin, then catalog/baskets,
+   repair, offline/reconnection and notification links. Record SHA, migration results,
+   deployment ID, run IDs and acceptance outcomes without private values. Close
+   deployment acceptance only after these checks; otherwise keep it pending.
+
+**Failure and recovery.** Keep writes, publication and Actions blocked on any failed
+gate. A failed file rolls back only its own transaction; inspect the installed
+state before resuming, never blindly rerun committed files. Prefer a reviewed
+forward fix on `develop`, with new owner authorization to publish it. Restoring
+only an old Vercel deployment or moving `main` back is incompatible with the new
+schema. A full rollback requires separately authorized restoration of the verified
+pre-migration database backup and matching API/web/scraper SHA while access remains
+blocked; reconcile any post-backup writes first. Sent notifications cannot be undone;
+inspect ambiguous `claimed` events and receipts instead of replaying them blindly.
+
 ## Local setup (PowerShell)
 
 ```powershell
