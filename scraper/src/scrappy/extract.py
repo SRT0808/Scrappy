@@ -10,6 +10,7 @@ from scrapling import Selector
 
 from scrappy.prices import MONEY, currency_for, normalize_price
 from scrappy.recipes import JsonStorage
+from scrappy.storefront import context_warning, is_yesstyle, yesstyle_context
 
 THRESHOLD = 0.8
 EXCLUDED = re.compile(r"cuota|/mes|per month|installment|shipping|env[ií]o|impuesto|tax|related|relacionad|recommend|recomendad|cross.sell|upsell|old.price|original.price|list.price|regular.price|price.old|tachado", re.I)
@@ -121,6 +122,35 @@ def recipe_read(page, base, recipe, cur, url, lang):
     return False
 
 
+def visible_price_candidates(root, cur, url, lang):
+    candidates = []
+    for node in root.xpath('//*[not(self::script or self::style)]'):
+        attrs = " ".join(node.get(key, "") for key in ("class", "id", "itemprop", "data-testid"))
+        if not re.search(r"price|precio|amount|sale", attrs, re.I) or excluded(node):
+            continue
+        content = text_of(node)
+        if len(content) > 160:
+            continue
+        matches = list(MONEY.finditer(content))
+        for match_index, match in enumerate(matches):
+            amount = match.group()
+            price = normalize_price(amount)
+            currency = currency_for(amount, cur, url, lang)
+            if price:
+                style = node.get("style", "")
+                score = 0.82 if re.search(r"sale|current|final|offer|special", attrs, re.I) else 0.7
+                if re.search(r"font-size:\s*(?:[2-9]\d)px", style):
+                    score = min(0.86, score + 0.12)
+                candidates.append({"price": str(price), "currency": currency, "context": content[:160], "score": score,
+                                   "selector": css_path(node), "match_index": match_index, "match_count": len(matches)})
+    unique = {}
+    for candidate in candidates:
+        key = (candidate["price"], candidate["currency"])
+        if key not in unique or candidate["score"] > unique[key]["score"]:
+            unique[key] = candidate
+    return sorted(unique.values(), key=lambda c: c["score"], reverse=True)[:5]
+
+
 def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extraction:
     recipe = recipe or {}
     state = recipe.setdefault("adaptive_state", None)
@@ -137,6 +167,12 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
     cur = confirmed.get("currency") or cur
     image = metadata(root, "og:image")
     base = Extraction(name=name, image_url=urljoin(url, image) if image else None)
+    if is_yesstyle(url):
+        context = yesstyle_context(root)
+        base.warnings.append(context_warning(context))
+        if not context["verified"]:
+            return base
+        cur = "USD"
     originals = {p for node in root.xpath('//s | //del | //strike | //*[@itemprop="highPrice"]')
                  if (p := normalize_price(node.get("content") or text_of(node))) is not None}
     if len(originals) == 1:
@@ -210,6 +246,15 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
         if ambiguous:
             result.warnings.append("Varios productos o monedas; requiere confirmación.")
             return result
+        visible = visible_price_candidates(root, chosen["currency"], url, lang)
+        if visible:
+            top = visible[0]
+            visible_is_ambiguous = len(visible) > 1 and visible[1]["score"] >= top["score"] - 0.1
+            if not visible_is_ambiguous and (top["price"], top["currency"]) != (chosen["price"], chosen["currency"]):
+                result.confidence = 0.5
+                result.candidates = [chosen, top]
+                result.warnings.append("El precio JSON-LD difiere del precio visible; requiere confirmación.")
+                return result
         if result.ok:
             return result
     # Scope microdata to the Product/Offer, never to a related-product carousel.

@@ -43,6 +43,21 @@ class ExtractTests(unittest.TestCase):
         self.assertEqual(result.image_url, "https://shop.pe/monitor.jpg")
         self.assertEqual(result.availability, "https://schema.org/InStock")
 
+    def test_yesstyle_json_ld_price_mismatch_requires_confirmation(self):
+        result = self.fixture("yesstyle_jsonld_mismatch.html")
+        self.assertFalse(result.ok)
+        self.assertEqual((result.price, result.currency, result.method), (Decimal("31.79"), "USD", "json_ld"))
+        self.assertIn("requiere confirmación", result.warnings[-1])
+        self.assertEqual([(item["price"], item["currency"]) for item in result.candidates],
+                         [("31.79", "USD"), ("34.97", "USD")])
+
+    def test_matching_visible_price_uses_json_ld_currency_before_domain(self):
+        html = (FIXTURES / "yesstyle_jsonld_mismatch.html").read_text().replace("$34.97", "$31.79")
+        result = extract(html, "https://shop.pe/product")
+        self.assertTrue(result.ok)
+        self.assertEqual((result.price, result.currency, result.method), (Decimal("31.79"), "USD", "json_ld"))
+        self.assertFalse(result.warnings)
+
     def test_meta(self):
         result = self.fixture("meta.html")
         self.assertTrue(result.ok)

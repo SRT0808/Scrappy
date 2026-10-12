@@ -21,6 +21,7 @@ from scrapling.fetchers import DynamicFetcher, StealthyFetcher
 from scrappy.extract import Extraction, extract
 from scrappy.recipes import RecipeStore
 from scrappy.network import public_proxy, public_url
+from scrappy.storefront import preference_cookies
 
 MODES = ("http", "dynamic", "stealth")
 CHALLENGE = re.compile(r"just a moment|verify (?:that )?you are human|access denied|attention required|checking your browser|robot check|captcha challenge|permission denied", re.I)
@@ -55,10 +56,12 @@ def fetch(url: str, mode: str, timeout: float):
             # Use Scrapling's existing HTTP engine and response adapter, with no
             # environment bypass and no second DNS lookup outside the proxy.
             response = http_get(url, timeout=timeout, impersonate="chrome", proxy=proxy,
+                                cookies=preference_cookies(url),
                                 allow_redirects="safe", max_redirects=30,
                                 curl_options={CurlOpt.NOPROXY: ""})
             return ResponseFactory.from_http_request(response, {"adaptive": False})
         return fetcher.fetch(url, headless=True, timeout=int(timeout * 1000), retries=1, wait=1500,
+                             cookies=preference_cookies(url, browser=True),
                              network_idle=False, disable_resources=True, locale="es-PE", selector_config={"adaptive": False},
                              proxy=proxy, extra_flags=["--proxy-bypass-list=<-loopback>", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"])
 
