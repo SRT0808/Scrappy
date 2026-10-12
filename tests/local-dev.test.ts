@@ -3,6 +3,7 @@ import { request } from 'node:https';
 import { connect } from 'node:http2';
 import { test } from 'node:test';
 import { createServer } from 'vite';
+import { basketDetail, basketId } from './fixtures/basket-experience.js';
 
 test('local HTTPS serves the web and original API handlers on the same origin', async () => {
   process.env.ACCESS_KEY = 'local-test-key';
@@ -18,7 +19,12 @@ test('local HTTPS serves the web and original API handlers on the same origin', 
       attempts.push(JSON.parse(String(options?.body)));
       return new Response('0');
     }
-    assert.ok(/^https:\/\/example.supabase.co\/rest\/v1\/(lists|products)\?/.test(String(url)));
+    if (String(url).endsWith('/rpc/read_lists_with_baskets')) return new Response('[]');
+    if (String(url).endsWith('/rpc/read_basket_detail')) {
+      assert.deepEqual(JSON.parse(String(options?.body)), { p_id: basketId, p_days: 14 });
+      return new Response(JSON.stringify(basketDetail));
+    }
+    assert.ok(/^https:\/\/example.supabase.co\/rest\/v1\/products\?/.test(String(url)));
     return new Response('[]');
   };
   const server = await createServer({ server: { port: 0 } });
@@ -71,6 +77,9 @@ test('local HTTPS serves the web and original API handlers on the same origin', 
     assert.equal((await send('/api/products/readings?id=invalid', 'GET', undefined, cookie)).status, 400);
     assert.equal((await send('/api/products/invalid', 'GET', undefined, cookie)).status, 400);
     assert.equal((await send('/api/products/11111111-1111-4111-8111-111111111111?range=all', 'GET', undefined, cookie)).status, 404);
+    const basket = await send(`/api/baskets/${basketId}?range=14`, 'GET', undefined, cookie);
+    assert.equal(basket.status, 200);
+    assert.equal(JSON.parse(basket.body).detail.id, basketId);
     const logout = await send('/api/logout', 'POST', '{}', cookie);
     assert.equal(logout.status, 200);
     assert.match(logout.headers['set-cookie']![0], /Max-Age=0/);
@@ -97,6 +106,7 @@ test('local HTTPS serves the web and original API handlers on the same origin', 
       assert.equal((await sendHttp2('/api/session', 'GET', undefined, h2Cookie)).status, 200);
       assert.equal((await sendHttp2('/api/lists', 'GET', undefined, h2Cookie)).status, 200);
       assert.equal((await sendHttp2('/api/products?list_id=11111111-1111-4111-8111-111111111111', 'GET', undefined, h2Cookie)).status, 200);
+      assert.equal((await sendHttp2(`/api/baskets/${basketId}?range=14`, 'GET', undefined, h2Cookie)).status, 200);
       assert.equal((await sendHttp2('/api/logout', 'POST', '{}', h2Cookie)).status, 200);
     } finally {
       client.close();

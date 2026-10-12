@@ -1,6 +1,7 @@
 import { json, type Handler } from '../../lib/server/auth.js';
 import { ProductError, productsHandler } from '../../lib/server/products.js';
-import { uuidPattern, intervals, percentageTarget } from '../../lib/product-contract.js';
+import { intervals, percentageTarget } from '../../lib/product-contract.js';
+import { readDynamicRoute } from '../../lib/server/dynamic-route.js';
 import { historicalStatistics, historyRanges, isReview, validProductEdit, type Review } from '../../lib/detail-contract.js';
 import { normalize } from './index.js';
 
@@ -39,13 +40,12 @@ export async function dispatchProduct(id: string) {
 
 export function createProductHandler(dispatch: (id: string) => Promise<void> = dispatchProduct): Handler {
   return productsHandler(['GET', 'PATCH', 'DELETE', 'POST'], async (req, res) => {
-    const url = new URL(req.url ?? '', 'https://scrappy.local');
-    const id = url.pathname.split('/').at(-1) ?? '';
-    const range = url.searchParams.get('range') ?? '30';
-    if (!uuidPattern.test(id) || !historyRanges.includes(range as typeof historyRanges[number])
-      || url.searchParams.getAll('range').length > 1 || [...url.searchParams.keys()].some(k => k !== 'range')) {
+    const route = readDynamicRoute(req, 'products', ['range']);
+    const range = route?.params.get('range') ?? '30';
+    if (!route || !historyRanges.includes(range as typeof historyRanges[number])) {
       json(res, 400, { error: 'Indica un producto y rango válidos.' }); return;
     }
+    const { id } = route;
     if (req.method === 'PATCH') {
       const b = req.body;
       let update: Record<string, unknown>;

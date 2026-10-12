@@ -14,6 +14,7 @@
     "test:web": "vitest run",
     "test:auth": "tsc && node --test .scrappy/api-build/tests/auth.test.js",
     "test:dev": "tsc && node --test .scrappy/api-build/tests/local-dev.test.js",
+    "test:routes": "tsc && node --test .scrappy/api-build/tests/dynamic-routes.test.js .scrappy/api-build/tests/product-detail.test.js .scrappy/api-build/tests/basket-experience.test.js .scrappy/api-build/tests/lists.test.js .scrappy/api-build/tests/local-dev.test.js",
     "test:readings:local": "tsc && node --test .scrappy/api-build/tests/local-readings.test.js",
     "test:auth:sql": "node --env-file=.env tests/auth-sql.mjs",
     "test:lists": "tsc && node --test .scrappy/api-build/tests/lists.test.js",

@@ -1,13 +1,15 @@
 import { json } from '../../lib/server/auth.js';
-import { listDatabase, listsHandler, objectBody, UUID, validEmoji, validName } from '../../lib/server/lists.js';
+import { listDatabase, listsHandler, objectBody, validEmoji, validName } from '../../lib/server/lists.js';
 import { parseBudget } from '../../src/lib/baskets.js';
+import { readDynamicRoute } from '../../lib/server/dynamic-route.js';
 
 export default listsHandler(['PATCH', 'DELETE'], async (req, res) => {
-  const id = new URL(req.url ?? '', 'http://localhost').pathname.split('/').at(-1) ?? '';
-  if (!UUID.test(id)) {
+  const route = readDynamicRoute(req, 'lists');
+  if (!route) {
     json(res, 400, { error: 'Identificador de lista no válido.' });
     return;
   }
+  const { id } = route;
   if (req.method === 'DELETE') {
     await listDatabase('delete', { p_operation: 'delete', p_id: id });
     json(res, 200, { deleted: true });

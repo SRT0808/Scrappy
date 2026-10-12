@@ -3,15 +3,15 @@ import { productDatabase, productsHandler } from '../../lib/server/products.js';
 import { uuidPattern } from '../../lib/product-contract.js';
 import { objectBody } from '../../lib/server/lists.js';
 import { isBasketDetail } from '../../src/lib/baskets.js';
+import { readDynamicRoute } from '../../lib/server/dynamic-route.js';
 
 export default productsHandler(['GET','PATCH'], async (req,res) => {
-  const url = new URL(req.url ?? '', 'https://scrappy.local');
-  const id = url.pathname.split('/').at(-1) ?? '';
-  const range = url.searchParams.get('range') ?? '30';
-  if (!uuidPattern.test(id) || !['7','14','30','90','all'].includes(range)
-    || url.searchParams.getAll('range').length > 1 || [...url.searchParams.keys()].some(k => k !== 'range')) {
+  const route = readDynamicRoute(req, 'baskets', ['range']);
+  const range = route?.params.get('range') ?? '30';
+  if (!route || !['7','14','30','90','all'].includes(range)) {
     json(res,400,{ error: 'Indica una canasta y rango válidos.' }); return;
   }
+  const { id } = route;
   let detail: unknown;
   if (req.method === 'PATCH') {
     const b = objectBody(req);
