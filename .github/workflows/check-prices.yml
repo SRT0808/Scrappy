@@ -2,7 +2,7 @@ name: Check prices
 
 on:
   schedule:
-    - cron: '2-57/5 * * * *'
+    - cron: '0 */3 * * *'
   workflow_dispatch:
     inputs:
       mode:
