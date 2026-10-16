@@ -1,3 +1,7 @@
+DEVELOP PUBLICADO SIN PROMOCIÓN (2026-10-15 Lima, SPEC §14/15): e22d458 y f16d52f publicados en origin/develop por autorización del dueño; main conserva 63be2b508a1f791747dc3d1d2aba8656cdf4f812.
+Validación: push explícito develop:develop y contraste de referencias remotas; aceptación y pruebas previas conservadas, sin reactivar ensayos ni realizar despliegues.
+Siguiente: decisión del dueño sobre eventual promoción del paquete revisado a main; no promover sin autorización expresa.
+
 PAQUETE REVISADO GUARDADO (2026-10-15 Lima, SPEC §14/15): herramientas/pruebas de operación y documentación de cierre agrupadas en dos commits acotados de develop; aceptación y exención de integraciones conservadas. Sin push, promoción ni cambios en main/producción.
 Validación: diff-check y comprobación de secretos del paquete; se conservan los 18 tests del observador, 7 de precisión, sintaxis Node y seis conciliaciones/SHA256 ya aprobados, sin repetir pruebas ni consultas externas.
 Siguiente: decisión del dueño sobre publicar develop y eventual promoción del paquete revisado; no reactivar ensayos ni seguimientos cerrados.
