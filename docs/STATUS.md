@@ -1,3 +1,7 @@
+PAQUETE PROMOVIDO A MAIN (2026-10-15 Lima, SPEC §14/15): autorización expresa del dueño; main avanzó por fast-forward de 63be2b5 a ac65c4f, incluyendo e22d458 y f16d52f. Registro de cierre preparado en develop.
+Validación: ancestro común comprobado y push develop:main aprobado; pruebas y aceptación previas conservadas. La publicación no acredita por sí sola el resultado del despliegue automático.
+Siguiente: comprobar el resultado del despliegue asociado a esta promoción si el dueño lo solicita; no reactivar ensayos ni seguimientos cerrados.
+
 DEVELOP PUBLICADO SIN PROMOCIÓN (2026-10-15 Lima, SPEC §14/15): e22d458 y f16d52f publicados en origin/develop por autorización del dueño; main conserva 63be2b508a1f791747dc3d1d2aba8656cdf4f812.
 Validación: push explícito develop:develop y contraste de referencias remotas; aceptación y pruebas previas conservadas, sin reactivar ensayos ni realizar despliegues.
 Siguiente: decisión del dueño sobre eventual promoción del paquete revisado a main; no promover sin autorización expresa.
