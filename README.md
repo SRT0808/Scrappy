@@ -1,415 +1,243 @@
 # Scrappy
 
-Personal, free price tracker. The phase-one probe evaluates product extraction;
-the scheduled runner validates and persists due reviews in Supabase and pings
-Healthchecks.io. Alert states and push/email notifications are implemented;
-session authentication, product/list/settings APIs and all phase-three web screens
-are implemented. Phase three is deployed and accepted, including physical PWA use;
-phase-four resilience and documentation checks remain pending.
+Personal, free price tracker with a Spanish interface, individual products and
+shopping baskets. Confirm extracted prices, track history and receive ntfy push
+and Gmail alerts when your goals are met.
 
-## Product catalog and baskets
+[Open Scrappy](https://scrappy-silk.vercel.app/) ·
+[Specification](docs/SPEC.md) · [Project status and history](docs/STATUS.md)
 
-Phase 5 is accepted in local development. Its migrations
-`20261011000000` through `20261011040000` must be applied in filename order during
-deployment, together with the adapted API, web and scraper. They have not been
-installed in Supabase as part of this local closure. Validate without `.env`,
-Supabase or production notifications using PostgreSQL 18 on Windows:
+- Products can stand alone or belong to several baskets with quantities/budgets.
+- Basket totals use decimal arithmetic and dated USD/PEN rates from BCRPData.
+  Incomplete readings/conversions block aggregate alerts; estimates stay marked.
+- Price extraction tries structured data, metadata, owner CSS and heuristics,
+  escalating from HTTP to browser modes. Shop blocks and currency differences
+  can require confirmation, a recipe or the residential-IP fallback.
+- React/Vite/TypeScript, Tailwind/shadcn/ui and Recharts provide the dark PWA.
+  Vercel Functions alone access Supabase; Python/Scrapling 0.4.15 runs in Actions.
+- Normal operation: cron-job.org → Actions every 3h, watched by Healthchecks
+  (3h period + 9h grace), independently of Windows and Codex.
 
-```powershell
-node tests/basket-items-sql.mjs
-node tests/basket-snapshots-sql.mjs
-node tests/basket-alerts-sql.mjs
-node tests/basket-experience-sql.mjs
-```
+The existing deployment and acceptance evidence are complete as recorded below.
+Final package review is complete (15 Oct 2026); commits and promotion remain
+separate owner decisions.
 
-Each runner creates and removes its own isolated database. `POSTGRES_BIN`
-overrides the PostgreSQL binary directory.
+## Reproducible setup and operation (SPEC 14, phase 4)
 
-**Productos** contains independent trackers. A product can belong to several
-**Canastas**, each with its own positive integer quantities, currency and optional
-maximum spend (two decimal places). The server sums quantities using decimal
-arithmetic, including paused products, with USD/PEN conversion from BCRPData.
-Rates remain valid through five calendar days in Lima. Missing, unconfirmed,
-failed or unavailable readings and missing/expired conversions block aggregate
-alerts. Incomplete totals retain dated estimates or known subtotals; no known
-price means a null total. Composition versions separate history; descriptive
-statistics require both 14 days and 10 complete snapshots in the selected series.
+This is the current installation/operation path. The evidence index below records completed acceptance, not extra setup steps. The existing
+installation is already deployed and accepted: do not rerun migrations, channel
+tests, PWA acceptance, accelerated slots or heartbeat outages to use this guide.
+For a new installation, follow steps 1–6; for the existing service, use step 7
+and the Windows fallback only when needed. Main promotions remain the owner's
+decision. These instructions introduce no paid service.
 
-After product reviews, the runner sends one aggregate event through the existing
-ntfy/email channels when a complete total is at or below the budget. It rearms
-only when a complete total exceeds the budget by more than 3%, or a new
-budget/currency/composition version starts.
-Individual alerts keep their own state. A durable claim prevents concurrent or
-repeated runs from sending the same event twice. Claims are never automatically
-resent after a crash or ambiguous receipt; `basket_events.status = 'claimed'`
-needs inspection, and channel attempts appear in Settings. This favors avoiding
-duplicate notices over automatic retries after uncertain delivery.
+1. **Prepare the checkout on Windows 11.** Install Git, Node 24 and Python 3.12
+   (the package supports Python 3.11+). Clone your repository, then work on
+   `develop`; the owner selects the reviewed release for `main`. In PowerShell
+   at the repository root:
 
-### Phase-five promotion handoff (2026-10-11)
+   ```powershell
+   git clone https://github.com/SRT0808/Scrappy.git
+   Set-Location Scrappy
+   git switch develop
+   npm ci
+   py -3.12 -m venv .venv
+   .\.venv\Scripts\python.exe -m pip install -e ./scraper
+   New-Item -ItemType Directory -Force .scrappy | Out-Null
+   $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.scrappy/browsers'
+   .\.venv\Scripts\scrapling.exe install
+   if (-not (Test-Path .env)) { Copy-Item .env.example .env }
+   ```
 
-Procedure reviewed against SPEC 14/15 and the repository contracts. The reviewed
-implementation is `221a530c1234daa776a159803b3f89e3fa1050c2` on local `develop`;
-this handoff adds documentation only. Read-only remote verification on 2026-10-11
-found `main` at `1e7d765a293a466c7024db60d069b9bb5f7155be` and remote `develop`
-at `df13cf07b734ef03f9fd998911f3fb5f44a6a9bb`. Recheck these refs at execution
-time and record the final approved documentation commit. No push, promotion,
-database installation, workflow change or deployment is authorized by this handoff.
-Phase-four outstanding checks remain separate.
+   Substitute your fork's URL if applicable. Keep `.env`, browser files and
+   evidence private and ignored; never overwrite an existing `.env` during setup.
 
-Local closure evidence is recorded in STATUS: four isolated PostgreSQL suites,
-76 web tests, 43 API tests, 111 Python tests (two opt-in Supabase integrations
-skipped), build/typecheck and mobile visual acceptance. Documentation changes
-do not require repeating those suites. No new environment names, paid services
-or dependencies are needed for this release.
+2. **Create the database once.** In a new Supabase Free project, open SQL Editor
+   and execute the following repository files individually, in this order.
+   Stop on any error; record each successful filename in your private installation
+   ledger before continuing. An existing project uses its ledger, not a replay.
 
-1. **Owner authorization.** Present the exact final `develop` SHA and obtain
-   explicit approval for promotion and the coordinated deployment below. Confirm
-   whether approval includes production writes, real notifications and cron
-   reactivation. Updating `main` can deploy automatically under `vercel.json`;
-   do not push it as an isolated preparation step. Preserve the owner's uncommitted
-   `AGENTS.md` changes; never include secrets, certificates or `.scrappy/`.
-2. **Quiesce before promotion or SQL.** After authorization, disable **Check prices**,
-   prevent automatic Vercel publication for the maintenance window, and block
-   access to the old production API, including existing authenticated sessions.
-   Agree and verify the access-blocking mechanism with the owner before proceeding;
-   this repository has no maintenance switch. Closing the UI or disabling cron
-   alone is insufficient: old tabs can still mutate data and dispatch readings.
-   Wait for all running/queued Actions jobs, API requests and local processes using
-   production credentials to drain; disabling a workflow does not cancel jobs.
-   If writes cannot be stopped, postpone the migration. Keep maintenance shorter
-   than the heartbeat grace window, or agree monitoring maintenance with the owner.
-3. **Recoverable baseline.** Record the accepted Vercel deployment, production SHA,
-   installed migration ledger, and private schema/data backup location. Verify a
-   restore in an isolated database before altering production; do not assume a
-   managed backup is available. Record IDs, list names/order/budgets, product
-   memberships, history and individual alert states for comparison after migration.
-   Never store the backup or credentials in Git. Use a disposable Supabase test
-   project for the deferred integration acceptance in SPEC 15; local SQL evidence
-   does not claim that integration has passed.
-4. **Promote and install as one release.** Recheck refs and ancestry, then publish
-   only the approved `develop` SHA and advance `main` without rewriting history;
-   promotion remains the owner's decision. Keep Vercel publication and Actions
-   blocked while installing these files once, in this exact order:
-   `20261011000000_list_baskets.sql`, `20261011010000_basket_items.sql`,
-   `20261011020000_basket_snapshots.sql`, `20261011030000_basket_alerts_repair.sql`,
-   `20261011040000_basket_experience.sql`. Existing migrations through
-   `20261009000000` must already be installed; do not replay them. Each file has
-   its own transaction: stop on the first error and record the last committed
-   file; the five files are not one atomic transaction. Confirm SQL/API visibility,
-   RLS and service-role RPC permissions, plus baseline conservation. Do not run
-   `test:baskets:sql`: its legacy fixtures target the intermediate list contract.
-5. **Publish matching components.** Deploy API and web from the approved `main`
-   SHA, keeping public access blocked until authenticated smoke checks pass.
-   Confirm the added `api/baskets/[id].ts` function is included, existing secret
-   scopes remain server-only, and the production scraper checkout will use the
-   same SHA. Do not run the old scraper or API against the migrated database:
+   ```text
+   supabase/migrations/20261008000000_initial_schema.sql
+   supabase/migrations/20261008010000_review_persistence.sql
+   supabase/migrations/20261008020000_alert_recovery.sql
+   supabase/migrations/20261008030000_login_attempts.sql
+   supabase/migrations/20261008040000_lists.sql
+   supabase/migrations/20261009000000_product_readings.sql
+   supabase/migrations/20261011000000_list_baskets.sql
+   supabase/migrations/20261011010000_basket_items.sql
+   supabase/migrations/20261011020000_basket_snapshots.sql
+   supabase/migrations/20261011030000_basket_alerts_repair.sql
+   supabase/migrations/20261011040000_basket_experience.sql
+   ```
+
+   Copy the project HTTPS URL and legacy `service_role` key from the project's
+   API settings to `.env`. RLS remains enabled with no public policies/grants;
+   only server code uses the key. Never add a `VITE_` secret. On an existing
+   database, back up data and exclude all writers before any new migration;
    migration `20261011010000` removes `products.list_id` and renames basket fields.
-   Check anonymous API rejection, session/logout, independent catalog, converted
-   memberships/quantities, totals/completeness and segmented history before reopening.
-6. **Controlled acceptance and resume.** With the approved test project and channels,
-   verify decimal quantities, fresh/expired USD/PEN FX, incomplete baskets blocking
-   alerts, one aggregate crossing without duplicates, strict 3% rearming and URL
-   repair preserving identity/history/memberships. Confirm individual alerts remain
-   unchanged. Production `product` mode also evaluates basket alerts; it is not an
-   isolated single-product notification test. Enable Actions only when approved
-   for real alerts and cron; inspect run `head_sha`, channel receipts and heartbeat.
-   Confirm the installed PWA updates on the existing origin, then catalog/baskets,
-   repair, offline/reconnection and notification links. Record SHA, migration results,
-   deployment ID, run IDs and acceptance outcomes without private values. Close
-   deployment acceptance only after these checks; otherwise keep it pending.
 
-**Failure and recovery.** Keep writes, publication and Actions blocked on any failed
-gate. A failed file rolls back only its own transaction; inspect the installed
-state before resuming, never blindly rerun committed files. Prefer a reviewed
-forward fix on `develop`, with new owner authorization to publish it. Restoring
-only an old Vercel deployment or moving `main` back is incompatible with the new
-schema. A full rollback requires separately authorized restoration of the verified
-pre-migration database backup and matching API/web/scraper SHA while access remains
-blocked; reconcile any post-backup writes first. Sent notifications cannot be undone;
-inspect ambiguous `claimed` events and receipts instead of replaying them blindly.
+3. **Configure access and notification accounts.** Edit `.env` with unquoted
+   `NAME=value` entries, without surrounding spaces. Set a private `ACCESS_KEY`
+   and a random `SESSION_SECRET` of at least 32 UTF-8 bytes. Generate secrets
+   with a password manager and save them privately, not in commands or chat.
+   Set `NTFY_TOPIC` to a random private name of at least 24 characters from
+   letters, digits, `_` and `-`. In the ntfy phone app, add a subscription on
+   `https://ntfy.sh` with that exact topic; allow notifications and background
+   delivery. The topic acts as a shared secret; do not use a predictable name.
+   In your Google account Security settings, enable two-step verification,
+   open App passwords and create one for Scrappy. Store it as
+   `GMAIL_APP_PASSWORD` without grouping spaces; use the full sender address
+   for `GMAIL_USER` and the recipient for `NOTIFY_EMAIL_TO`. If App passwords
+   is unavailable under your account policy, that account cannot configure this
+   SMTP path; use an eligible Gmail account rather than its login password.
+   Both channels are attempted independently; each result is recorded.
 
-## Local setup (PowerShell)
+   For local web/API, the four required values are `ACCESS_KEY`,
+   `SESSION_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.
+   Add the four notification values for Settings and the fallback runner.
+   Leave `VERCEL` unset locally. Run `npm run dev`, open
+   `https://localhost:5173`, accept its local certificate warning and sign in.
+   Stop with Ctrl+C. Local readings use `.venv`, without GitHub credentials.
+
+4. **Publish only the owner's reviewed release.** The owner promotes it to
+   `main` and makes `main` the GitHub default branch. In Vercel Hobby, import
+   the repository with root directory `.`, Vite preset, Node 24.x, Production
+   Branch `main`, install `npm ci`, build `npm run build`, output `dist`.
+   Keep `vercel.json`; enable automatic system environment variables for
+   `VERCEL=1`. Configure the ten Production-only values in the
+   [server values table](#server-values-to-configure-when-publishing), replacing
+   `SRT0808/Scrappy` with your repository for `GITHUB_REPO`. Create the API's
+   fine-grained GitHub PAT for that repository with Actions read/write and
+   record its expiry. Deploy after setting the values; changing them requires
+   another deployment. Use the free HTTPS `*.vercel.app` origin, with Scrappy
+   login accessible for ordinary use. Preview gets no production credentials.
+
+5. **Configure the cloud runner and watchdog.** In GitHub Settings → Secrets
+   and variables → Actions, add the seven secrets from that same table: both
+   Supabase values, four notification values and `HEALTHCHECK_URL`. Do not copy
+   the API PAT into Actions; checkout uses GitHub's built-in token. Create a
+   Healthchecks check with Simple schedule, period 3 hours and grace 9 hours,
+   add/verify its email integration and enable failure/recovery delivery. Save
+   its `https://hc-ping.com/<uuid>` URL as `HEALTHCHECK_URL`. About 12 hours
+   without a success can produce an absence alert. Leave the check active;
+   outages/maintenance may therefore notify you. A local CLI run never pings it.
+
+6. **Use exactly one scheduler: cron-job.org → Actions.** Keep **Check prices**
+   enabled for dispatch on `main`; its workflow has no native `schedule`.
+   In cron-job.org create a job initially disabled. Use POST, timeout 30 seconds,
+   no redirect-as-success, save responses, timezone UTC, every day at minute 0
+   of hours `0,3,6,9,12,15,18,21`, with no expiry. Enable provider email alerts
+   for first failure, recovery and automatic disabling. Request URL:
+   `https://api.github.com/repos/OWNER/REPO/actions/workflows/check-prices.yml/dispatches`.
+   Add headers `Accept: application/vnd.github+json`,
+   `Content-Type: application/json`, `X-GitHub-Api-Version: 2026-03-10`,
+   `Authorization: Bearer <dedicated scheduler PAT>` and body
+   `{"ref":"main","inputs":{"mode":"all"}}`. The dedicated fine-grained
+   PAT has Actions read/write only for your repository; retain it privately and
+   record expiry/rotation. No CRONJOB API key is needed for console operation.
+   Enable the job only when the database/secrets/release are ready for real
+   writes and alerts. Do not enable a second scheduler or Windows fallback.
+   Existing installation: job `8633587` is already enabled; do not recreate it.
+
+7. **Operate and diagnose.** The cadence is UTC every 3h (Lima 01:00, 04:00,
+   07:00, 10:00, 13:00, 16:00, 19:00, 22:00). `all` selects due active/error
+   products using their own intervals, refreshes FX and processes baskets;
+   a successful run with zero due products is valid. The panel adds/repairs
+   products with confirmed price/currency, pauses products, edits goals and
+   displays history; **Revisar ahora** bypasses an individual interval.
+   Check provider history, the corresponding Actions run on `main`/release SHA,
+   runner summary, Supabase `runs` completion/counts and notification records,
+   then Healthchecks' last success. A provider HTTP acceptance alone does not
+   prove execution or persistence. Inspect expired PATs, disabled jobs, failed
+   Actions steps, missing secrets and shop-block evidence in that order as
+   applicable. Do not resend notifications or force reviews to fix bookkeeping.
+   Preserve partial runs/data; fix code on `develop` and let the owner promote.
+   Retain private evidence separately before workspace cleanup. Monitor account
+   usage/cache/database size in provider dashboards, stay on free plans and do
+   not enable paid overage. The measured mission limits below are historical,
+   not a promise of future punctuality or allowance.
+
+### Windows plan B: residential-IP runner
+
+Use the same CLI/database when an Actions IP cannot read a shop. This is a
+manual operational fallback, not an acceptance replay or a second live writer.
+It performs real reviews, FX/snapshots, alert-state changes and applicable
+ntfy/email sends. It does not solve every block and is not offline scraping.
+
+Before switching, disable the cron-job.org job and **Check prices** workflow,
+wait for running Actions jobs to finish and cancel any queued jobs. Also wait
+for **Probe extractor** jobs sharing the cloud queue. Stop local runners and
+`npm run dev`; refrain from deployed UI mutations/readings/**Revisar ahora**
+and Settings notification tests throughout the fallback. Disabling a workflow
+does not cancel existing jobs. Never rely on Actions concurrency or stale-write
+rejection to serialize a Windows runner with cloud/API work. Keep Healthchecks
+active: its cloud-heartbeat absence alert remains expected during fallback and
+must not be suppressed by synthetic/local pings.
+
+After completing setup steps 1–3, create the following private file
+`.scrappy/run-local.ps1` using a text editor. No secret belongs in this file or
+in Task Scheduler arguments; it loads the existing root `.env` at each run.
 
 ```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ./scraper
-Copy-Item .env.example .env
-# Fill SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env, then load them:
-Get-Content .env | ForEach-Object {
+$ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location -LiteralPath $repoRoot
+Get-Content -LiteralPath (Join-Path $repoRoot '.env') -Encoding UTF8 | ForEach-Object {
     if ($_ -match '^([A-Za-z_][A-Za-z0-9_]*)=(.*)$') {
         [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process')
     }
 }
-.\.venv\Scripts\python.exe -m scrappy.run --mode all
+Remove-Item Env:GITHUB_EVENT_NAME -ErrorAction SilentlyContinue
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $repoRoot '.scrappy/browsers'
+& (Join-Path $repoRoot '.venv/Scripts/python.exe') -m scrappy.run --mode all
+exit $LASTEXITCODE
 ```
 
-Python 3.11+ is required. The CLI selects overdue active products, uses saved domain
-recipes, validates fresh readings and atomically records each review and its
-attempts. Rejected readings preserve the last valid price and increment the failure
-counter; accepted readings reset it. Completed runs record review counts; interrupted
-runs retain partial counts without claiming completion. Connection errors exit
-nonzero with no credentials in logs. Apply the alert recovery migration before
-running this version: active and error products are reviewed, three consecutive
-failures set status to error, and an accepted reading restores active status.
-Supported modes are `all`, `product` (requires a UUID `--product-id`, bypasses the
-interval for an active/error product), and `test_notification` (no price reviews).
-The CLI reads process environment variables; `.env` is loaded
-by the PowerShell snippet above. Use unquoted values. Keep all credentials out of
-source control and client code.
-
-## Session authentication API
-
-Node.js 22.12+ is required. Run `npm ci` to install the locked dependencies.
-Configure `ACCESS_KEY`, `SESSION_SECRET` (at least 32 UTF-8 bytes),
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` on the Vercel server. Use a random
-session secret; these values must never use a `VITE_` prefix or enter a client
-bundle. `.env.example` lists the names without credentials.
-
-For local web and API development, put these four values in the root `.env`:
-`ACCESS_KEY` (your login key), `SESSION_SECRET` (a random secret of at least 32
-UTF-8 bytes), `SUPABASE_URL`, and `SUPABASE_SERVICE_ROLE_KEY` (server key).
-The existing Supabase project must have the login migration installed (migration
-4 below); list operations also need migration 5. No Vercel account, CLI or login
-is needed. Local product readings run the existing Python CLI from `.venv`
-automatically; install the scraper dependencies using Local setup above.
-`GITHUB_TOKEN` and `GITHUB_REPO` are needed only for deployed readings through Actions. Notification and migration
-setup variables are not needed to start the web/API. Leave `VERCEL` unset.
-
-| Endpoint | Behavior |
-|---|---|
-| `POST /api/login` | Same-origin JSON `{ "key": "..." }`; 200 on success, 401 for a wrong key, 429 with `Retry-After` when limited. |
-| `GET /api/session` | 200 with `{ "authenticated": true }` for a valid session; otherwise 401. |
-| `POST /api/logout` | Requires a valid session and same origin; clears the cookie. |
-
-Login uses a constant-time digest comparison. Sessions last 30 days and use the
-signed `__Host-scrappy_session` cookie with `Path=/`, `HttpOnly`, `Secure` and
-`SameSite=Strict`; HTTPS is required. Rotating either access credential invalidates
-existing sessions. Responses are never cached and never return the session token.
-All future protected API routes must use the existing `withSession` guard.
-
-Apply migration 4 below before using login. The RPC `record_login_attempt` admits
-five attempts per IP in a rolling 15-minute window, including successful attempts.
-A transaction-level advisory lock serializes the count and insert for equivalent
-addresses across serverless instances ([PostgreSQL advisory locks](https://www.postgresql.org/docs/current/explicit-locking.html#ADVISORY-LOCKS)).
-The sixth attempt is not inserted and returns the remaining wait in seconds;
-even a correct key cannot bypass it. An attempt exactly 15 minutes old is outside
-the window. Each new attempt removes records older than one day for that IP.
-Only `service_role` can execute the invoker-security RPC; the table retains RLS
-with no public policies. Missing trusted IPs and database failures return 503
-without issuing a session. On Vercel, only `x-vercel-forwarded-for` is used; local
-execution uses the socket address and ignores forwarded headers.
+Run manually from the repository root after excluding all other writers:
 
 ```powershell
-npm run test:auth # Also compiles the affected TypeScript.
-# Before installing migration 4: preview it with all fixtures rolled back.
-npm run test:auth:sql
-# After installing migration 4: test permissions and real concurrent RPCs.
-npm run test:auth:sql -- --installed
+powershell.exe -NoProfile -File .\.scrappy\run-local.ps1
+# Inspect exit status, completed Supabase runs (trigger=local), counts and deliveries.
+$LASTEXITCODE
 ```
 
-SQL tests load `.env` directly and require the existing local
-`SUPABASE_ACCESS_TOKEN`. Installed-mode concurrency tests also require
-`SUPABASE_SERVICE_ROLE_KEY`: they create random documentation-only IP fixtures,
-wait for all requests to finish and remove the rows in `finally`. The migration
-remains installed; transactional fixtures are rolled back. Prefer a test project
-for routine checks. No access key or session secret is needed for these SQL tests.
+For unattended Windows operation, open Task Scheduler → Create Task, name it
+`Scrappy local fallback`, select your Windows user and **Run only when user is
+logged on**, without highest privileges. Create a daily trigger repeating every
+3 hours for 1 day, enabled. Action: program
+`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`; arguments
+`-NoProfile -File "C:\Users\seba_\Proyectos_Personales\Scrappy\.scrappy\run-local.ps1"`;
+Start in `C:\Users\seba_\Proyectos_Personales\Scrappy`. Replace both paths for
+your checkout. Settings: **If the task is already running: Do not start a new
+instance**; disable automatic retries and missed-start catch-up. Do not set an
+arbitrary forced-stop time that can interrupt persistence. On a laptop, choose
+whether to allow battery runs in Conditions; it must match your availability
+expectation. Keep the same Windows user logged on with network access. If local
+script execution is blocked by policy, resolve it under your Windows policy;
+do not disable machine-wide protections or store an account password in commands.
 
-Verified on 2026-10-08: compilation and 13 authentication unit tests passed;
-migration preview and installed SQL assertions passed, including denied calls as
-`anon`/`authenticated`, permitted calls as `service_role`, invalid addresses,
-expiration and pruning. Twelve concurrent service-role REST RPC requests using
-equivalent IPv6 spellings admitted exactly five and blocked seven; a concurrent
-request from a different IP succeeded, the exhausted IP also blocked a successful
-attempt, and exactly five rows remained before fixture cleanup. All concurrent
-fixture rows were confirmed removed. Vercel deployment remains pending.
+Task history/Last Run Result `0` indicates CLI completion, not success of every
+shop or delivery; inspect `runs`, product state and `notifications`. Nonzero
+results or a missing `finished_at` need investigation before retrying. Windows
+off, asleep, logged out or disconnected means no guaranteed review, catch-up,
+notification or watchdog for the local task. Healthchecks still watches the
+stopped cloud runner, not local health. A missed task does not replay historical
+slots; the next `all` run selects currently due products.
 
-## Lists API
+To return to cloud operation, disable/delete `Scrappy local fallback`, wait for
+its Python process/manual runs to finish, then enable **Check prices** and the
+original cron-job.org job at its 3h UTC schedule. Resume UI use only after the
+handover. Observe the next ordinary Actions completion and heartbeat recovery;
+do not repeat the accepted six-slot mission, deliberate outage or channel tests.
+No deletion/rollback of prior data or sent notifications is part of switching.
 
-All routes require the existing signed session. Mutations require the same origin;
-POST, PATCH and PUT accept JSON only. Responses use `no-store` and Spanish errors.
+Documentation verification (2026-10-14 Lima): the ordered path was checked
+against all 11 migration filenames, `.env.example`, `vercel.json`, the dispatch
+workflow and CLI/notification code. The PowerShell wrapper was parsed locally;
+no secrets were loaded, fallback task installed or real run/acceptance repeated.
 
-| Endpoint | Request and response |
-|---|---|
-| `GET /api/lists` | 200 `{ "lists": [...] }`, sorted by position, creation time and ID. |
-| `POST /api/lists` | `{ "name": "...", "emoji": "📱" }`; 201 `{ "list": {...} }`, appended to the order. Emoji is optional. |
-| `PATCH /api/lists/:id` | `{ "name": "..." }`; 200 `{ "list": {...} }`. Optional emoji replaces the current value; `null` clears it. |
-| `PUT /api/lists/reorder` | `{ "ids": ["uuid", "uuid"] }`; 200 `{ "lists": [...] }`. Include every list exactly once; an empty collection accepts `[]`. |
-| `DELETE /api/lists/:id` | 200 `{ "deleted": true }`; 409 if products still reference the list. |
-
-Names are trimmed and contain 1–100 Unicode code points; emoji accepts up to 16.
-Unknown fields and malformed IDs return 400. Missing lists return 404; a stale
-collection during reorder returns 409 so the client can reload. Storage failures
-return a generic 503 without exposing database details or credentials.
-Migration 5 provides the service-role-only invoker RPC `mutate_list`. A table lock
-serializes mutations, including direct table writes, while allowing reads. Reorder
-validates the complete ID set before updating; deletion compacts the remaining
-positions without removing products or their history. No client Supabase access
-or additional credentials are required.
-
-```powershell
-npm run test:lists
-npm run test:lists:sql # Preview migration and fixtures transactionally.
-npm run test:lists:sql -- --installed # Test the installed function; fixtures roll back.
-```
-
-Verified on 2026-10-08: 12 API tests and transactional PostgreSQL assertions passed,
-including session/origin rejection, validation, service-role permissions, reorder
-rollback, missing lists and nonempty deletion. Migration 5 and the lists screen
-are complete; Vercel deployment remains pending.
-
-## Web access
-
-The React/Vite access screen uses locally bundled Inter, dark Tailwind tokens and
-shadcn/ui button/input primitives. Tailwind follows its official
-[Vite integration](https://tailwindcss.com/docs/installation/using-vite).
-It restores the session before showing the form, confirms cookie acceptance after
-login, and clears the entered key after each request. No credentials or session
-tokens enter browser storage. Failed restoration offers a retry; failed logout
-keeps the authenticated view so it can be retried. A 401 during logout returns to
-access because the session is already invalid. Authentication requests time out
-after 15 seconds and display fixed Spanish messages, including the rate-limit wait.
-
-```powershell
-npm run dev      # Web + API together at https://localhost:5173; loads root .env.
-npm run test:dev # HTTPS integration: routing, login, cookies and malformed bodies.
-npm run test:web # UI flow, transport errors and boundary cases.
-npm run build    # Server/client type checks and production bundle.
-```
-
-Open `https://localhost:5173`, accept the local self-signed certificate warning,
-then log in with your `ACCESS_KEY`. The development-only
-[basic SSL plugin](https://github.com/vitejs/vite-plugin-basic-ssl) generates its
-certificate under ignored `.scrappy/certs/`; no global certificate installation
-is required. Use that exact HTTPS address throughout the session. The server binds
-to localhost and fails if port 5173 is occupied. Stop the previous Vite process
-first. Restart `npm run dev` after editing `.env`; API TypeScript edits reload
-through [Vite's server module loader](https://vite.dev/guide/ssr.html).
-For a phone on the same Wi-Fi, run `npm run dev -- --host 192.168.1.4`, replacing
-the example address with the PC's Wi-Fi IPv4 address from `ipconfig`. Open
-`https://<PC-Wi-Fi-IP>:5173` on the phone, accept the local certificate warning
-and sign in with `ACCESS_KEY`. Keep the PC and development server running;
-`localhost` on a phone refers to the phone itself. This command serves web and API
-together and binds only to the selected network address.
-The local middleware executes the original `api/` handlers, parses JSON bodies,
-and returns JSON 404s for unknown API routes instead of the web's HTML fallback.
-It preserves the production cookie flags, origin checks and database rate limit.
-The adapter maps HTTP/2 `:authority` to `Host` before origin validation so browser
-requests work over TLS as well as HTTP/1.1 requests.
-Credentials remain in Node's process environment; never prefix them with `VITE_`.
-On Vercel, Vite builds `dist/` and Functions serves unchanged `api/` handlers.
-`npm run preview` only previews the production frontend; it does not run the API.
-
-## PWA and local acceptance
-
-Run `npm run dev:pwa` on Windows and open `https://localhost:5173`.
-This builds and serves the real PWA plus the same local API with one command.
-Stop the existing server first, and keep the PC running. Regular `npm run dev`
-keeps hot reload; use `dev:pwa` for installation, offline and update acceptance.
-Changes require rebuilding; `npm run build` while `dev:pwa` is running publishes
-the next local version. Reopen the app to detect it, then choose **Actualizar**
-after saving pending edits; **Más tarde** keeps the current version.
-
-For development acceptance, use the local `localhost` origin and emulate a mobile
-viewport in the browser on Windows. No phone setup, certificate authority, or
-second device is needed. Check the screens and product, list, settings, and sign-in
-flows locally. Real PWA installation on Android/iPhone, opening the installed app,
-public HTTPS, and offline behavior on a physical device belong to the deployment
-phase, after Vercel is configured. The service worker precaches only static app
-files and bundled fonts/icons; API responses, sessions, product data, and store
-images are not cached, and mutations are not queued offline. The browser checks
-the server session each time the app launches.
-
-Manual checks (no developer tooling required beyond PowerShell):
-
-```powershell
-# In another terminal while npm run dev is running:
-curl.exe -k -i https://localhost:5173/api/session
-# Expected before login: 401, application/json, Spanish login error (never HTML).
-curl.exe -k -i https://localhost:5173/api/unknown
-# Expected: 404, application/json.
-```
-
-In your browser, enter `ACCESS_KEY`, confirm Home appears, reload to
-confirm the session persists, and log out to return to access. In the browser's
-Network panel, `POST /api/login` and the subsequent `GET /api/session` must return
-200 JSON with `authenticated: true`. A 503 on login means server configuration,
-Supabase connectivity or the login migration needs checking; a 429 means wait for
-`Retry-After` (five attempts per IP every 15 minutes, including successful logins).
-Do not put the real access key in a shell command or commit it.
-Home provides product cards, list selection, filters, sorting and product details.
-Settings is available from Home. The default interval (3, 6, 12 or 24 hours)
-is stored under `settings.default_interval_hours`; an absent key means six
-hours. New product readings load this value before confirmation, and existing
-products retain their individual intervals. Settings also shows the latest
-recorded run and notification history in pages of 20 attempts.
-The test button sends once to both ntfy and Gmail SMTP, using the existing
-server-only notification variables in `.env.example`, and records each outcome
-independently. Nodemailer provides SMTP delivery for the TypeScript API.
-If a connection or audit fails, inspect the history and channel before repeating
-the test; delivery may have succeeded even if its result was not recorded.
-No additional migration or account is required for Settings.
-
-Final phase-three local review passed on 2026-10-09. Access, Home, lists, adding
-with confirmation, product details and Settings were accepted at 320/390 px,
-including updates, logout, offline recovery and static-only caching. The closing
-review corrected an abandoned product load that could hide the empty-list state
-and restored PWA mocks in the two affected web suites. Local development is ready
-for deployment; moving to main is the owner's decision. Public HTTPS, production
-Actions/integrations and physical PWA installation still require deployment acceptance.
-
-## Phase-three deployment handoff (2026-10-10)
-
-The owner authorized release commit `1e7d765a293a466c7024db60d069b9bb5f7155be`;
-remote `main` now points to that exact commit and is GitHub's default branch.
-`Check prices` was manually disabled during setup. All seven repository Secrets
-are present; all ten Vercel values exist locally, and the readings table has RLS
-with both creation/confirmation RPCs installed. Secret presence does not verify
-delivery. The owner configured Vercel using the existing private values from
-`.env`. Do not promote later documentation commits just to deploy this release.
-Local acceptance remains valid; phase-three production and physical PWA
-acceptance are complete (SPEC 12/14), as confirmed by the owner below.
-
-The owner deployed [Scrappy](https://scrappy-silk.vercel.app/) on 2026-10-10.
-Public HTTPS, API authentication/session/logout, cookie flags, protected routes,
-PWA static assets and both notification channels passed directed checks.
-`Check prices` is now enabled: notification/heartbeat run `38081645601` and
-Adafruit reading run `38081651363` succeeded on the reviewed `main` SHA.
-The owner confirmed successful physical PWA installation and all functionality
-on 2026-10-10, completing phase-three acceptance. Phone/browser details were not
-provided; this is the owner's acceptance, not an independently repeated UI test.
-A scheduled `all` run on `main`, Vercel release metadata, a later approved PWA
-update and the controlled heartbeat-outage test remain phase-four follow-ups.
-
-### Configuration ready in the repository
-
-`vercel.json` selects Vite, installs the lockfile with `npm ci`, runs the existing
-typechecked PWA build and publishes `dist`. The 10 TypeScript files in `api/`
-remain native Node functions; Python and browser scraping stay in Actions.
-Functions have a 60-second limit, including Settings SMTP; the app shell and
-`sw.js` must revalidate so the existing update prompt can detect a new release.
-There is no catch-all rewrite to HTML over API routes. The UI uses the root URL.
-Only `main` can trigger automatic Git deployments; this does not prevent manual
-deployments or select the project's Production Branch for you.
-See [Vercel configuration](https://vercel.com/docs/project-configuration/vercel-json)
-and [Git deployment rules](https://vercel.com/docs/project-configuration/git-configuration).
-
-`check-prices.yml` now guards the job with `github.ref == 'refs/heads/main'`.
-`main` is now GitHub's default branch; the workflow is enabled for cron and
-dispatch following the production checks above. The API dispatches `reading` and
-`product` with `ref: main`; `reading`
-requires `reading_id`, and `product` requires `product_id`. The workflow retains
-one shared queue, no cancellation, and a 20-minute timeout. Reading mode does not
-send alerts or ping the production heartbeat. GitHub schedules run on the default
-branch and can be delayed; [workflow trigger documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule).
-
-### Server values to configure when publishing
-
-Use existing private values from `.env` where appropriate; never paste them into
-chat, source files, screenshots or shell command arguments. Configure Vercel values
-for **Production only**, with sensitive storage for credentials. Leave Preview
-and Development without production credentials. Changes to Vercel variables need
-a new deployment: [environment scopes](https://vercel.com/docs/environment-variables)
-and [sensitive values](https://vercel.com/docs/environment-variables/sensitive-environment-variables).
+## Server values to configure when publishing
 
 | Value | Vercel Production | GitHub repository Secrets | Requirement |
 |---|---|---|---|
@@ -434,408 +262,244 @@ Vercel supplies `VERCEL=1` automatically; enable automatic system environment
 variables in the project. Authentication relies on that flag for HTTPS origin
 checks and the trusted `x-vercel-forwarded-for` address.
 
-### Ordered release steps — only after the owner's decision
+## Development and release reference
 
-1. Review the accumulated working-tree changes and commit the accepted work on
-   `develop`, excluding `.env`, `.scrappy/` and local certificates. Push `develop`
-   only after that review. Record the exact release commit; do not publish a
-   partial phase-three tree. All six Supabase migrations are recorded as installed;
-   confirm migration 6's `product_readings` table/RPCs remain present and RLS is
-   enabled. Do not rerun migrations on the existing project.
-2. In GitHub, confirm the seven repository Secrets in the table and the available
-   Actions allowance. Keep **Check prices** disabled in Actions during setup.
-   Subscribe to the topic in the ntfy phone app, confirm the Gmail app password,
-   and retain the existing Healthchecks 3-hour period/9-hour grace configuration.
-   Disabling a live workflow may trigger its missing-heartbeat alert.
-3. The owner creates remote `main` from the exact reviewed `develop` commit
-   (GitHub Branches → New branch, source `develop`, for this first release), then
-   makes `main` the default branch in repository settings. For later releases,
-   review a `develop` → `main` PR. The agent must not create, commit or merge on
-   `main` as part of preparation. Return local development to `develop`.
-4. Create a personal Vercel **Hobby** account/project only now, import
-   `SRT0808/Scrappy` and select `main` for the initial deployment. Verify Production
-   Branch tracking is `main` before publication: Vercel can otherwise select the
-   default branch. Root directory is the repository root; preset is Vite; use
-   the install/build/output values above. Select Node **24.x**, matching the
-   current Windows runtime and the package's `>=22.12` requirement. Node 24.x
-   and 22.x are supported: [Node versions](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions).
-   Add the ten Production values before deploying. Use the free `*.vercel.app`
-   domain and its public HTTPS; no paid domain or local certificate is needed.
-5. Confirm the build succeeds and all 10 API functions are present. Ensure
-   the production URL is accessible for normal PWA use with Scrappy's own login.
-   Check unauthenticated `/api/session` returns 401 JSON with `Cache-Control:
-   no-store`; `/api/login` must execute a function, not serve app HTML. Log in
-   through the browser and check session persistence/logout and cookie flags
-   `Secure`, `HttpOnly`, `SameSite=Strict`, `Path=/`. If login returns 503,
-   inspect configuration, trusted IP handling and Supabase connectivity before
-   attempting product mutations.
-6. When ready for real reviews and alerts, enable **Check prices**. This also
-   enables the three-hour cron against real stored products; it cannot be treated
-   as a fixtures-only test. Manually dispatch `test_notification` on `main` once,
-   confirm both deliveries and a successful heartbeat, and inspect its summary.
-   Then use the deployed UI to read a known supported URL (Adafruit from the
-   recorded probe is a candidate), confirm the workflow ran on `main` in `reading`
-   mode, select/confirm the result once and use **Revisar ahora**. Verify `product`
-   mode updated history and that a scheduled `all` run later succeeds.
-7. On the owner's physical phone, open the stable production URL and install as
-   a PWA using the browser's installation/Add to Home Screen flow. From the
-   installed app verify access, list CRUD, add/confirm, details/charts/edit/pause,
-   Settings/default interval, one notification test and **Revisar ahora**.
-   Check offline notice and blocked mutations, reconnection and logout. For the
-   update prompt, use a later approved deployment and verify defer/apply behavior
-   on that same origin. Never publish an unreviewed change only to test updates.
-   Record the release SHA, URL, phone/browser, Actions run IDs, receipt outcomes
-   and pass/fail results in STATUS without private values. Close Fase 3 only when
-   this physical PWA flow passes; Fase 4's deliberate heartbeat outage stays separate.
-
-Hobby is for personal noncommercial use; inspect its included resources before
-activation and stay on the free plan: [Hobby limits](https://vercel.com/docs/plans/hobby).
-GitHub Free currently includes 2,000 private-repository minutes monthly; confirm
-the account's remaining shared quota and keep paid overage disabled. At eight
-scheduled jobs daily, estimate `240 × average billed minutes per job` for 30 days,
-plus manual reading/review/probe runs; measure new runs instead of assuming probe
-timings describe production. [Actions billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
-
-If acceptance fails, keep Fase 3 open, disable **Check prices** to stop new reviews,
-and let any running job finish (disabling is not cancellation). Resolve the defect
-on `develop`; publishing that correction still requires the owner's decision.
-For later releases, Vercel can restore a previous accepted deployment, but this
-does not revert Supabase data, already sent notifications or the workflow in
-`main`. The first release has no previous accepted deployment; use local
-`npm run dev` while correcting it. Do not delete data or repeat sends blindly.
-
-## Notifications
-
-Configure `NTFY_TOPIC` as a random private topic of at least 24 URL-safe characters,
-subscribe to it in the ntfy phone app, and set `GMAIL_USER`, `GMAIL_APP_PASSWORD`
-(Google app password with two-step verification) and `NOTIFY_EMAIL_TO`.
-The same four secrets are already wired into Actions. No new account is required
-for ntfy. Publishing uses [ntfy JSON](https://docs.ntfy.sh/publish/) over HTTPS;
-email uses [Gmail SMTP](https://support.google.com/a/answer/176600) over SSL on
-port 465, with plain text and escaped HTML.
-
-Both channels are attempted independently, with sent/failed rows in notifications;
-credentials, the private topic and raw transport errors are excluded from history.
-A goal triggers at or below the target and changes state only after at least one
-confirmed send. Both delivery failures leave it eligible for the next review.
-Triggered goals repeat only at an additional drop of at least 5% from the last
-notified price; rearming requires a price strictly above 103% of the target.
-Decimal arithmetic preserves exact inclusive/exclusive threshold comparisons.
-Unavailable and rejected readings cannot send goal alerts. Suspicious changes are
-reported after their review is persisted. Read-failure reminders are limited to
-one pair of attempts every seven days within a failure streak, including failed
-delivery attempts; a successful reading starts a new streak.
-
-Actions serializes runs in the existing concurrency group. Avoid simultaneous
-local and Actions runs. External delivery and database writes cannot be atomic:
-a process crash or database failure after delivery can cause a repeated message.
-Audit failures fail the run after still attempting both channels, and state writes
-reject a changed review/alert version.
-
-Phase 2 delivery acceptance passed on 2026-10-08: two local reviews of isolated
-product `587d4cb6-2192-4252-acd6-064ad3c1d82a` with a controlled HTML fixture at
-S/ 100 produced exactly one `goal_reached` sent record per channel. The second
-review added no notifications; the product ended triggered and was paused.
-The owner confirmed one phone push, one email, correct accents and a working link.
-The recovery migration SQL integration and final manual code review passed;
-configure the same four repository secrets before enabling production Actions.
+`npm run dev` serves web/API together and loads root `.env`; restart it after
+changing values. It binds localhost:5173 and fails if occupied. `npm run preview`
+serves only the frontend. Local readings launch `.venv` Python without GitHub.
+Development uses Windows/localhost with mobile emulation; physical PWA and public
+HTTPS acceptance belong to deployment and are already recorded for this install.
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_alerts.py -v
-.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_notifications.py -v
-# Sends real push and email; only run after configuring the four secrets:
-.\.venv\Scripts\python.exe -m scrappy.run --mode test_notification
+npm run build
+npm run test:dev
+npm run test:web
+.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_extract.py -v
+# Isolated PostgreSQL 18 fixtures; no .env or production writes:
+node tests/basket-items-sql.mjs
+node tests/basket-snapshots-sql.mjs
+node tests/basket-alerts-sql.mjs
+node tests/basket-experience-sql.mjs
 ```
 
-## Extractor probe
+Run only checks affected by your change. `POSTGRES_BIN` overrides the PostgreSQL
+binary directory; each SQL runner removes its isolated database. The legacy
+`test:baskets:sql` fixtures target an intermediate schema, not today's contract.
+The two opt-in Supabase integrations remain omitted under the owner's SPEC §15
+waiver; these local commands do not claim they passed.
 
-Run the fixed sample of 15 products from 12 domains (7 Peruvian URLs), after
-installing the package with the setup above:
+`npm run dev:pwa` builds and serves the PWA locally. Stop any previous server;
+rebuild to test updates, then reopen and choose **Actualizar** or **Más tarde**.
+Only static assets are precached: API/session/product data are not cached and
+mutations are not queued offline. Each launch checks the server session.
+
+Access uses `ACCESS_KEY`, an HttpOnly/Secure session cookie and same-origin checks;
+no credentials enter browser storage. Login is limited to five attempts per IP
+per 15 minutes (including successful attempts); respect `Retry-After` on 429.
+A 503 suggests configuration, Supabase connectivity or migration trouble.
+Anonymous `/api/session` returns 401 JSON; unknown `/api/*` returns 404 JSON.
+
+Add/repair reads a public product URL, shows candidates/confidence and accepts an
+optional CSS selector. Confirm price/currency before saving. Repair of the same
+article preserves ID, history, goals and basket memberships; a different article
+uses normal creation. Local failed-reading HTML stays in `.scrappy/readings/`.
+Production `reading` dispatch needs `reading_id`; `product` needs `product_id`.
+Both target `main`. Reading previews send no notices or production heartbeat;
+`product` bypasses its interval and also evaluates basket alerts.
+
+Individual goals trigger at/below target, repeat at an additional 5% drop and
+rearm strictly above 103% of target. Both channels are attempted independently;
+three consecutive reading failures mark error, and recovery restores active.
+Failure reminders are limited to one pair of attempts per seven-day failure streak.
+Basket goals require complete totals and rearm strictly above 103% of budget or
+on a new budget/currency/composition. Ambiguous `claimed` events require manual
+inspection before retrying. External delivery and DB writes cannot be atomic;
+inspect receipts after interrupted runs rather than blindly sending again.
+Statistics require 14 days and 10 complete snapshots per composition series.
+
+For extractor diagnosis (network access, saved private HTML, no price persistence):
 
 ```powershell
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path (Get-Location) '.scrappy/browsers'
-.\.venv\Scripts\scrapling.exe install
 .\.venv\Scripts\python.exe -m scrappy.probe scraper/urls.txt --output .scrappy/local.json --state .scrappy/local-recipes.json
 ```
 
-The CLI tries browser-fingerprinted HTTP, Chromium, then stealth, with one attempt
-per mode, a 25-second navigation/request timeout and random 2–8 second pauses.
-Domains are interleaved. A remembered successful mode runs first on later probes.
-Use `--timeout 30` to change the timeout or `--max-mode http` to limit escalation.
-URLs must be HTTP(S) without embedded credentials. No account login is performed.
-HTTP errors and challenge pages cannot count as successful reads.
+`--persist-recipes` additionally reads/writes Supabase domain recipes and needs
+server environment values loaded as in the Windows wrapper. CSS is primary;
+adaptive relocation (80% structural similarity) requires confirmation. Reports
+include strategy/mode/confidence, response metadata and HTML hashes, without
+request headers/credentials. Unsupported shops remain explicit failures.
 
-Extraction tries JSON-LD, meta/microdata, an owner CSS recipe and visible-price
-candidates. It rejects nonpositive prices, ambiguous currencies, conflicting
-prices and low-confidence candidates. JSON-LD supports nested products, graphs,
-arrays, offer references, price specifications and aggregate low prices.
-Unavailable offers retain their availability, and the lowest available offer is
-preferred. Out-of-stock products count as readable; alerts belong to phase two.
-Heuristics exclude installments, shipping, tax, struck prices and related products.
-Candidate selection and CSS teaching are available in Add product. Review-time validation confirms large
-price changes with a fresh reading before persistence.
+For an existing database release, exclude Actions, API and local writers, record
+installed migrations and take a private recoverable backup before SQL changes.
+Migration files commit separately: stop on error and inspect the installed ledger.
+Migration `20261011010000` removes `products.list_id` and renames basket fields;
+old API/scraper code is incompatible. Publish matching API/web/scraper versions.
+A frontend-only rollback cannot undo a schema migration. Prefer a reviewed
+forward fix; restoring DB and matching code requires the owner's decision.
+New work stays on `develop`; only the owner promotes to `main` (which can deploy).
 
-JSON and Markdown reports contain each URL's name, price, currency, strategy,
-confidence and successful mode. Each attempt records HTTP status, final URL,
-duration, body size and SHA-256; returned HTML is stored beside the report for
-diagnosis. Exceptions retain their type without arbitrary response/cookie text.
-Reports do not contain request headers or credentials. `.scrappy/` is ignored.
-The CLI exits nonzero for invalid input or persistence failures; individual
-unreadable shops are reported and do not abort the sample. A score below 70%
-requires reviewing the evidence and proposing adjustments before phase two.
+Scheduler PAT expiry recorded by the owner: **2027-04-11**; rotation date
+**2027-04-04**. Replace the dedicated token privately in cron-job.org, record the
+new dates and revoke the old token. These dates do not prove a reminder exists.
 
-`--persist-recipes` additionally loads/saves `domain_recipes` through the server
-Supabase REST API, using the existing two Supabase environment variables. It
-updates only successful modes and preserves owner selectors. Without that flag,
-recipes stay in the local JSON state file; no Supabase credentials are required.
-The manual **Probe extractor** workflow uses the same sample, compares against
-`scraper/results/local.json`, writes its summary and retains HTML evidence as the
-`probe-results` artifact for seven days. It shares the scheduled job's concurrency
-group and browser cache, and does not ping the production heartbeat.
+## Global closure audit (2026-10-14 Lima, SPEC 14/15)
 
-Adaptive fingerprints use a JSON storage adapter for pinned Scrapling 0.4.15 and
-the existing `domain_recipes.adaptive_state` column. CSS is always tried first;
-relocation is a fallback at 80% structural similarity and requires confirmation,
-even when it finds a valid price. Fingerprints are isolated per product URL;
-changing the pinned version invalidates old fingerprints. This avoids relying on
-an ephemeral runner's default SQLite file. The implementation follows Scrapling's
-[storage interface](https://github.com/D4Vinci/Scrapling/blob/v0.4.15/scrapling/core/storage.py).
+This is the authoritative remaining-work list. Historical records in STATUS and the private archive preserve provenance; their old pending items and authorization
+gates do not reopen later accepted work or authorize a new production action.
+This audit compared existing records only, without rerunning accepted tests or
+querying/changing external services. On 14 Oct, the owner supplied the final
+push confirmation below; no acceptance evidence items remain open in this audit.
 
-Affected tests (no additional dependencies):
+| Final acceptance item | Evidence and completion record |
+| --- | --- |
+| Phone push with ntfy closed (SPEC 15) | Closed on 14 Oct 2026 by explicit owner confirmation: the previously accepted notification of 12 Oct at 11:53 a.m. Lima arrived with ntfy closed (not open on screen). Preserved private evidence `.scrappy/release-bfcf432/commission.json` records the ntfy test receipt `0f8ef619-11b8-4d14-b0c8-6cc5957e7f3d` at `2026-10-12T16:53:52.347927+00:00` and prior owner receipt confirmation. The closed-app condition is the owner's retrospective attestation, not provider telemetry. No new notifications or email/link/mobile UI tests were performed. |
 
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_extract.py -v
-.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_probe.py -v
-.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_recipes.py -v
-# Optional integration, with the existing Supabase environment loaded:
-$env:SCRAPPY_TEST_SUPABASE = '1'
-.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_recipes.py -k test_supabase_adaptive_round_trip_in_new_process -v
-Remove-Item Env:SCRAPPY_TEST_SUPABASE
-```
+The owner waived separate Supabase test-project integration on 14 Oct as
+disproportionate for this personal project (SPEC 15). Both omitted opt-in tests
+remain unexecuted, rather than passed; existing local and configured-project
+evidence is retained. The preflight found only production and received HTTP 403
+for organization metadata/entitlements. No separate project, migrations or test
+fixtures were created; separate-project isolation and cleanup were not verified.
+Earlier integration preflight pending items are superseded by this waiver. No additional project or credentials are required for this task.
 
-The integration test creates a uniquely named `.invalid` recipe, restores its JSON
-in a fresh Python process with a changed CSS class and price, then removes the
-test row. It never changes products or price history. Run against a test Supabase
-project for routine development; phase-one verification uses an isolated row in
-the configured project because no second project is configured.
+Accepted evidence is retained: phase-one 15-URL local/Actions comparison (80% /
+73.3%) and adaptive persistence; phase-two individual alerts/failure fixtures and
+real channels; phase-three public HTTPS/authentication and physical PWA;
+phase-five SQL/Python/API/web fixtures, migration conservation, basket alerts,
+repair/history and local mobile visuals. The updated physical PWA was accepted
+on 12 Oct, so the historical request for a later PWA update is closed; local
+defer/apply/offline checks from 9 Oct also remain accepted. Public commissioning
+on 12 Oct records the exact READY deployment/SHA, 31 read/auth checks and Actions
+`all`/notification results. SPEC 14.1 separately closes six automatic slots,
+real missing-heartbeat Gmail receipt and recovery; do not repeat any of these.
 
-### Phase-one results (2026-10-08)
+Store/release the final documentation and reviewed commissioning tools only after
+the owner's decision about commits/promotion. This delivery decision is separate
+from the completed acceptance audit above. The phase-four reproducible guide and Windows
+fallback documentation are complete as recorded above. Native-cron diagnosis, broader shop coverage,
+future PAT rotation and SPEC 17 backlog are maintenance/limitations, not new v1
+closure gates. No new promotion, commit, deployment or production test occurred
+in this audit. The private evidence referenced here must be retained separately
+from Git before any workspace cleanup.
 
-The same 15 URLs were evaluated locally on Windows and on the Linux Actions
-runner: [run 37857815799](https://github.com/SRT0808/Scrappy/actions/runs/37857815799).
-Machine-readable reports are in `scraper/results/local.json` and
-`scraper/results/actions.json`; Actions includes the per-URL comparison.
-Local raw HTML is in `.scrappy/local-evidence/`; the downloaded remote evidence
-is in `.scrappy/remote/actions-evidence/`. Actions also retains it in the
-`probe-results` artifact for seven days. Successful rows were checked against
-their saved source markup; confidence is an estimate, not a guarantee.
 
-| Successful strategy / total sample | Local | Actions |
-|---|---:|---:|
-| JSON-LD | 9/15 (60.0%) | 8/15 (53.3%) |
-| Meta / microdata | 3/15 (20.0%) | 3/15 (20.0%) |
-| Owner recipe / heuristic / adaptive | 0/15 | 0/15 |
-| Total readable | **12/15 (80.0%)** | **11/15 (73.3%)** |
-| Unreadable | 3/15 | 4/15 |
+## Current automatic-operation mission (closed 2026-10-13 Lima)
 
-| Product / shop | Local price | Actions price | Method; required mode |
-|---|---|---|---|
-| Lenovo IdeaPad Slim 3i / Falabella | Failed | Failed | No trusted price; all modes attempted |
-| Logitech M90 / Ripley | 29 PEN | Failed | JSON-LD; HTTP locally; Actions 403 in all modes |
-| Logitech G203 white / Hiraoka | 109.00 PEN | 109.00 PEN | JSON-LD; HTTP |
-| Logitech MK120 / Sercoplus | Failed | Failed | Maintenance, HTTP 503 in all modes |
-| Logitech MK120 V2 / Memory Kings | 48.50 PEN | 48.50 PEN | JSON-LD; HTTP |
-| Logitech G502 K/DA / Impacto | Failed | Failed | Rendered prices need a recipe/payment choice |
-| Raspberry Pi 4 4 GB / Adafruit | 120 USD | 120 USD | JSON-LD; HTTP |
-| Raspberry Pi Pico / Pimoroni | 4.0 GBP | 6.0 USD | JSON-LD; HTTP; lowest available offer |
-| Raspberry Pi Pico / The Pi Hut | 3.80 GBP | 3.80 GBP | Meta; HTTP |
-| Logitech M185 / Walmart | 13.99 USD | 13.99 USD | Meta; HTTP |
-| Logitech M185 / Best Buy | 27.28 USD | 27.28 USD | JSON-LD; HTTP locally, dynamic in Actions |
-| Arduino Uno Rev3 / Arduino | 27.6 USD | 27.6 USD | JSON-LD; HTTP |
-| Logitech M90 / Hiraoka | 29.9 PEN | 29.9 PEN | JSON-LD; HTTP; out of stock |
-| micro:bit v2 Go Bundle / Adafruit | 19.95 USD | 19.95 USD | JSON-LD; HTTP |
-| Raspberry Pi Pico W / The Pi Hut | 5.80 GBP | 5.80 GBP | Meta; HTTP |
+SPEC 14.1 is complete. The owner approved the bounded fast window and existing
+real main/all effects; all six NEW automatic slots were reconciled. The original
+three-hour UTC cadence is enabled without expiry on job `8633587`, with approved
+main SHA `63be2b508a1f791747dc3d1d2aba8656cdf4f812`. No new promotion was made.
 
-All 12 local successes used HTTP; Actions required HTTP for 10 and dynamic for
-Best Buy after an HTTPError. No URL succeeded only in stealth. Falabella's HTTP
-HTML has an empty `offers` array; both browser modes timed out after 25 seconds.
-Sercoplus's 503 body says the shop is being updated. Impacto's rendered HTML
-contains PEN/USD cash and card prices and says out of stock; those values are not
-recognized confidently by the present generic strategies. An owner CSS recipe
-and explicit payment/currency choice are the next adjustment for that shop.
-Do not substitute a related product's price or infer zero for unavailable items.
+| Planned Lima, 13 Oct | Provider execution | Actions run | Due checks | Snapshots |
+| --- | --- | --- | ---: | ---: |
+| 15:00 | 8633587-13-9-3 | 38459438701 | 2 | 1 |
+| 15:10 | 8633587-13-9-4 | 38460704690 | 0 | 0 |
+| 15:20 | 8633587-13-9-5 | 38462032784 | 0 | 0 |
+| 16:00 | 8633587-13-9-6 | 38467364960 | 0 | 0 |
+| 19:00 | 8633587-14-9-1 | 38487694031 | 0 | 0 |
+| 22:00 | 8633587-14-9-2 | 38504058986 | 2 | 1 |
 
-Ripley returns a Cloudflare challenge with 403 from Actions in all three modes,
-while the local IP reads it over HTTP. Pimoroni redirects Actions to `/en-us/`
-and returns USD; the same input URL returns GBP locally. These are observed
-environment/IP differences; the experiment does not isolate IP from OS/browser
-fingerprint or geographic storefront behavior. The subsequent engine must pin
-the confirmed currency and flag changes before any alert (SPEC 8.5).
-Memory Kings has meta amount 48.86 but both JSON-LD and the principal visible
-price are 48.50 PEN, supporting the structured-data priority for this sample.
+Each slot has its exact provider response, approved SHA/main/all identity,
+successful job/processing/completion evidence, one distinct database run,
+pre/post rows and due inventory, exact Decimal totals/microseconds, applicable
+FX/basket/notification effects, and exactly one matching completion ping.
+All six refreshed FX; eligible events/notifications remained unchanged. No
+product interval/target was forced, no slot was manually dispatched or replayed,
+and no historical run was counted. Provider delays were approximately 24–61
+seconds; this is observed performance, not a punctuality guarantee.
 
-The overall sample clears the indicative 70% gate in both environments. Coverage
-is weaker for the seven Peruvian URLs: 4/7 locally and 3/7 in Actions. These
-figures describe this small sample and do not establish universal shop coverage.
-For the failing stores, use a current priced product URL for Falabella, retry
-Sercoplus after maintenance, teach a recipe for Impacto, and consider the free
-local-runner fallback for Ripley if the cloud challenge persists. No paid proxy
-or new service was introduced. Phase two can start with readable domains and
-must continue reporting the unsupported stores.
+The fast job was armed at 14:55:20 Lima with provider expiry at 15:21 and deadline
+15:29. Its gate passed and the original schedule was restored/read back at
+15:21:25. The three normal planned slots are exactly three hours apart. The
+last gate passed at 22:02:23; the final audit independently rechecked every
+slot, state chain, scheduler inventory, current main/workflow, and fresh DB/HC.
 
-Adaptive persistence is viable: local and Actions integration tests saved a
-versioned JSON fingerprint to Supabase, restored it in a fresh process without
-local state, relocated a changed class and read the changed price (99.90 to
-119.90 PEN). The relocated result correctly requires confirmation. Read-back
-confirmed eight successful domain recipes, including Best Buy `dynamic`; the
-other seven are `http`. Both uniquely named integration rows were removed.
-This validates the serialization and storage path; it does not establish reliable
-automatic relocation across every real shop redesign. CSS remains the primary
-owner recipe and adaptive matching stays a confirmation fallback.
+Real outage supervision was verified separately: a previously authorized failure
+stop left the job disabled at 03:54:23 UTC, ping count 17 unchanged through the
+new pre-slot capture. Healthchecks went down at 10:01:34 Lima, exactly 3h+9h after
+last ping at 22:01:34 on 12 Oct. The owner confirmed the real Gmail alert at
+10:01. New automatic run `38459438701` recovered it at 15:01:44. Period 10800 /
+grace 32400 stayed unchanged; the final check is up with count 23.
 
-Validation: 26 affected unit tests and the isolated Supabase integration passed
-locally and in Actions. Closing review added one graph-order regression test,
-which passed locally; re-extraction of 16 local and 15 remote saved HTML responses
-confirmed unchanged report results after that correction. The remote run tested
-commit `68d32a9`; the reviewed reference-order fix is commit `6bb657c`.
-No blocking issue remained in the probe review; review-time validations,
-notification state and teaching UI belong to the next phases.
+The independent Windows observer was tested with 17 directed fixtures plus seven
+existing Decimal/microsecond checks. It closed safely when GitHub returned an
+empty steps array for successful normal run `38467364960`. Preserved pre/post
+captures and exact timestamped successful job logs reconciled that slot with an
+explicit alternate evidence source. A pre-activation resume also detected old
+CP1252-decoded UTF-8 text and saved Decimal strings. Original captures were
+retained with SHA256; one known reversible encoding layer was corrected and the
+full state matched a fresh read before resumption at 16:10:12. No scheduled slot
+was missed during that safety pause. UTF-8 decoding and saved/fresh exact numeric
+comparison are now explicit; ambiguous/partial logs or real deltas still fail.
 
-The local probe took 191.80 seconds, the Actions probe 192.91 seconds, the complete
-job 234 seconds and the workflow 238 seconds. Browser cache hit was confirmed by
-the skipped browser installation; system dependency setup took 17 seconds.
-One manual probe is not a production-cycle estimate: the sample intentionally
-includes escalation failures. The timing API still returns zero billable
-milliseconds, so actual account billing remains unconfirmed.
+Ordinary operation needs neither Windows nor Codex: cron-job.org directly
+invokes Actions; Healthchecks supervises the cloud completion ping. The observer
+only captured commissioning evidence and controlled the test; all its processes
+have exited. Both old Codex follow-ups are PAUSED. No accelerated schedule,
+second scheduler, synthetic ping, reminder rehearsal or new paid service remains.
+The native GitHub cron's historical failure cause is still unknown; the approved
+external substitution does not require repairing it.
 
-## Supabase setup
+Free usage was checked: public repository, standard Ubuntu runner, cache
+1,103,158,141 bytes (below 10 GB), six actual run durations totaling 271 seconds,
+and GitHub-reported Ubuntu billable time 0 ms. The normal cadence invokes eight
+runs/day. This is scoped service evidence, not a claim about unrelated account
+billing. API reads were bounded around slots with a private ledger; earlier
+account-wide API usage remains unknown. Dedicated PAT expiry/rotation dates
+are recorded in the development reference; new main promotion is still the owner's decision.
 
-Create a Free project and apply these migrations once, in order, using the
-Dashboard SQL editor:
+Private evidence (ignored by Git): `.scrappy/mission-final-audit.json`,
+`.scrappy/mission-window-20261013-a.json`, referenced per-slot/original-encoding
+captures, `.scrappy/mission-outage-evidence.json` and observer logs. The final
+report records exact database IDs, timing, current configuration and limitations.
+`scripts/observe_operation.py` and `scripts/operation_api.mjs` are commissioning
+tools, not a permanent local scheduler. Do not rearm an old proposal. The mission
+exception in AGENTS is retired; normal project rules apply again.
 
-1. `supabase/migrations/20261008000000_initial_schema.sql`
-2. `supabase/migrations/20261008010000_review_persistence.sql`
-3. `supabase/migrations/20261008020000_alert_recovery.sql`
-4. `supabase/migrations/20261008030000_login_attempts.sql`
-5. `supabase/migrations/20261008040000_lists.sql`
+## Acceptance evidence index
 
-All five migrations were applied on 2026-10-08; do not rerun them. The third
-extends review selection/persistence for error recovery without altering tables;
-the fourth adds the atomic login rate-limit RPC; the fifth adds the lists mutation
-RPC. Neither changes existing data during installation.
-All eight tables have RLS enabled, no public policies, and no public table grants.
-The review RPCs are executable only by `service_role`; concurrent stale writers
-are rejected before history or product state can change. Only trusted server code
-uses `SUPABASE_SERVICE_ROLE_KEY`.
+These are dated results, not instructions to repeat acceptance. Original reports,
+private captures and STATUS history remain intact. Private `.scrappy/` files are
+ignored by Git: preserve them separately before cleaning/moving this checkout.
+The complete pre-cleanup README (including superseded proposals, diagnostics,
+authorizations and detailed tables) is preserved with its source SHA256 in
+`.scrappy/readme-before-cleanup-20261015.json`; it is a local provenance archive,
+not a prerequisite for a new installation or authority to reactivate old trials.
 
-Persistence checks use Python, without `psql` or additional dependencies. Load
-`.env` with the setup snippet, then run:
+| Scope | Result and retained evidence |
+| --- | --- |
+| Foundations, 8 Oct | Empty run connected/pinged: [37856046874](https://github.com/SRT0808/Scrappy/actions/runs/37856046874). |
+| Extractor, 8 Oct | 15 URLs: local 12/15 (80%), Actions 11/15 (73.3%); JSON-LD 9/8, meta 3/3; local all HTTP, Actions Best Buy dynamic, none stealth-only. Reports: [local](scraper/results/local.json), [Actions](scraper/results/actions.json); [run 37857815799](https://github.com/SRT0808/Scrappy/actions/runs/37857815799). Raw HTML: `.scrappy/local-evidence/`, `.scrappy/remote/actions-evidence/`; remote artifacts originally retained seven days. |
+| Extractor limits | Falabella empty offers/timeouts; Sercoplus 503; Impacto cash/card ambiguity; Ripley readable locally but Actions 403; Pimoroni GBP locally/USD remotely. Peruvian subset 4/7 local, 3/7 remote. Small sample, no universal coverage or isolated causal attribution. |
+| Adaptive persistence | Versioned fingerprint restored in a fresh process, changed class/price relocated with confirmation; eight saved recipes, temporary integration rows removed. 26 affected tests plus graph-order regression; remote `68d32a9`, reviewed fix `6bb657c`. Existing evidence does not approve the later omitted separate-project integrations. |
+| Individual alerts, 8 Oct | Controlled 100 PEN fixture, product `587d4cb6-2192-4252-acd6-064ad3c1d82a`: one sent goal notice per channel; second review sent none. Owner confirmed push/email, accents and link; product paused. Recovery SQL integration/manual review accepted. |
+| Web/PWA, 9–10 Oct | Local 320/390px flows, update/defer/offline accepted; public HTTPS/auth/session and physical installed PWA accepted by owner on 10 Oct. Runs `38081645601` (notifications/heartbeat), `38081651363` (reading), release `1e7d765a293a466c7024db60d069b9bb5f7155be`. |
+| Baskets/local closure | Four isolated PostgreSQL suites, 76 web, 43 API, 111 Python tests (two opt-in integrations omitted), build/typecheck and mobile visuals recorded in STATUS. Conservation, alert boundaries, repair/history and composition fixtures retained in repository tests. All 11 migrations installed; no replay. |
+| Public commissioning, 12 Oct | Release `bfcf432cd823a2867b36ed2ecb3f26d8b4c17d8b`, READY deployment `dpl_3aMmpKuPNPfya6G4KqL9QRptdD2N`; 31 public smoke checks passed and updated physical PWA accepted. [All run 38280341687](https://github.com/SRT0808/Scrappy/actions/runs/38280341687): two checks, one snapshot and heartbeat; [notification run 38280514504](https://github.com/SRT0808/Scrappy/actions/runs/38280514504): both channels sent/received. `.scrappy/release-bfcf432/commission.json`. |
+| Earlier restricted acceptance | 24 read/auth checks and restoration verified before public commissioning. `.scrappy/release-bfcf432/`: `restricted-results.json`, `restricted-data-verified.json`, `restricted-restored.json`, `restricted-exception-closed.json`, `maintenance-current.json`, `ready-deployment.json`; controlled-write/cleanup records remain in that directory and STATUS. Closed-access gates are historical. |
+| Automatic operation/outage | Six reconciled slots, exact approved SHA, real Gmail absence and automatic recovery: mission record above and `.scrappy/mission-final-audit.json`. Earlier stopped windows, late Codex follow-ups and native-cron diagnosis are superseded operational history, retained in STATUS/private archive. |
 
-```powershell
-.\.venv\Scripts\python.exe -c "from scrappy.persistence import Database; Database().request('GET', 'runs?select=id&limit=1'); print('Connection OK')"
-.\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_run.py -v
-$env:SCRAPPY_TEST_SQL = '1'
-# Before applying migration 3, preview it transactionally with:
-# $env:SCRAPPY_TEST_ALERT_MIGRATION = '1'
-try {
-    .\.venv\Scripts\python.exe -m unittest discover -s scraper/tests -p test_persistence.py -v
-} finally {
-    Remove-Item Env:SCRAPPY_TEST_SQL
-}
-```
+No acceptance items remain open in the 14 Oct audit; separate-project integration
+was waived, not passed. Final review of the closure package is complete; the owner's
+commit/promotion decision remains pending. SPEC §17 backlog and broader shop
+coverage are maintenance work, not v1 acceptance gates.
 
-The SQL integration requires the local `SUPABASE_ACCESS_TOKEN` and calls the
-Supabase Management API. It tests the installed functions, interval boundaries,
-rejected and accepted reviews, stale writers, permissions and atomic rollback.
-All generated fixture data is rolled back; no migration is applied permanently.
-With `SCRAPPY_TEST_ALERT_MIGRATION=1`, migration 3 is included inside the same
-transaction and rolled back as well; remove the flag after testing.
-Verified on 2026-10-08: the Python client connection, 18 review unit tests and the
-transactional SQL integration passed against the configured project. The SQL
-integration also passed against the permanently installed recovery migration.
-`SUPABASE_DB_URL` is optional for local database tools; neither setup credential
-belongs in Actions or Vercel.
-
-## Add a product with confirmation
-
-The authenticated panel reads a public product URL through `/api/products/readings`
-and the local Python CLI (GitHub Actions in production), then shows extraction confidence, up to five candidates and
-an optional CSS selector. Confirm the price and currency, edit the reference,
-choose a list, target and 3/6/12/24-hour interval (default 6), then save.
-The queue stays separate from active products; an atomic, idempotent confirmation
-creates the product, initial price history and learned domain recipe.
-
-Apply `supabase/migrations/20261009000000_product_readings.sql` after validating
-it with `npm run test:products:sql` (transactional rollback). Use
-`npm run test:products` and `npm run test:web -- tests/web/AddProduct.test.tsx`
-for the affected API and UI tests, and run the Python `test_readings.py` tests.
-Migration 6 was installed on 2026-10-09; do not rerun it. `npm run dev` serves
-web/API and launches `.venv` Python readings in the background using the server's
-`.env`. No branch push or GitHub dispatch is needed locally. Each child is bounded
-to three minutes and stopped when the development server closes. If the local
-executor fails, retry with a new reading ID; existing readings remain queryable.
-Configure `GITHUB_TOKEN` with Actions write permission and `GITHUB_REPO` in
-Vercel when deploying; their names already appear in `.env.example`.
-Dispatch targets `main`, so the workflow's `reading` mode must be available on
-that branch before testing real readings through the deployed UI. The user
-decides when changes move from `develop` to `main`. Preview readings neither
-send notifications nor ping the scheduled review heartbeat. Local blocked-page
-evidence is saved under the ignored `.scrappy/readings/` directory.
-
-All fetch modes reject nonpublic initial destinations. Browser modes use a
-temporary localhost proxy that validates each HTTP request/HTTPS tunnel and
-connects to the checked numeric IP, covering redirects and browser subrequests
-without a second DNS lookup. Loopback proxy bypass and direct WebRTC UDP are
-disabled. HTTP mode retains Scrapling's safe-redirect checks. The proxy uses only
-Python's standard library; no service, certificate or account is required.
-Run `python -m unittest discover -s scraper/tests -p test_network.py -v` in the
-existing virtual environment for mocked DNS and localhost transport fixtures.
-
-Phase 5 includes `20261011030000_basket_alerts_repair.sql`; installation of the
-complete migration sequence remains a deployment task.
-Run `npm run test:baskets:alerts:local` with PostgreSQL 18 on Windows
-(`POSTGRES_BIN` overrides its binary directory). The fixture uses an isolated
-database, concurrent sessions and rollback, without `.env` or Supabase.
-The authenticated readings API accepts `action: read` with `repair_product_id`
-and a new URL; `action: confirm_repair` requires `same_product: true`, the extracted
-`name`, original `currency` and `candidate_index` (null for an unambiguous reading).
-An unrelated article must use normal product creation. Repair preserves product
-identity, individual goals/alert state, memberships and history; conflicting
-reviews require another reading. Product detail provides the repair controls.
-Basket claims retry confirmed failures of both channels; an ambiguous receipt
-stays claimed for manual investigation to avoid duplicate notifications.
-
-## GitHub Actions scaffold
-
-`check-prices.yml` provides a three-hour schedule and manual dispatch, a shared
-concurrency group, a 20-minute timeout, pip/browser caches and the connected empty CLI run.
-GitHub schedules use the default branch; the production job now skips any ref
-other than `main`. Make `main` the default branch when publishing, as described above.
-Set repository Secrets `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
-`HEALTHCHECK_URL` before dispatching this phase. The heartbeat is required and
-uses the check's `https://hc-ping.com/<uuid>` URL after success, or `/fail` on
-failure. Configure `NTFY_TOPIC`, `GMAIL_USER`, `GMAIL_APP_PASSWORD` and `NOTIFY_EMAIL_TO`
-before using notifications, and validate phone/email delivery with test mode.
-In Healthchecks.io, select a Simple schedule with a 3-hour period and 9-hour grace
-time, and enable a verified email integration: an alert arrives after about 12
-hours without success. Local CLI runs do not ping the production heartbeat.
-
-Each execution reports elapsed runner time in the Actions summary. This is not
-account billing usage: verify the current free-minute allowance and actual
-account consumption before activating production scheduling.
-Phase 0 was accepted on 2026-10-08: [Actions run 37856046874](https://github.com/SRT0808/Scrappy/actions/runs/37856046874)
-recorded a completed empty run in Supabase and successfully pinged the heartbeat.
-The first job took 56 seconds (64 seconds for the entire execution), including
-browser installation. At eight runs daily, that observed job duration projects
-to about 224 runner minutes over 30 days, before billing rounding and cache effects.
-The timing API returned zero billable milliseconds at verification time; that
-does not establish actual billed consumption. Check account usage after it updates.
-As checked on 2026-10-08, GitHub Free includes 2,000 minutes per month for private
-repositories, shared across the owner's account ([GitHub billing documentation](https://docs.github.com/en/billing/concepts/product-billing/github-actions)).
-Healthchecks.io Hobbyist monitors 20 jobs for free ([pricing](https://healthchecks.io/pricing/)).
-Supabase Free includes two active projects and a 500 MB database, and may pause
-projects with low activity over seven days; the scheduled database writes provide
-regular activity ([pricing](https://supabase.com/pricing), [pausing](https://supabase.com/docs/guides/platform/free-project-pausing)).
-GitHub schedules run on the default branch and can be delayed; public repositories
-have schedules disabled after 60 days without repository activity
-([schedule documentation](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)).
+Final package review (15 Oct 2026, SPEC 14/15): manually reviewed the pending
+six documentation/configuration files, three commissioning scripts and two test
+files on `develop`. Resolved duplicate expected basket snapshots when multiple
+members are due, with a positive fixture and duplicate-snapshot rejection; marked
+the pre-closure SPEC 14.1 diagnosis as historical. No blocking findings remain
+within this package. The 18 observer and seven precision tests, Node syntax,
+six offline slot reconciliations and six evidence SHA256 hashes passed. Earlier
+product/build/SQL and physical acceptance stand; no external acceptance was rerun.
+The tools retain their fixed commissioning job/SHA and narrow successful,
+native-currency, no-alert evidence scope; they are not general production monitors.
+The package is ready for the owner's decision: documentation/configuration
+(`.env.example`, `AGENTS.md`, `README.md`, `docs/SPEC.md`, `docs/STATUS.md`,
+`docs/decisions.md`) and commissioning tools/tests (`scripts/observe_operation.py`,
+`scripts/operation_api.mjs`, `scripts/verify_acceptance.py`,
+`tests/test_operation_observer.py`, `tests/test_acceptance_verifier.py`).
+No application, workflow or migration changes belong to this pending package.
+Keep private evidence outside Git; no commit, push, promotion or deployment was
+performed. This review does not assert current external service health.

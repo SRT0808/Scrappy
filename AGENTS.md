@@ -2,16 +2,24 @@
 
 Proyecto personal, un solo usuario, 100% gratuito. Especificación completa en docs/SPEC.md (no la leas entera: lee solo las secciones que pida la tarea). Estado actual en docs/STATUS.md (léelo al empezar cada hilo).
 
+## Operación automática verificada (2026-10-13)
+
+La misión de SPEC §14.1 está cerrada: tres slots rápidos y tres normales conciliados, caída real por ausencia de latido recibida en Gmail y recuperación automática verificada. Evidencia y límites en README y docs/STATUS.md; auditoría privada `.scrappy/mission-final-audit.json`.
+La excepción temporal de persistencia quedó retirada. Vuelven las reglas generales de este archivo; no reactivar ensayos ni seguimientos antiguos. Operación habitual: cron-job.org → Actions cada 3h y Healthchecks periodo 3h/gracia 9h, independiente de Windows/Codex. Main y nuevas promociones siguen siendo decisión del dueño.
+
 ## Stack (decidido, no cambiar sin avisar)
 Web: React + Vite + TypeScript + Tailwind + shadcn/ui + Recharts, tema oscuro minimalista. API: Vercel Functions (TypeScript, carpeta api/). Datos: Supabase Postgres (el navegador nunca habla con Supabase). Scraper: Python 3.11+ con Scrapling (version fijada) en scraper/. Cron: GitHub Actions. Avisos: ntfy (principal) y Gmail SMTP (respaldo).
 
 ## Convenciones
 - Codigo, commits y comentarios en ingles; interfaz y avisos al usuario en espanol.
-- Commits pequenos, uno por tarea, mensaje convencional (feat:, fix:, chore:). Trabajo directo en main.
+- Commits pequenos, uno por tarea, mensaje convencional (feat:, fix:, chore:). Trabaja siempre en la rama develop. Nunca hagas commit ni merge a main: eso lo decide el usuario.
+- El cron de GitHub Actions y el despliegue de produccion corren desde main. Avisame cuando una fase este lista para pasar a main.
 - Nunca commitear secretos. Los valores reales van en .env (ignorado por git). Mantén .env.example al dia.
 - No agregues servicios de pago ni dependencias que no hagan falta.
 - Avisame cuando necesites una cuenta o un secreto; no los pidas por adelantado.
 - Entorno del usuario: Windows 11, PowerShell.
+- Vercel se deja para el final de la Fase 3. Hasta entonces, todo se desarrolla y prueba en local (web y API con un solo comando, sin cuenta de Vercel). Mantén los handlers de api/ en formato compatible con Vercel para que desplegar sea trivial, pero no configures ni pruebes Vercel salvo que yo lo pida.
+- Mantén separadas las fases de desarrollo y despliegue. Durante el desarrollo, prioriza extracción, analíticas, autenticación, flujos y experiencia de usuario; ejecuta las validaciones en el Windows del usuario, en localhost y con fixtures locales cuando corresponda. No pidas al usuario probar desde su teléfono, otro dispositivo o servicios desplegados, ni configurar certificados, cuentas o conectividad remota solo para aceptar desarrollo local. La verificación real de instalación PWA en dispositivos, HTTPS público, Vercel, Actions en producción e integraciones desplegadas queda para la fase de despliegue. Conserva compatibilidad de código con esos contratos sin adelantar sus pruebas ni bloquear el desarrollo. Las pruebas móviles de desarrollo se hacen con emulación local; el scraping de sitios desde Windows sigue siendo parte del desarrollo cuando la tarea lo requiera.
 
 ## Principio de proporcionalidad
 Haz lo minimo necesario para un resultado correcto y verificado.
@@ -35,6 +43,7 @@ Haz lo minimo necesario para un resultado correcto y verificado.
 3. Modelos: 🟢 verde = GPT-6 Luna High; 🟡 amarillo = GPT-6.1 Sol Medium; 🟠 naranja = GPT-6.1 Sol High; 🔴 rojo = GPT-6 Astra Light.
 4. Anti-vaiven: sube siempre que el nivel lo exija. Baja solo al empezar un lote de 2+ tareas verdes o una tarea verde larga y repetitiva. Cambiar de modelo implica hilo nuevo; cambiar solo el esfuerzo del mismo modelo no. Agrupa tareas sin dependencias por nivel.
 5. Termina con este bloque exacto:
+6. HILO: MISMO solo si la siguiente accion corrige la tarea que acabas de hacer. Toda tarea nueva es NUEVO y debe incluir la linea para pegar.
 
 ━━ SIGUIENTE PASO ━━
 Tarea: <una linea>
