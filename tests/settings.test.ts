@@ -88,6 +88,8 @@ test('both channels are attempted and audited independently on delivery failure'
   assert.deepEqual(tried.sort(), ['email', 'ntfy']);
   assert.deepEqual(result, [{ channel: 'ntfy', status: 'failed', recorded: true }, { channel: 'email', status: 'sent', recorded: true }]);
   assert.equal(calls.length, 2); assert.ok(!JSON.stringify(calls).includes('private topic'));
+  assert.ok(calls.every(call => call.url.endsWith('/rpc/record_notification')));
+  assert.equal((calls[0].body as { p_notification: { type: string } }).p_notification.type, 'test');
 });
 test('audit failure retains confirmed delivery and does not retry sends', async () => {
   globalThis.fetch = async () => new Response('', { status: 500 });

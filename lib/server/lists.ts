@@ -40,7 +40,7 @@ export async function listDatabase(operation: string, body?: unknown): Promise<u
     const code = error && typeof error === 'object' && 'code' in error ? error.code : null;
     if (code === 'PT400') throw new ListError(400, 'Datos de lista no válidos.');
     if (code === 'PT404') throw new ListError(404, 'La lista ya no existe.');
-    if (code === 'PT409') throw new ListError(409, 'Las listas cambiaron. Actualiza e inténtalo de nuevo.');
+    if (['PT409','40001','40P01'].includes(String(code))) throw new ListError(409, 'Las listas cambiaron. Actualiza e inténtalo de nuevo.');
     if (code === '23503') throw new ListError(409, 'La lista contiene productos. Muévelos o elimínalos primero.');
     throw new Error('List storage unavailable');
   }

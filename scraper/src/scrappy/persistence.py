@@ -20,6 +20,8 @@ class Database:
             raise ValueError("SUPABASE_URL debe ser la URL HTTPS del proyecto, sin ruta.")
 
     def request(self, method, path, data=None):
+        if method == "POST" and path == "notifications":
+            path, data = "rpc/record_notification", {"p_notification": data}
         request = Request(
             f"{self.url}/rest/v1/{path}", method=method,
             data=json.dumps(data, allow_nan=False).encode() if data is not None else None,
@@ -59,13 +61,11 @@ class Database:
 
     def save_alert_state(self, product, checked_at, changes):
         # Compare the saved review version and prior alert state before writing.
-        path = (f"products?id=eq.{UUID(product['id'])}"
-                f"&last_checked_at=eq.{quote(checked_at.isoformat(), safe='')}"
-                f"&alert_state=eq.{product['alert_state']}&status=in.(active,error)")
-        for field in ("last_alert_price", "last_alert_at"):
-            value = product[field]
-            path += f"&{field}=is.null" if value is None else f"&{field}=eq.{quote(str(value), safe='')}"
-        if not self.request("PATCH", path, changes):
+        if not self.request("POST", "rpc/save_product_alert_state", {
+            "p_id": str(UUID(product['id'])), "p_checked_at": checked_at.isoformat(),
+            "p_expected": {field: product[field] for field in ("alert_state", "last_alert_price", "last_alert_at")},
+            "p_changes": changes,
+        }):
             raise RuntimeError("El producto cambió durante la notificación.")
 
     def last_failure_notification(self, product):

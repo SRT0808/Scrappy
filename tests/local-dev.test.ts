@@ -13,6 +13,10 @@ test('local HTTPS serves the web and original API handlers on the same origin', 
   delete process.env.VERCEL;
   const originalFetch = globalThis.fetch;
   const attempts: unknown[] = [];
+  const purchaseCalls: unknown[] = [];
+  const purchaseConfiguration = { schema_version: 2, version: '2' };
+  const purchaseEnvelope = { schema_version: 2, list_id: basketId, mode: 'alternatives', version: '2',
+    configuration: purchaseConfiguration, latest_evaluation: null, stale_reason: 'dirty', events: [], has_more: false };
   globalThis.fetch = async (url, options) => {
     assert.equal(new Headers(options?.headers).get('apikey'), 'local-test-server-key');
     if (String(url).endsWith('/rpc/record_login_attempt')) {
@@ -20,6 +24,14 @@ test('local HTTPS serves the web and original API handlers on the same origin', 
       return new Response('0');
     }
     if (String(url).endsWith('/rpc/read_lists_with_baskets')) return new Response('[]');
+    if (String(url).endsWith('/rpc/read_purchase_configuration')) {
+      assert.deepEqual(JSON.parse(String(options?.body)), { p_id: basketId, p_page: 0 });
+      return new Response(JSON.stringify(purchaseEnvelope));
+    }
+    if (String(url).endsWith('/rpc/save_purchase_configuration')) {
+      purchaseCalls.push(JSON.parse(String(options?.body)));
+      return new Response(JSON.stringify(purchaseConfiguration));
+    }
     if (String(url).endsWith('/rpc/read_basket_detail')) {
       assert.deepEqual(JSON.parse(String(options?.body)), { p_id: basketId, p_days: 14 });
       return new Response(JSON.stringify(basketDetail));
@@ -80,6 +92,15 @@ test('local HTTPS serves the web and original API handlers on the same origin', 
     const basket = await send(`/api/baskets/${basketId}?range=14`, 'GET', undefined, cookie);
     assert.equal(basket.status, 200);
     assert.equal(JSON.parse(basket.body).detail.id, basketId);
+    const purchasePath = `/api/baskets/${basketId}/purchases`;
+    const publication = JSON.stringify({ schema_version: 2, expected_version: '1', configuration: {} });
+    assert.equal((await send(purchasePath)).status, 401);
+    assert.equal((await send(purchasePath, 'PUT', publication, cookie, 'https://evil.example')).status, 403);
+    assert.equal((await send(purchasePath, 'PUT', publication, cookie)).status, 200);
+    const purchases = await send(purchasePath, 'GET', undefined, cookie);
+    assert.equal(purchases.status, 200);
+    assert.deepEqual(JSON.parse(purchases.body), purchaseEnvelope);
+    assert.equal(purchases.headers['cache-control'], 'no-store');
     const logout = await send('/api/logout', 'POST', '{}', cookie);
     assert.equal(logout.status, 200);
     assert.match(logout.headers['set-cookie']![0], /Max-Age=0/);
@@ -107,11 +128,18 @@ test('local HTTPS serves the web and original API handlers on the same origin', 
       assert.equal((await sendHttp2('/api/lists', 'GET', undefined, h2Cookie)).status, 200);
       assert.equal((await sendHttp2('/api/products?list_id=11111111-1111-4111-8111-111111111111', 'GET', undefined, h2Cookie)).status, 200);
       assert.equal((await sendHttp2(`/api/baskets/${basketId}?range=14`, 'GET', undefined, h2Cookie)).status, 200);
+      assert.equal((await sendHttp2(purchasePath, 'PUT', publication, h2Cookie)).status, 200);
+      const h2Purchases = await sendHttp2(purchasePath, 'GET', undefined, h2Cookie);
+      assert.equal(h2Purchases.status, 200);
+      assert.deepEqual(JSON.parse(h2Purchases.body), purchaseEnvelope);
       assert.equal((await sendHttp2('/api/logout', 'POST', '{}', h2Cookie)).status, 200);
     } finally {
       client.close();
     }
     assert.equal(attempts.length, 3);
+    assert.deepEqual(purchaseCalls, Array.from({ length: 2 }, () => ({
+      p_id: basketId, p_expected_version: '1', p_configuration: {},
+    })));
     for (const attempt of attempts) {
       assert.notEqual((attempt as { p_ip: string }).p_ip, '192.0.2.123');
     }

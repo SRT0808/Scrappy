@@ -120,11 +120,11 @@ class AlertPersistenceTests(unittest.TestCase):
     def test_state_write_compares_saved_review_and_previous_alert(self):
         with patch.object(self.database, "request", return_value=[PRODUCT]) as request:
             self.database.save_alert_state(PRODUCT, NOW, {"alert_state": "triggered"})
-        path = request.call_args.args[1]
-        self.assertIn("last_checked_at=eq.2026-10-08T00%3A00%3A00%2B00%3A00", path)
-        self.assertIn("alert_state=eq.armed", path)
-        self.assertIn("last_alert_price=is.null", path)
-        self.assertIn("last_alert_at=is.null", path)
+        self.assertEqual(request.call_args.args[:2], ("POST", "rpc/save_product_alert_state"))
+        body = request.call_args.args[2]
+        self.assertEqual(body["p_checked_at"], NOW.isoformat())
+        self.assertEqual(body["p_expected"], {"alert_state": "armed", "last_alert_price": None, "last_alert_at": None})
+        self.assertEqual(body["p_changes"], {"alert_state": "triggered"})
         with patch.object(self.database, "request", return_value=[]):
             with self.assertRaises(RuntimeError):
                 self.database.save_alert_state(PRODUCT, NOW, {"alert_state": "armed"})

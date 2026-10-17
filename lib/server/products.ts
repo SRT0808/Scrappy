@@ -18,6 +18,8 @@ export async function productDatabase(path: string, body?: unknown): Promise<unk
     const messages: Record<string, [number, string]> = {
       PT400: [400, 'Revisa los datos del producto.'], PT404: [404, 'La lectura o lista ya no existe.'],
       PT409: [409, 'La lectura cambió o todavía no está lista. Consulta su estado.'],
+      '40001': [409, 'La lectura cambió. Consulta su estado.'],
+      '40P01': [409, 'La lectura cambió. Consulta su estado.'],
       '23503': [404, 'La lista ya no existe.'],
     };
     if (messages[error?.code]) throw new ProductError(...messages[error.code]);

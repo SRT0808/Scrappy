@@ -5,6 +5,10 @@ import { BasketSummary } from '../../src/components/BasketSummary';
 import { ListsScreen } from '../../src/components/ListsScreen';
 import { HomeScreen } from '../../src/components/HomeScreen';
 import { isBasket, parseBudget } from '../../src/lib/baskets';
+vi.mock('../../src/lib/purchases', async importOriginal => ({
+  ...await importOriginal<typeof import('../../src/lib/purchases')>(),
+  readPurchases: async (id: string) => ({ schema_version: 2, list_id: id, mode: 'legacy', version: '1', configuration: null, latest_evaluation: null, stale_reason: 'mode', events: [], has_more: false }),
+}));
 
 const basket = { budget: 100.10, currency: 'PEN', total: 100.10, product_count: 2, valid_count: 2, complete: true };
 const list = { id: '11111111-1111-4111-8111-111111111111', name: 'Tecnología', emoji: null, position: 0, created_at: '2026-10-11', basket };

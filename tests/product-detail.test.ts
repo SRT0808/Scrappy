@@ -16,6 +16,17 @@ const listId = '11111111-1111-4111-8111-111111111111';
 const product = { id, list_id: listId, url: 'https://shop.pe/product', domain: 'shop.pe', name: 'Monitor', image_url: null,
   currency: 'PEN', reference_price: '100.00', target_type: 'percent', target_price: '80.00', target_percent: '20.00', last_price: '90.00',
   status: 'active', last_checked_at: '2026-10-09T12:00:00Z', last_success_at: '2026-10-09T12:00:00Z', created_at: '2026-10-08T12:00:00Z', check_interval_hours: 3 };
+
+test('referenced product deletion returns a readable conflict; missing product stays 404', async () => {
+  for (const code of ['23001', '23503']) {
+    globalThis.fetch = async () => new Response(JSON.stringify({ code }), { status: 409 });
+    const conflict = await invoke(request('DELETE'));
+    assert.equal(conflict.status, 409);
+    assert.match(conflict.body.error, /pausarlo o repararlo/);
+  }
+  mock([], null);
+  assert.equal((await invoke(request('DELETE'))).status, 404);
+});
 function request(method = 'GET', body?: unknown, query = 'range=all'): ApiRequest {
   return { method, body, url: `/api/products/${id}?${query}`, socket: { encrypted: true }, headers: {
     host: 'scrappy.example', origin: 'https://scrappy.example', 'content-type': 'application/json', cookie: `${COOKIE_NAME}=${createSession()}`,
@@ -32,7 +43,7 @@ function mock(checks: unknown[] = [], row: unknown = product, cap = 1000) {
   globalThis.fetch = async (url, options) => {
     assert.equal(new Headers(options?.headers).get('apikey'), 'test-server-key');
     const address = new URL(String(url)); calls.push({ url: address, options });
-    if (address.pathname.endsWith('/products')) return new Response(JSON.stringify(row ? [row] : []));
+    if (address.pathname.endsWith('/products') || address.pathname.endsWith('/rpc/mutate_product')) return new Response(JSON.stringify(row ? [row] : []));
     assert.equal(address.searchParams.get('product_id'), `eq.${id}`);
     const offset = Number(address.searchParams.get('offset'));
     return new Response(JSON.stringify(checks.slice(offset, offset + cap)), { headers: { 'content-range': `${offset}-${offset + cap - 1}/${checks.length}` } });
@@ -79,9 +90,12 @@ test('edits only allowed fields with exact percentage math and preserves alert s
   const calls = mock();
   const edit = { name: ' Monitor nuevo ', reference_price: '123.45', target_type: 'percent', target_value: '12.34', check_interval_hours: 6 };
   assert.equal((await invoke(request('PATCH', edit))).status, 200);
-  const update = JSON.parse(String(calls[0].options?.body));
+  const mutation = JSON.parse(String(calls[0].options?.body));
+  assert.equal(calls[0].url.pathname, '/rest/v1/rpc/mutate_product');
+  assert.equal(mutation.p_id, id); assert.equal(mutation.p_operation, 'edit');
+  const update = mutation.p_changes;
   assert.deepEqual(update, { name: 'Monitor nuevo', reference_price: '123.45', target_type: 'percent', target_price: '108.22', target_percent: '12.34', check_interval_hours: 6 });
-  assert.equal(calls[0].url.searchParams.get('status'), 'neq.pending_confirmation');
+  assert.equal(calls[0].options?.method, 'POST');
   for (const invalid of [{ ...edit, alert_state: 'armed' }, { ...edit, reference_price: '0' }, { ...edit, target_value: '101' }, { ...edit, check_interval_hours: 1 }, { status: 'pending_confirmation' }])
     assert.equal((await invoke(request('PATCH', invalid))).status, 400);
   const content = request('PATCH', edit); delete content.headers['content-type']; assert.equal((await invoke(content)).status, 415);
@@ -91,9 +105,10 @@ test('pause, resume and delete persist only their intended changes and missing p
   const calls = mock();
   assert.equal((await invoke(request('PATCH', { status: 'paused' }))).status, 200);
   assert.equal((await invoke(request('PATCH', { status: 'active' }))).status, 200);
-  assert.deepEqual(calls.slice(0, 2).map(c => JSON.parse(String(c.options?.body))), [{ status: 'paused' }, { status: 'active' }]);
+  assert.deepEqual(calls.slice(0, 2).map(c => JSON.parse(String(c.options?.body)).p_changes), [{ status: 'paused' }, { status: 'active' }]);
   assert.deepEqual((await invoke(request('DELETE'))).body, { deleted: true });
-  assert.equal(calls[2].options?.method, 'DELETE');
+  assert.equal(calls[2].options?.method, 'POST');
+  assert.equal(JSON.parse(String(calls[2].options?.body)).p_operation, 'delete');
   mock([], null);
   for (const method of ['GET', 'DELETE', 'PATCH', 'POST']) assert.equal((await invoke(request(method, method === 'PATCH' ? { status: 'paused' } : { action: 'review' }))).status, 404);
 });

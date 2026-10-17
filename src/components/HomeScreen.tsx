@@ -5,9 +5,10 @@ import { ListsScreen } from './ListsScreen';
 import { ProductCard } from './ProductCard';
 import { ProductDetailScreen } from './ProductDetailScreen';
 import { SettingsScreen } from './SettingsScreen';
-import { BasketDetailScreen } from './BasketDetailScreen';
+import { PurchaseBasketScreen } from './PurchaseBasketScreen';
 import { requestLists, type List } from '../lib/lists';
 import { productMetrics, requestProducts, type ProductSummary } from '../lib/products';
+import { uuidPattern } from '../../lib/product-contract';
 
 type Props = { onExpired: (message: string) => void; onLogout: () => void; sessionBusy: boolean; sessionError: string };
 type Filter = 'all' | ProductSummary['status'] | 'reached';
@@ -15,8 +16,12 @@ type Sort = 'recent' | 'name' | 'discount';
 const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring';
 
 export function HomeScreen(props: Props) {
-  const [view, setView] = useState<'home' | 'lists' | 'add' | 'detail' | 'settings' | 'basket-detail'>('home');
-  const [detailId, setDetailId] = useState('');
+  const [linkedBasket] = useState(() => {
+    const ids = new URLSearchParams(window.location.search).getAll('basket');
+    return ids.length === 1 && uuidPattern.test(ids[0]) ? ids[0].toLowerCase() : '';
+  });
+  const [view, setView] = useState<'home' | 'lists' | 'add' | 'detail' | 'settings' | 'basket-detail'>(linkedBasket ? 'basket-detail' : 'home');
+  const [detailId, setDetailId] = useState(linkedBasket);
   const [lists, setLists] = useState<List[]>([]);
   const [products, setProducts] = useState<ProductSummary[]>([]);
   const [productsBusy, setProductsBusy] = useState(true);
@@ -61,15 +66,23 @@ export function HomeScreen(props: Props) {
   }, [view, refresh]);
 
   function returnHome() {
+    clearBasketLink();
     setView('home');
     setMobileNavOpen(false);
     setTimeout(() => homeTitle.current?.focus(), 0);
   }
   function navigate(next: 'home' | 'lists' | 'settings' | 'add') {
+    clearBasketLink();
     setMobileNavOpen(false);
     if (next === 'home') { returnHome(); return; }
     if (next === 'add') setNotice('');
     setView(next);
+  }
+  function clearBasketLink() {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('basket')) return;
+    url.searchParams.delete('basket');
+    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
   }
 
   const visible = products.filter(product => filter === 'all' || (filter === 'reached' ? productMetrics(product).reached : product.status === filter))
@@ -79,7 +92,7 @@ export function HomeScreen(props: Props) {
   const loading = productsBusy;
   const error = productsError || props.sessionError;
   const page = view === 'lists' ? <ListsScreen {...props} onDetail={id => { setDetailId(id); setView('basket-detail'); }} showLogout={false} onHome={() => returnHome()} />
-    : view === 'basket-detail' ? <BasketDetailScreen key={detailId} id={detailId} onExpired={props.onExpired} onBack={() => setView('lists')} />
+    : view === 'basket-detail' ? <PurchaseBasketScreen key={detailId} id={detailId} onExpired={props.onExpired} onBack={() => navigate('lists')} />
     : view === 'settings' ? <SettingsScreen onExpired={props.onExpired} onBack={() => returnHome()} />
       : view === 'detail' ? <ProductDetailScreen key={detailId} id={detailId} lists={lists} onExpired={props.onExpired} onBack={() => returnHome()} onDeleted={() => { setNotice('Producto e historial eliminados.'); returnHome(); }} />
         : view === 'add' ? <AddProduct lists={lists} onExpired={props.onExpired} onCloseLabel="Volver a Inicio" onClose={returnHome} onSaved={() => { setNotice('Producto guardado y activo.'); returnHome(); }} />

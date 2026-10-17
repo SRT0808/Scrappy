@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { uuidPattern } from '../lib/product-contract.js';
 
 // Only the Vite development adapter imports this executor; deployed APIs use Actions.
-export function localReadings(root: string) {
+export function localReadings(root: string, options: { afterProductReview?: () => Promise<unknown> } = {}) {
   const running = new Map<string, ReturnType<typeof spawn>>();
   let closed = false;
   async function dispatch(id: string, mode: 'reading' | 'product'): Promise<void> {
@@ -25,6 +25,13 @@ export function localReadings(root: string) {
         clearTimeout(timeout);
         running.delete(task);
         if (code !== 0 && child.pid && !closed) console.error(`Local ${mode} ${id} failed; check its history before retrying.`);
+        // Even a failed process may have persisted reviews before it stopped.
+        // No callback is installed by Vite by default: fixture/local opt-in only.
+        if (mode === 'product' && child.pid && !closed && options.afterProductReview) {
+          void Promise.resolve().then(options.afterProductReview).catch(() => {
+            console.error('Recálculo local de alternativas pendiente; ejecuta la recuperación explícita.');
+          });
+        }
       });
       await new Promise<void>((resolve, reject) => {
         child.once('spawn', () => {

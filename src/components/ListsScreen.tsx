@@ -3,7 +3,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { ListsError, requestLists, type List, type ListAction, type ListBody } from '../lib/lists';
 import { parseBudget } from '../lib/baskets';
-import { BasketSummary } from './BasketSummary';
+import { PurchaseSummary } from './PurchaseSummary';
 
 type Props = { onExpired: (message: string) => void; onLogout: () => void; sessionBusy: boolean; sessionError: string; onHome?: () => void; showLogout?: boolean; onDetail?: (id: string) => void };
 
@@ -103,7 +103,7 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, on
       : loaded && lists.length === 0 ? <div className="rounded-2xl border border-dashed border-border p-8 text-center"><h2 className="font-semibold">Tu primera canasta empieza aquí</h2><p className="mt-2 text-sm text-muted-foreground">Crea una canasta y agrega productos de tu catálogo.</p></div>
       : <ol className="space-y-3">{lists.map((list, index) => <li key={list.id} className="rounded-2xl border border-border bg-card p-5">
         <h2 className="mb-4 break-words text-lg font-medium">{list.emoji && <span aria-hidden="true">{list.emoji} </span>}{list.name}</h2>
-        {list.basket && <BasketSummary basket={list.basket} />}
+        {list.basket && <PurchaseSummary id={list.id} basket={list.basket} onExpired={onExpired} />}
         <div className="flex flex-wrap gap-2">
           {onDetail && <Button disabled={mutationLocked} onClick={() => onDetail(list.id)}>Ver canasta</Button>}
           <Button variant="outline" disabled={mutationLocked || index === 0} aria-label={`Subir ${list.name}`} onClick={() => move(index, -1)}>↑</Button>

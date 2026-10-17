@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { HomeScreen } from '../../src/components/HomeScreen';
 import { ProductCard } from '../../src/components/ProductCard';
 import { productMetrics, requestProducts, type ProductSummary } from '../../src/lib/products';
+import { purchaseFixture, purchaseId } from '../fixtures/purchase-ui';
 
 const first = { id: '11111111-1111-4111-8111-111111111111', name: 'Tecnología', emoji: null, position: 0, created_at: '2026-10-09' };
 const second = { ...first, id: '22222222-2222-4222-8222-222222222222', name: 'Hogar', position: 1 };
@@ -26,6 +27,33 @@ function mock(products: ProductSummary[] = [product], lists = [first, second]) {
   return fetch;
 }
 describe('independent catalog', () => {
+  it('opens a notice basket directly and removes its destination when leaving the breakdown', async () => {
+    const previous = window.location.href;
+    try {
+      window.history.replaceState(null, '', `/?basket=${purchaseId.toUpperCase()}&source=notice#details`);
+      const fetch = vi.fn(async (url: string) => url.includes('/purchases') ? json(purchaseFixture())
+        : url === '/api/lists' ? json({ lists: [] }) : json({ products: [] }));
+      vi.stubGlobal('fetch', fetch);
+      mount(true);
+      await screen.findByRole('heading', { name: 'Necesidades y alternativas' });
+      await screen.findByText(/Ahorro frente a referencia: S\/ 0.01/);
+      expect(fetch.mock.calls.some(([url]) => url === `/api/baskets/${purchaseId}/purchases?page=0`)).toBe(true);
+      expect(document.title).toBe('Scrappy · Detalle de canasta');
+      await userEvent.click(screen.getByRole('button', { name: '← Volver a Canastas' }));
+      await screen.findByRole('heading', { name: 'Tus canastas' });
+      expect(window.location.search).toBe('?source=notice');
+      expect(window.location.hash).toBe('#details');
+    } finally { window.history.replaceState(null, '', previous); }
+  });
+  it.each(['invalid', `${purchaseId}&basket=${purchaseId}`])('ignores malformed or ambiguous notice destinations: %s', async query => {
+    const previous = window.location.href;
+    try {
+      window.history.replaceState(null, '', `/?basket=${query}`);
+      const fetch = mock([], []);
+      mount(); await screen.findByText('Tu catálogo espera tu próximo producto');
+      expect(fetch.mock.calls.every(([url]) => !url.startsWith('/api/baskets/'))).toBe(true);
+    } finally { window.history.replaceState(null, '', previous); }
+  });
   it('reads products without baskets, keeps filters and sorts', async () => {
     const fetch = mock([product, { ...product, id: second.id, name: 'Auriculares', status: 'paused', last_price: 70 }], []);
     mount(); await screen.findByRole('heading', { name: 'Monitor' });
@@ -53,7 +81,7 @@ describe('independent catalog', () => {
   it('keeps basket summaries in the independent basket view', async () => {
     const detail = (await import('../fixtures/basket-experience')).basketDetail;
     const fetch = mock([], [first]);
-    fetch.mockImplementation((url: string) => Promise.resolve(url.startsWith('/api/baskets/') ? json({ detail })
+    fetch.mockImplementation((url: string) => Promise.resolve(url.includes('/purchases') ? json({ schema_version: 2, list_id: first.id, mode: 'legacy', version: '1', configuration: null, latest_evaluation: null, stale_reason: 'mode', events: [], has_more: false }) : url.startsWith('/api/baskets/') ? json({ detail })
       : url === '/api/lists' ? json({ lists: [first] }) : json({ products: [] })));
     mount(); await screen.findByText('Tu catálogo espera tu próximo producto');
     await userEvent.click(screen.getByRole('button', { name: 'Gestionar canastas' }));

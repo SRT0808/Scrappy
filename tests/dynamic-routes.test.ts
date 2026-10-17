@@ -66,8 +66,16 @@ test('rewritten product edits, deletion and manual review target the resolved ID
   const dispatched: string[] = [];
   const handler = createProductHandler(async id => { dispatched.push(id); });
   globalThis.fetch = async (url, options) => {
-    assert.equal(new URL(String(url)).searchParams.get('id'), `eq.${productId}`);
-    if (options?.method === 'PATCH') assert.deepEqual(JSON.parse(String(options.body)), { status: 'paused' });
+    const address = new URL(String(url));
+    if (address.pathname.endsWith('/rpc/mutate_product')) {
+      assert.equal(options?.method, 'POST');
+      const body = JSON.parse(String(options.body));
+      assert.deepEqual(body, { p_id: productId, p_operation: body.p_operation === 'edit' ? 'edit' : 'delete',
+        p_changes: body.p_operation === 'edit' ? { status: 'paused' } : {} });
+    } else {
+      assert.equal(options?.method, 'GET');
+      assert.equal(address.searchParams.get('id'), `eq.${productId}`);
+    }
     return new Response(JSON.stringify([product]));
   };
   for (const path of paths('products', productId).slice(0, 2)) {

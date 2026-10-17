@@ -3,6 +3,9 @@ import type { Delivery, Settings } from '../settings-contract.js';
 import { isSettings, validInterval } from '../settings-contract.js';
 
 export async function settingsDatabase(path: string, method = 'GET', body?: unknown): Promise<unknown> {
+  if (path === 'notifications' && method === 'POST') {
+    path = 'rpc/record_notification'; body = { p_notification: body };
+  }
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || new URL(url).protocol !== 'https:' || !key) throw new Error('Missing database configuration');

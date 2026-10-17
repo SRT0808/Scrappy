@@ -11,14 +11,20 @@ const checkFields = 'id,checked_at,ok,price,currency,method,error_code';
 async function storage(table: string, params: Record<string, string>, method = 'GET', body?: unknown) {
   const base = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!base || !key || new URL(base).protocol !== 'https:') throw new Error('Missing database configuration');
-  const url = new URL(`/rest/v1/${table}`, base);
-  url.search = new URLSearchParams(params).toString();
-  const response = await fetch(url, { method, headers: { apikey: key, Authorization: `Bearer ${key}`,
+  const mutation = table === 'products' && method !== 'GET';
+  const url = new URL(`/rest/v1/${mutation ? 'rpc/mutate_product' : table}`, base);
+  if (!mutation) url.search = new URLSearchParams(params).toString();
+  const payload = mutation ? { p_id: params.id.slice(3), p_operation: method === 'DELETE' ? 'delete' : 'edit', p_changes: body ?? {} } : body;
+  const response = await fetch(url, { method: mutation ? 'POST' : method, headers: { apikey: key, Authorization: `Bearer ${key}`,
     'Content-Type': 'application/json', Prefer: method === 'GET' ? 'count=exact' : 'return=representation' },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(5000) });
+    ...(payload === undefined ? {} : { body: JSON.stringify(payload) }), signal: AbortSignal.timeout(5000) });
   if (!response.ok) {
     const error = await response.json();
+    if (['23001', '23503'].includes(error?.code) && method === 'DELETE') {
+      throw new ProductError(409, 'El producto está vinculado a una configuración de compra conservada. Puedes pausarlo o repararlo.');
+    }
     if (error?.code === '23503') throw new ProductError(404, 'La lista ya no existe.');
+    if (['40001','40P01','PT409'].includes(error?.code)) throw new ProductError(409, 'El producto cambió. Actualiza e inténtalo de nuevo.');
     throw new Error('Product storage unavailable');
   }
   const rows: unknown = await response.json();

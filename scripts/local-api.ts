@@ -29,7 +29,8 @@ export function localApi(): Plugin {
         const pathname = new URL(incoming.url ?? '/', 'https://localhost').pathname;
         if (pathname !== '/api' && !pathname.startsWith('/api/')) { next(); return; }
         const path = pathname.replace(/\/$/, '');
-        const modulePath = routes[path] ?? (/^\/api\/lists\/[^/]+$/.test(path) ? '/api/lists/[id].ts'
+        const modulePath = routes[path] ?? (/^\/api\/baskets\/[^/]+\/purchases$/.test(path) ? '/api/baskets/[id]/purchases.ts'
+          : /^\/api\/lists\/[^/]+$/.test(path) ? '/api/lists/[id].ts'
           : /^\/api\/baskets\/[^/]+$/.test(path) ? '/api/baskets/[id].ts'
           : /^\/api\/products\/[^/]+$/.test(path) ? '/api/products/[id].ts' : undefined);
         if (!modulePath) { json(res, 404, { error: 'Ruta no encontrada.' }); return; }

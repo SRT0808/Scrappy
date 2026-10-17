@@ -1,6 +1,6 @@
 # Scrappy: especificación técnica
 
-*Documento para el agente de desarrollo · v1.1 · 11 de octubre de 2026*
+*Documento para el agente de desarrollo · v1.2 · 16 de octubre de 2026*
 
 ## 0. Cómo usar este documento
 
@@ -45,7 +45,7 @@ Este documento es la **única fuente de contexto** del proyecto: el agente no ha
 - Alertas de fallo de lectura, de precio sospechoso y de caída del sistema.
 - Acceso protegido con clave simple. Web instalable como PWA.
 
-**Fuera de la v1:** cuentas y multiusuario, búsqueda por nombre de producto, APIs por tienda, app móvil nativa, WhatsApp, servidor propio, comparación entre tiendas, extensión de navegador. Ver backlog (sección 17).
+**Fuera de la v1 inicial:** cuentas y multiusuario, búsqueda por nombre de producto, APIs por tienda, app móvil nativa, WhatsApp, servidor propio, comparación entre tiendas, extensión de navegador. La comparación explícita de alternativas elegidas por el dueño se incorpora como ampliación en §11.1 y Fase 6; no incluye búsqueda automática de ofertas. Ver backlog (sección 17).
 
 **Fuera de la primera entrega de canastas:** monedas distintas de PEN/USD, predicciones de precios o una recomendación automática de compra, comparación del mismo artículo entre tiendas y uso de promedios para inventar precios presentes. Las estadísticas históricas serán descriptivas y se mostrarán solo con datos completos suficientes.
 
@@ -243,6 +243,38 @@ Si GitHub Actions deja de ejecutar el cron, nadie avisaría. Por eso, al final d
 
 Las conclusiones estadísticas son descriptivas (por ejemplo, «el total está por debajo de la mediana observada de 30 días») y requieren al menos 14 días y 10 snapshots completos. Scrappy no predice precios futuros ni declara un momento de compra óptimo en esta fase.
 
+### 11.1 Necesidades y alternativas de compra (Decidido, ampliación pendiente)
+
+**Objetivo:** representar lo que el dueño necesita comprar una sola vez y comparar maneras de cubrirlo. Una necesidad visible como «Agua: 1 litro» puede cubrirse con una botella de 1 L, dos de 500 ml o un pack equivalente. Un combo puede cubrir varias necesidades de la misma canasta. El total suma únicamente las compras seleccionadas, nunca todas las alternativas. Esta sección amplía las restricciones de la primera entrega de canastas; no predice precios futuros ni descubre productos automáticamente.
+
+**Modelo funcional y contrato a desarrollar:**
+
+- **Producto rastreado:** cada artículo comprable, pack o combo tiene URL, precio total de su presentación, moneda, historial, disponibilidad, receta de extracción y estado propios mediante el sistema existente. Reutilizar el mismo seguimiento en varias alternativas; no crear scrapers, revisiones ni alertas duplicadas por pertenencia. Toda nueva URL pasa por lectura y confirmación antes de participar. No admitir precios manuales como sustitutos de una oferta rastreada.
+- **Necesidad de canasta:** nombre, cantidad requerida y unidad. Es la línea lógica visible, distinta del producto concreto. Las líneas existentes se conservan como necesidades con una única alternativa equivalente, manteniendo cantidades, referencias, historial y alertas.
+- **Oferta y cobertura:** el dueño declara qué cantidades de qué necesidades cubre una unidad comprada de cada producto rastreado. Puede declarar marcas y presentaciones diferentes como sustitutos; Scrappy nunca infiere equivalencias por nombre. Las conversiones compatibles (L/ml, kg/g, unidades) son decimales y explícitas; no convertir masa en volumen ni unidades en volumen sin contenido declarado. Un precio de pack se aplica al pack entero, no a cada componente.
+- **Alternativa:** combinación de una o varias ofertas con cantidades de compra enteras positivas. Permitir repetir ofertas/packs; el dueño puede limitar opcionalmente el número de unidades compradas de cada oferta por canasta, sumando todos sus usos. La misma compra puede cubrir varias necesidades mediante su cobertura declarada y se paga una sola vez. El precio unitario normalizado es informativo; se minimiza el importe real de unidades enteras que hay que comprar.
+- **Sobrantes y extras:** por defecto no cubrir por encima de la cantidad requerida. El dueño puede aceptar sobrante por necesidad y debe identificar los artículos adicionales de un combo como extras aceptados. Mostrar cantidades requeridas, cubiertas, sobrantes y extras; estos últimos no satisfacen otras necesidades salvo vinculación expresa. No repartir arbitrariamente el precio del combo entre componentes.
+- **Selección:** automática por defecto, con opción de fijar una alternativa por necesidad o conjunto de necesidades. Las fijaciones son restricciones del cálculo conjunto; rechazar configuraciones incompatibles que obliguen a duplicar cobertura o superar límites. Si una selección fijada pierde validez, conservarla, marcar la compra incompleta y ofrecer cambiar; nunca reemplazarla silenciosamente.
+- **Persistencia a diseñar antes de migrar:** necesidades, coberturas/ofertas, alternativas, límites, permisos de sobrante/extra, fijaciones y configuración de avisos. Snapshots deben conservar versión de configuración, compras y cantidades elegidas, cobertura, procedencia/fecha de precios y FX, motivos de exclusión y resultado del cálculo. Los cambios de configuración abren versión nueva; no reescribir observaciones ni historial anterior. Esquema SQL y contratos API concretos se revisan en el primer módulo de Fase 6, con RLS y acceso exclusivamente mediante API.
+
+**Cálculo conjunto:**
+
+1. Normalizar cantidades en unidades compatibles y precios en la moneda de canasta con el contrato PEN/USD y frescura de §9. Evaluar solo ofertas confirmadas disponibles con lectura válida vigente, sin fallo pendiente; precios sospechosos, no confirmados, faltantes y tasas ausentes/caducadas no son entradas válidas.
+2. Buscar la combinación factible de menor costo que cubra todas las necesidades respetando fijaciones, límites, extras y sobrantes autorizados. Resolver para toda la canasta: elegir el mínimo de cada línea aisladamente puede duplicar compras o perder un combo mejor. Reutilizar precisión decimal y redondeo agregado existentes. Cada unidad comprada aporta su cobertura una vez; cualquier exceso requiere permiso.
+3. Distinguir **cobertura completa** de **comparación completa**. Si se cubre toda la compra pero faltan alternativas por verificar, mostrar «Más barata entre las opciones verificadas» y cuáles quedaron excluidas; no declarar óptimo global. Si ninguna combinación válida cubre todo, mostrar subtotal conocido y necesidades pendientes, sin presentar un total completo. Un resultado limitado por recursos de cálculo tampoco puede declararse óptimo: la estrategia exacta y sus límites deben quedar definidos y probados antes de implementar el motor.
+4. Calcular por separado la recomendación de menor costo sin fijaciones y la selección efectiva que las respeta. La lista general muestra siempre la recomendación verificada más barata y su ahorro, incluso por céntimos, junto con la selección fijada si difiere. Solo la selección efectiva determina el total. En empates conservar la selección previa válida; si no existe, usar orden estable de identificadores para evitar cambios arbitrarios.
+5. Mostrar ahorro monetario y porcentual contra una alternativa de referencia explícita y factible para las mismas necesidades; no confundirlo con el descuento contra precios tachados individuales. Sin referencia válida, mostrar precios y diferencia entre opciones disponibles sin inventar porcentaje. Conservar el precio de referencia agregado existente por separado.
+
+**Fallos, recuperación y avisos:**
+
+- Cada URL mantiene §9: fallo visible desde el primer intento fallido; al tercero, alerta individual y estado de error, reintentos y recordatorio máximo semanal; un éxito restablece el seguimiento. Packs y combos siguen exactamente la misma cadena. Su último precio válido es histórico/estimado y no participa como precio actual confirmado.
+- Si falla un componente de una alternativa, esa alternativa queda incompleta; las demás siguen compitiendo. Un combo fallido no invalida comprar por separado si esas lecturas son válidas. Recuperar o reparar el mismo artículo conserva identidad e historial y reincorpora automáticamente la oferta válida, respetando fijaciones.
+- Avisar por cambio de combinación ganadora y por alcanzar el presupuesto. El mínimo de ahorro configurable, expresado en la moneda de canasta, filtra únicamente el aviso de cambio; nunca oculta la recomendación actual en la lista. Para comparar ganadores, valorar ambos con precios actuales válidos de la misma evaluación; si la opción anterior no puede valorarse, mostrar la exclusión sin inventar ahorro ni emitir un aviso de ahorro por ella. Primer cálculo establece la base, sin fingir un cambio.
+- Presupuesto: evaluar el total efectivo; por prudencia no disparar ni rearmar metas si falta cobertura, hay una fijación inválida o la comparación está incompleta. La UI sí muestra la mejor compra verificada disponible. Mantener histeresis de presupuesto de §9 y separar estados/eventos de presupuesto, ganador y alertas individuales.
+- Ambos avisos usan ntfy y correo, con enlaces al desglose de canasta y sus ofertas. Reclamar eventos transaccionales por versión y transición para evitar duplicados concurrentes; conservar manejo de fallos/entregas ambiguas existente. Si coinciden presupuesto y ganador, comunicar ambos motivos sin duplicar el envío por canal. Cambios de configuración establecen una base nueva, sin aparentar un ahorro causado por precios.
+
+**Flujo y presentación:** desde Productos o una canasta, crear una necesidad/grupo de comparación, seleccionar seguimientos existentes o añadir URLs por el flujo habitual, declarar contenido/cantidades y equivalencias, autorizar extras/sobrantes y guardar. Seleccionar varias necesidades permite asociar un combo que las cubra juntas. La canasta presenta una línea por necesidad; un combo compartido muestra un único cargo con sus necesidades vinculadas. Desplegar muestra alternativas, cantidades, precio total/normalizado, tiendas, lecturas y causas de exclusión. Se pueden mezclar tiendas solo mediante ofertas seleccionadas por el dueño. El cálculo excluye envío, cupones, membresías y condiciones de pago no modeladas, y debe indicarlo. No prometer disponibilidad de stock suficiente para repeticiones si la página no la acredita.
+
 ## 12. Seguridad y secretos
 
 - **Acceso con clave simple (Decidido).** Pantalla de acceso; la función `/api/login` compara la clave con `ACCESS_KEY` en tiempo constante y emite una cookie de sesión firmada con `SESSION_SECRET` (`httpOnly`, `secure`, `sameSite=strict`, validez de 30 días). Todas las demás rutas `/api` exigen esa sesión. Limitar intentos (por ejemplo 5 cada 15 minutos por IP) usando `login_attempts`.
@@ -292,6 +324,14 @@ scrappy/
 4. **Experiencia y estadísticas:** vistas independientes de Productos y Canastas, resumen y detalle/gráfico, frescura por línea y enlaces editables. *Aceptación:* móvil local visualmente validado; historial segmentado por composición; estadísticas descriptivas exigen al menos 14 días y 10 snapshots completos.
 5. **Verificación de cierre:** fixtures SQL/Python/API/web para los casos de aceptación de §15. *Aceptación:* build y suites afectadas pasan en Windows/local; registrar el estado; presentar revisión del conjunto antes de preparar un release. No probar Vercel, Actions en producción, HTTPS público ni teléfonos físicos durante esta fase.
 
+**Fase 6: Necesidades y alternativas de compra (§11.1; desarrollo local).** Alcance funcional acordado el 2026-10-16; implementación y aceptación local cerradas el 2026-10-16 (Lima), con matriz de evidencia en README y estado en docs/STATUS.md. Activación, release y promoción siguen separados y pendientes de decisión del dueño. Módulos de desarrollo:
+
+1. **Contratos y migración:** revisar esquema/API actuales y fijar tablas, invariantes, unidades, referencia de comparación, configuración de avisos y contratos de resultado. Migración conservadora de líneas a necesidades de una alternativa; probar conservación de IDs, cantidades, precios, historia y alertas, RLS y rollback local. Definir límites del optimizador antes de implementarlo.
+2. **Motor puro y snapshots:** coberturas, repeticiones, límites, extras/sobrantes, combos compartidos, FX y selección global; diferenciar selección efectiva/recomendación y cobertura/comparación completas. Verificar mínimos contra enumeración exhaustiva de casos pequeños y registrar resultados reproducibles por versión.
+3. **Operación y avisos:** integrar revisiones de productos existentes y recalcular canastas afectadas sin duplicar scraping; recuperación, fijaciones, presupuesto y cambio de ganador con umbral, concurrencia y entregas parciales/ambiguas probadas.
+4. **API y experiencia:** edición de necesidades/alternativas y combos desde Productos/Canastas; lista con mejor ahorro siempre visible, desglose sin doble cargo, fijaciones y estados parciales. Pruebas afectadas y una verificación visual local por pantalla, con emulación móvil.
+5. **Cierre:** casos de §15, build y revisión del conjunto en Windows/local; presentar evidencia y límites antes de cualquier release. Producción, Vercel, main y ensayos operativos quedan fuera de esta fase hasta autorización separada.
+
 ### 14.1 Misión cerrada: puesta en marcha automática sin bloqueos de seguimiento
 
 **Cerrada el 2026-10-13 a las 22:02 Lima.** Tres slots rápidos y tres normales nuevos conciliados, aviso real de ausencia recibido en Gmail y recuperación automática verificada; job definitivo 3h, Healthchecks 3h/gracia 9h, observadores terminados y seguimientos antiguos pausados. Resultado, consumo y límites en README; evidencia privada `.scrappy/mission-final-audit.json`. Excepción temporal retirada de AGENTS. Los siguientes criterios conservan el contrato de aceptación ejecutado.
@@ -319,6 +359,17 @@ scrappy/
 - URL reparada para el mismo artículo conserva el ID, lecturas, objetivo individual y membresías. Artículo/currency distintos se detectan y no se anexan al historial anterior sin confirmación.
 - Prueba de integración contra un proyecto Supabase de pruebas: retirada del criterio de cierre por decisión del dueño (2026-10-14), por proporcionalidad para el uso personal. Las dos integraciones opt-in omitidas no se consideran aprobadas; se conserva la evidencia existente y no se requiere otro proyecto.
 - Lista de verificación manual: llegada real de push al celular (incluyendo con la app cerrada), correo, enlace de la notificación, flujo de la UI en móvil.
+
+**Aceptación de alternativas de compra (Fase 6, aprobada en Windows/local el 2026-10-16; evidencia y límites en README):**
+
+- 4 botellas: pack S/12 frente a 4 × S/2,80 = S/11,20; gana la compra individual por S/0,80. Agua 1 L: botella S/3 frente a 2 × 500 ml a S/1,30; gana S/2,60, cubriendo exactamente 1 L.
+- Agua y galletas por separado S/5,30 frente a combo S/5: total S/5, ambas necesidades cubiertas y un único cargo. Combos solapados no pueden contabilizar dos veces una necesidad ni reutilizar una misma unidad comprada para dos coberturas incompatibles.
+- Necesidad de cuatro botellas con pack de dos: dos packs factibles; límite de un pack obliga a otra combinación o deja cobertura pendiente. Pack de 1,5 L para necesidad de 1 L solo es elegible con sobrante autorizado; combo con jugo adicional solo con extra aceptado. Rechazar unidades incompatibles y equivalencias no declaradas.
+- Dos opciones válidas y una fallida: conservar comparación de las válidas, advertir alcance parcial y suspender meta agregada; al tercer fallo avisar una sola vez por seguimiento, sin multiplicar por canastas. Probar primer fallo, recordatorio semanal, precio sospechoso, agotado, falta de primer precio, FX caducado y recuperación. Fallo de combo frente a fallo de componente individual afecta únicamente las alternativas dependientes.
+- Fijación más cara: lista muestra recomendación barata pero total usa la fijada; si falla, no sustituirla ni emitir meta. Probar fijaciones solapadas incompatibles, empate estable y recomendación sin fijaciones con cobertura global factible.
+- Cambio de ganador inferior al mínimo: lista actualizada sin aviso; superior al mínimo: un evento por transición/versionado aunque haya ejecuciones concurrentes. Probar umbral exacto, primer cálculo, cambio de configuración, anterior no valorable, coincidencia con presupuesto, fallos de ambos canales y entrega ambigua sin reenvío duplicado.
+- Verificar referencias comparables, denominador cero, decimales, conversiones y redondeo; cantidades enteras de compra, repeticiones y casos donde el mínimo por línea difiere del mínimo global. Sin solución o sin prueba de optimalidad dentro del límite de cálculo: resultado explícito, nunca total óptimo inventado.
+- Migración y regresión: canastas existentes conservan total y metas con una única alternativa por línea; productos independientes y alertas individuales intactos. Snapshots de configuraciones distintas no se mezclan; cada resultado explica precios, cobertura, exclusiones y cargos. Validar API autenticada/RLS y flujo web local sin servicios nuevos.
 
 ## 16. Riesgos y mitigaciones
 

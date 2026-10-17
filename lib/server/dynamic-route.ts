@@ -1,13 +1,15 @@
 import type { ApiRequest } from './auth.js';
 import { uuidPattern } from '../product-contract.js';
 
-export function readDynamicRoute(req: ApiRequest, collection: 'products' | 'baskets' | 'lists', allowedQuery: string[] = []) {
+export function readDynamicRoute(req: ApiRequest, collection: 'products' | 'baskets' | 'lists', allowedQuery: string[] = [], suffix = '') {
   try {
     const url = new URL(req.url ?? '', 'https://scrappy.local');
-    const pathname = decodeURIComponent(url.pathname).replace(/\/$/, '');
+    let pathname = decodeURIComponent(url.pathname).replace(/\/$/, '');
+    if (suffix && pathname.endsWith(`${suffix}.ts`)) pathname = pathname.slice(0, -3);
     const prefix = `/api/${collection}/`;
     if (!pathname.startsWith(prefix)) return null;
-    const pathId = pathname.slice(prefix.length);
+    if (suffix && !pathname.endsWith(suffix)) return null;
+    const pathId = pathname.slice(prefix.length, suffix ? -suffix.length : undefined);
     const params = url.searchParams;
     for (const key of params.keys()) {
       if (key !== 'id' && !allowedQuery.includes(key) || params.getAll(key).length !== 1) return null;
