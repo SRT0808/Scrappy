@@ -1879,3 +1879,46 @@ afterward. These operational checks remain unproven by local fixtures. No remote
 access, publication, promotion, migration, deployment, send or activation was
 performed during this review. Next action belongs to the owner: decide whether
 to authorize publication of this exact candidate; no operational action is queued.
+
+### Authorized operational rollout of `88fa7e3` (17 Oct 2026, Lima)
+
+The owner subsequently authorized promotion, deployment and real notifications,
+then selected **Skincare only** for activation. Main now points to the exact
+candidate `88fa7e3e96c3794cbcf967dbb5fa0923b6aa60af`; production deployment
+`dpl_GhGhRotaAayegiGBjnvRizj6jAzC` is READY at
+[Scrappy](https://scrappy-silk.vercel.app). Production authentication, the activation
+preview and the current evaluation were verified over HTTPS before/after promotion.
+
+PostgreSQL 17.11, verified client TLS using the official Supabase CA, exclusive
+session-pooler connections, serializable transactions and the dedicated NOINHERIT
+login passed live checks, including denied direct product writes. A backup of
+public plus all three purchase-internal schemas restored locally: 33 tables,
+309 rows. The activation migration preserved every existing table fingerprint.
+The older public-only backup helper omitted trigger dependencies; its incomplete
+restore was rejected before migration. The complete private backup is retained.
+
+Skincare configuration 2 conserves its existing product, quantity and membership
+identity, enables winner notices with minimum savings S/0.00, and leaves budget
+notices off because no budget is configured. Yesstyle Skincare stays empty in
+legacy mode by owner choice. Three runtime secrets were added to Actions without
+altering the seven legacy secrets; `PURCHASE_WORKER_ENABLED=true` is now enabled.
+These SQL credentials are confined to the local operator environment and Actions.
+
+One manual normal `main/all` dispatch, [run 39089820904](https://github.com/SRT0808/Scrappy/actions/runs/39089820904),
+reviewed two due products successfully and then committed one complete evaluation:
+Skincare S/68.46, no conflicts, pending work or delivery attempts. The first
+evaluation establishes the baseline; no winner transition or budget event existed,
+so no new ntfy/email receipt is claimed. Earlier channel acceptance remains valid.
+Healthchecks increased from 54 to 55 pings at 02:22:48 UTC, matching the successful
+heartbeat step; it remains up with period 3h/grace 9h. Its read-only API hides the
+ping URL, so this is receipt/step correlation rather than direct UUID inspection.
+
+Cron-job.org job 8633587, its complete 3h schedule and original `main/all` payload,
+Healthchecks configuration and existing firewall rules were preserved. Historical
+price checks, basket snapshots/events, memberships and notifications were verified
+unchanged; the normal run added its legitimate new price checks. The new deployment
+error-log scan was empty. The repository is public and uses the existing standard
+GitHub runner; no paid service was added. This single manual run does not claim a
+new scheduler punctuality trial, repeat the closed §14.1 mission, or establish
+provider-internal pooler-to-database TLS. Private evidence and the complete backup
+are under `.scrappy/release-88fa7e3/`; no observer or follow-up was activated.
