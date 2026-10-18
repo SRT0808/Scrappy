@@ -1922,3 +1922,152 @@ GitHub runner; no paid service was added. This single manual run does not claim 
 new scheduler punctuality trial, repeat the closed §14.1 mission, or establish
 provider-internal pooler-to-database TLS. Private evidence and the complete backup
 are under `.scrappy/release-88fa7e3/`; no observer or follow-up was activated.
+
+## Análisis UI/UX: simplificar el uso de Scrappy (18 oct 2026)
+
+**Diagnóstico:** la interfaz pide comprender el modelo de datos antes de resolver
+una compra. El problema principal es la organización del recorrido y de las
+decisiones; recortar párrafos ayuda, pero deja intacta esa dificultad si siguen
+apareciendo todos los campos y acciones a la vez. El dueño identifica Canastas y
+alternativas como el principal punto de confusión durante sus pruebas.
+
+Esta es una revisión heurística del código, de los recorridos y de las pruebas
+existentes, contrastada con SPEC §11/11.1. No es una prueba nueva con usuarios ni
+una inspección visual del despliegue. No se midieron tiempos, abandono, contraste
+renderizado o altura de pantalla. No se cambió la interfaz ni la operación real.
+
+### Qué necesita entender el usuario
+
+Las preguntas de uso deberían guiar la interfaz:
+
+1. ¿Qué quiero comprar y cuánto necesito?
+2. ¿Qué productos o packs pueden servir?
+3. ¿Qué opción cuesta menos y cuánto voy a pagar?
+4. ¿Cuándo quiero que me avisen?
+
+Hoy se mezclan esas preguntas con moneda, presupuesto, cobertura, ofertas,
+alternativas, fijaciones, referencia, versiones y recibos. Necesidad y producto
+sí deben distinguirse: necesitar un litro no es lo mismo que comprar una botella.
+La interfaz puede explicar esa diferencia con cantidades y ejemplos al añadir
+una opción, sin exigir editar por separado toda la estructura interna.
+
+### Hallazgos priorizados en Canastas y alternativas
+
+| Prioridad | Evidencia actual | Efecto en el uso | Cambio propuesto |
+| --- | --- | --- | --- |
+| Alta | [PurchaseEditor](src/components/PurchaseEditor.tsx#L15) muestra presupuesto/avisos, necesidades, ofertas/coberturas y alternativas/combos en un único formulario. | Una tarea sencilla exige decidir sobre todo el sistema. Hay que relacionar varios bloques para saber qué se está comprando. | Abrir en consulta. Entrar a editar mediante una acción explícita y guiar la creación desde «Qué necesitas» hasta «Opciones para comprarlo». |
+| Alta | [PurchaseEditor](src/components/PurchaseEditor.tsx#L29) separa producto, cobertura, alcance de alternativa y cantidad de compras. Los nombres incluyen «oferta 1» y unidades como `unit`. | El usuario debe recordar qué número corresponde a qué producto y declarar relaciones que, en una compra simple, son redundantes. | Mostrar el nombre/tienda del producto dentro de cada opción y pedir contenido por presentación y cantidad deseada. Construir las relaciones simples desde esos datos; mantener combos y equivalencias explícitas. |
+| Alta | [PurchaseBasketScreen](src/components/PurchaseBasketScreen.tsx#L80) titula el detalle «Necesidades y alternativas» y destaca versión/borrador. No recibe el nombre de la canasta. | Se pierde el contexto de «estoy mirando Skincare» y se presenta una tarea de configuración al entrar a consultar una compra. | Encabezar con el nombre de la canasta, total, estado y última actualización. Reservar versiones para diagnóstico o conflictos reales. |
+| Alta | [PurchaseBasketScreen](src/components/PurchaseBasketScreen.tsx#L72) comunica tras guardar «no se ha activado la operación». La pantalla consulta al entrar y mediante «Consultar estado», sin seguimiento posterior del recálculo. | En una canasta ya activada, parece faltar otra activación. No se sabe si guardar recalcula, si se debe esperar o si actualizar inicia una revisión. | Separar «Cambios guardados» de «Cálculo pendiente». Explicar que el worker procesa en la próxima ejecución ordinaria y que actualizar solo consulta. No prometer un cálculo instantáneo con el contrato actual. |
+| Alta | [PurchaseEditor](src/components/PurchaseEditor.tsx#L29) pide salir a Añadir producto para una URL nueva. [HomeScreen](src/components/HomeScreen.tsx#L94) intercambia pantallas y [PurchaseBasketScreen](src/components/PurchaseBasketScreen.tsx#L12) conserva el borrador solo en estado local. | Salir de la pantalla para añadir una URL puede perder el trabajo sin guardar. Consultar dentro de la pantalla sí conserva el borrador, como comprueban los tests; navegar fuera es otro caso. | Proteger la salida con cambios y mantener el contexto. Después integrar «Añadir por enlace» desde la opción, con retorno a la misma canasta y borrador. Evitar autoguardar publicaciones o repetir mutaciones ambiguas. |
+| Alta | [PurchaseBasketScreen](src/components/PurchaseBasketScreen.tsx#L77) renderiza el detalle con historial solo en modo legacy. En alternativas muestra resultado, editor y recibos. | Activar alternativas cambia el recorrido y deja el historial anterior sin acceso desde ese detalle, aunque los datos se conserven. | Mantener una entrada de Historial en ambos modos, distinguiendo configuraciones. Revisar el contrato de lectura antes de reutilizar el componente legacy. |
+| Media | [PurchaseResults](src/components/PurchaseResults.tsx#L15) muestra recomendación, ahorro y selección efectiva incluso cuando las dos compras coinciden; además expone IDs de lectura y cantidades con precisión interna. | Se repite información y cuesta distinguir recomendación de la compra que realmente determina el total. | Si coinciden, mostrar un único resumen. Si hay una opción fijada diferente, presentar «Tu elección» y «Opción más barata» con su diferencia. Formatear unidades y decimales; llevar IDs a detalles técnicos. |
+| Media | [PurchaseActivation](src/components/PurchaseActivation.tsx#L73) aparece antes del detalle legacy, incluso para una canasta vacía. | La migración parece un paso obligatorio para usar cualquier canasta, antes de entender la ventaja de comparar opciones. | Ofrecer «Comparar opciones de compra» cuando sea pertinente. Mostrar las consecuencias y exigir las elecciones/confirmación al activar; conservar el uso básico sin conversión. |
+| Media | [ListsScreen](src/components/ListsScreen.tsx#L108) presenta abrir, subir, bajar, renombrar, eliminar y «Canasta» en cada tarjeta. El último botón configura presupuesto/moneda. | El mismo nombre designa el objeto y una acción de significado distinto. Tareas de administración compiten con abrir la compra. | Una acción principal «Ver canasta»; presupuesto con nombre explícito; renombrar, ordenar y eliminar en acciones secundarias accesibles. |
+| Media | [src/lib/purchases.ts](src/lib/purchases.ts#L47) devuelve un error general que agrupa cantidades, coberturas, límites y fijaciones; [PurchaseBasketScreen](src/components/PurchaseBasketScreen.tsx#L73) bloquea el guardado tras cualquier fallo. | No se sabe qué campo corregir y el siguiente paso puede parecer «consultar» incluso ante una entrada inválida. | Validación por campo/relación antes de enviar. Distinguir errores de entrada, conflicto y respuesta incierta, manteniendo la conciliación segura cuando no se conoce el resultado. |
+
+La densidad también crece con los datos. Contando inputs, selects y checkboxes
+del editor actual, sin botones ni extras: una necesidad, una oferta y una
+alternativa muestran **17 controles**. Cuatro necesidades, seis ofertas y seis
+alternativas generan **135**. Es un recuento del JSX repetido, no una medición de
+una sesión: cada oferta crea un campo por necesidad, y cada alternativa vuelve
+a mostrar todas las necesidades y todas las ofertas. Un acordeón sobre el mismo
+formulario reduce la altura inicial, pero no resuelve por sí solo ese recorrido.
+
+### Recorrido recomendado
+
+**Consultar una canasta** debería mostrar primero el nombre, lo que necesitas,
+el total que corresponde a tu elección y su estado. La recomendación más barata
+sigue visible; si difiere de una fijación, la diferencia debe ser explícita.
+Desde ahí: editar contenido, comparar opciones, configurar avisos o consultar
+historial. La lista general necesita una tarjeta compacta, no repetir el detalle.
+
+**Añadir una comparación** debería ser un recorrido corto:
+
+1. «¿Qué necesitas?» — nombre, cantidad y unidad legible.
+2. «Añade una opción» — elegir un producto seguido o leer una URL y confirmarla.
+3. «¿Cuánto contiene esta presentación?» — con resumen de cuántas compras hacen
+   falta. Por ejemplo, para 1 L: una botella de 1 L o dos de 500 ml. Ejemplo de
+   SPEC, no productos reales ni una recomendación de compra nueva.
+4. Revisar opciones y guardar; explicar cuándo estará disponible el cálculo.
+
+Los combos que cubren varias necesidades siguen disponibles como opción
+avanzada. Aceptar sobrantes o extras debe aparecer cuando el caso lo requiera,
+con su consecuencia concreta; nunca marcarlo automáticamente para acortar pasos.
+Las fijaciones y la referencia conservan sus reglas, aunque cambie su presentación.
+
+### Texto: qué conservar, mover y cambiar
+
+| Actualmente | Propuesta de lenguaje o ubicación |
+| --- | --- |
+| «Ofertas rastreadas y coberturas» | En el recorrido simple: «Opciones de compra» y «Contenido por presentación». |
+| «Fijar [alternativa]» | «Usar siempre esta opción», explicando que puede costar más y que no se sustituirá si falla. |
+| «Selección efectiva» | «Tu compra» o «Tu elección». |
+| «Usar como referencia» | «Comparar el ahorro con…», manteniendo la referencia completa y factible. |
+| «Avisar presupuesto» | «Avisarme cuando el total sea de … o menos». |
+| «Avisar cambio de ganador» | «Avisarme cuando cambie la opción más barata», con ahorro mínimo dentro de esa configuración. |
+| «Versión consultada… borrador basado en…» | Fuera de la consulta habitual; explicar la versión solo ante un conflicto o dentro del historial. |
+| «Consultar estado» | «Actualizar resultado»; distinguirlo de solicitar una revisión de precios. |
+| IDs de producto, oferta o lectura | Nombre legible; identificadores solo en diagnóstico desplegable. |
+| Recibos JSON | Conservarlos en detalles de entrega; ya están colapsados, pero no deben definir el recorrido principal. |
+
+Mantener visibles los problemas que afectan la decisión: compra incompleta,
+precio antiguo, opción excluida, fijación inválida o cálculo limitado. No ocultar
+estas advertencias para que la pantalla parezca más limpia. Las notas generales
+sobre envío, cupones o stock pueden agruparse en una ayuda breve y accesible.
+
+### Resto de pantallas
+
+- **Productos:** [ProductCard](src/components/ProductCard.tsx#L24) acumula estado,
+  precio, referencia, variación, meta, progreso, tendencia y varias explicaciones
+  por tarjeta. Además, «Ver detalle» aparece antes del nombre/precio. Priorizar
+  nombre, precio, meta, estado y actualización; mover la explicación del progreso
+  y la ayuda de edición al detalle, sin quitar información necesaria de error.
+- **Añadir producto:** [AddProduct](src/components/AddProduct.tsx#L191) muestra el
+  formulario de selector CSS incluso tras una lectura correcta; método/confianza
+  y la lista de candidatos añaden carga. Mantener URL → confirmar → aviso; desplegar
+  diagnóstico solo cuando se solicite o falle la lectura. Si hay ambigüedad real,
+  la selección de precio debe seguir siendo obligatoria.
+- **Detalle de producto:** [ProductDetailScreen](src/components/ProductDetailScreen.tsx#L120)
+  coloca editar, pausar, reparar, revisar, eliminar y tienda después del gráfico y
+  estadísticas. Acercar las acciones frecuentes al resumen; poner reparación y
+  eliminación en acciones secundarias, conservando confirmación destructiva.
+- **Navegación móvil:** [HomeScreen](src/components/HomeScreen.tsx#L142) oculta
+  Productos/Canastas/Ajustes en Menú. Valorar una navegación persistente compacta
+  para esas tres secciones. El cambio de pantallas usa estado local y no un
+  historial de rutas: revisar también Atrás, recarga y recuperación de contexto.
+- **Ajustes y acceso:** son recorridos más acotados. Ajustes puede distinguir
+  preferencias, prueba de canales y actividad. No es el primer lugar donde invertir
+  mientras consultar/comparar una canasta siga resultando difícil.
+
+### Orden de mejora y aceptación
+
+1. **Primero, consulta clara de Canastas:** nombre/contexto, resumen compacto,
+   edición bajo demanda, mensajes de guardado correctos y menos texto técnico.
+   Mantener los contratos, cálculos, ejecución ordinaria y elecciones existentes.
+2. **Después, editor guiado y continuidad:** añadir opciones por necesidad,
+   productos/URLs en contexto, protección de borradores y errores específicos.
+   Este lote sí requiere revisar estados de navegación y publicación.
+3. **Restaurar continuidad del historial y avisos:** acceso coherente para ambos
+   modos; comprobar qué información puede obtenerse con las API actuales.
+4. **Extender a Productos y Añadir producto:** simplificación de tarjetas y
+   diagnóstico progresivo, después de resolver el foco indicado por el dueño.
+
+Validar en localhost con fixtures y emulación móvil: identificar qué comprar sin
+abrir el editor; distinguir elección fijada de recomendación; crear una comparación
+simple sin editar coberturas y alcance por separado; añadir una URL sin perder el
+borrador; corregir un campo sin rehacer todo; entender que guardar no implica
+recálculo inmediato; encontrar el historial. Comprobar también comparación parcial,
+combo compartido y respuesta de guardado perdida. Registrar dónde hace falta
+explicación del desarrollador, sin inventar ahora una puntuación de usabilidad.
+
+Conservar el tema oscuro, Inter, el acento verde, el uso de controles semánticos
+y los estados de carga/error existentes. Esta revisión no justifica cambiar el
+stack, el motor de compra o los servicios. Las pruebas de código existentes
+verifican comportamiento y seguridad; no demuestran que el recorrido sea intuitivo.
+
+Los criterios de organización se apoyan en [mostrar las opciones avanzadas de
+forma progresiva](https://www.nngroup.com/articles/progressive-disclosure/) y en
+[reconocer información en lugar de recordarla](https://www.nngroup.com/articles/recognition-and-recall/).
+Son fundamentos de las propuestas; los hallazgos concretos proceden del código
+de Scrappy y deben contrastarse después con las tareas del dueño.
