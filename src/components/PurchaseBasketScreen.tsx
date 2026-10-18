@@ -5,6 +5,7 @@ import { BasketDetailScreen } from './BasketDetailScreen';
 import { PurchaseEditor } from './PurchaseEditor';
 import { PurchaseResults } from './PurchaseResults';
 import { Button } from './ui/button';
+import { PurchaseActivation } from './PurchaseActivation';
 
 export function PurchaseBasketScreen({ id, onBack, onExpired }: { id: string; onBack: () => void; onExpired: (message: string) => void }) {
   const [data, setData] = useState<PurchaseRead | null>(null);
@@ -73,7 +74,7 @@ export function PurchaseBasketScreen({ id, onBack, onExpired }: { id: string; on
     } catch (e) { if (!controller.signal.aborted) { failure(e); setLocked(true); setNeedsConsult(true); setData(d => d ? { ...d, latest_evaluation: null, stale_reason: 'uncertain' } : d); } }
     finally { if (operation.current === controller) { operation.current = null; setBusy(false); } }
   }
-  if (data?.mode === 'legacy') return <BasketDetailScreen id={id} onBack={onBack} onExpired={onExpired} />;
+  if (data?.mode === 'legacy') return <><PurchaseActivation key={id} id={id} onExpired={onExpired} onActivated={() => void consult()} /><BasketDetailScreen id={id} onBack={onBack} onExpired={onExpired} /></>;
   return <section aria-busy={busy} className="mx-auto w-full min-w-0 max-w-3xl space-y-5">
     <Button variant="outline" disabled={busy} onClick={onBack}>← Volver a Canastas</Button>
     <div><h1 className="text-3xl font-semibold">Necesidades y alternativas</h1><p className="mt-2 text-sm text-muted-foreground">{data ? `Versión consultada ${data.version} · borrador basado en ${base}` : 'Cargando alternativas…'}</p></div>

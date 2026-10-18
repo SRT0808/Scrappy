@@ -8,7 +8,7 @@ export const validPurchaseVersion = (v: unknown): v is string => typeof v === 's
 
 // The SQL publisher owns graph/decimal validation and CAS in one transaction.
 // A transport error is ambiguous: never retry a publication automatically.
-export async function purchaseRpc(name: 'read_purchase_configuration' | 'save_purchase_configuration', body: unknown) {
+export async function purchaseRpc(name: 'read_purchase_configuration' | 'save_purchase_configuration' | 'preview_purchase_activation' | 'read_purchase_activation' | 'activate_purchase_configuration', body: unknown) {
   const url = process.env.SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || new URL(url).protocol !== 'https:' || !key) throw new Error('Missing database configuration');
   const response = await fetch(new URL(`/rest/v1/rpc/${name}`, url), {

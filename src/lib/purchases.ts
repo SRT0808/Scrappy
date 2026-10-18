@@ -67,3 +67,25 @@ export async function savePurchases(id: string, version: string, configuration: 
   if (r.schema_version !== 2 || r.configuration?.version !== (BigInt(version) + 1n).toString())
     throw new PurchaseError(0, 'Publicación sin confirmar. Consulta el estado antes de guardar otra vez.');
 }
+
+export type ActivationPreview = { schema_version: 2; list_id: string; version: string; token: string; configuration: Configuration };
+export type ActivationReceipt = { schema_version: 2; list_id: string; request_id: string; previous_version: string; version: string; configuration: Configuration };
+export async function activationRequest(id: string, query: string, body?: unknown): Promise<Record<string, unknown>> {
+  if (body && !navigator.onLine) throw new PurchaseError(0, 'Sin conexión. Consulta el recibo antes de continuar.');
+  try {
+    const response = await fetch(`/api/baskets/${encodeURIComponent(id)}/purchases${query}`, {
+      method: body ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new PurchaseError(response.status, response.status === 401 ? 'Tu sesión ha caducado.'
+      : response.status === 409 ? 'La canasta cambió. Consulta el estado y prepara otra confirmación.'
+      : 'No se confirmó la activación. Consulta el recibo antes de continuar.');
+    const r = await response.json();
+    if (r.schema_version !== 2 || r.list_id !== id) throw new Error();
+    return r;
+  } catch (e) {
+    if (e instanceof PurchaseError) throw e;
+    throw new PurchaseError(0, 'Resultado sin confirmar. Consulta el recibo; no se reenviará la activación.');
+  }
+}

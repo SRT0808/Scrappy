@@ -77,7 +77,7 @@ test('invalid routes, queries, versions, extra fields and bodies do not reach st
     {...publication,expected_version:1}, ...['0','01','-1','1e2','9223372036854775808'].map(expected_version=>({...publication,expected_version})),
     {...publication,configuration:[]}, {...publication,configuration:null}]) assert.equal((await invoke(request('PUT',body))).status,400);
   assert.equal((await invoke(request('PUT',publication,path+'?page=0'))).status,400);
-  assert.equal((await invoke(request('POST',publication))).status,405);
+  assert.equal((await invoke(request('POST',publication))).status,400);
   const req = request('PUT',publication); req.headers['content-type']='text/plain';
   assert.equal((await invoke(req)).status,415);
   assert.equal((await invoke(request('PUT',{...publication,configuration:{value:'x'.repeat(262144)}}))).status,413);
@@ -103,4 +103,40 @@ test('lost responses and malformed success fail closed without replaying the wri
   database({...configuration,version:'1'});
   assert.equal((await invoke(request('PUT',publication))).status,503);
   database({});assert.equal((await invoke(request())).status,503);
+});
+
+const activation = { ...publication, request_id: '00000000-0000-4000-8000-000000000099', token: 'a'.repeat(64) };
+test('activation uses session/origin protection and validates every explicit request field', async () => {
+  const calls = database({});
+  const req = request('POST', activation); req.headers.cookie = '';
+  assert.equal((await invoke(req)).status, 401);
+  const foreign = request('POST', activation); foreign.headers.origin = 'https://evil.test';
+  assert.equal((await invoke(foreign)).status, 403);
+  for (const change of [{ request_id: 'bad' }, { token: 'short' }, { expected_version: 1 }, { extra: true }])
+    assert.equal((await invoke(request('POST', { ...activation, ...change }))).status, 400);
+  for (const query of ['?preview=0','?preview=1&page=0','?request_id=bad','?preview=1&request_id='+id])
+    assert.equal((await invoke(request('GET', undefined, path+query))).status, 400);
+  assert.equal(calls.length, 0);
+});
+test('activation preview and durable readback support public and rewritten routes', async () => {
+  const preview = { schema_version: 2, list_id: id, version: '1', token: activation.token, configuration: {} };
+  let calls = database(preview);
+  for (const url of [path+'?preview=1', `/api/baskets/[id]/purchases?id=${id}&preview=1`]) {
+    assert.deepEqual((await invoke(request('GET', undefined, url))).body, preview);
+  }
+  assert.ok(calls.every(c => c.url.endsWith('/rpc/preview_purchase_activation')));
+  calls = database({ schema_version: 2, list_id: id, request_id: activation.request_id, receipt: null });
+  assert.equal((await invoke(request('GET',undefined,path+'?request_id='+activation.request_id))).status, 200);
+  assert.deepEqual(calls[0].body, { p_id: id, p_request_id: activation.request_id });
+});
+test('activation validates the receipt and never retries an ambiguous mutation', async () => {
+  const receipt = { schema_version: 2, list_id: id, request_id: activation.request_id, previous_version: '1', version: '2', configuration };
+  let calls = database(receipt);
+  assert.deepEqual((await invoke(request('POST', activation))).body, receipt);
+  assert.ok(calls[0].url.endsWith('/rpc/activate_purchase_configuration'));
+  assert.deepEqual(calls[0].body, { p_id: id, p_expected_version: '1', p_request_id: activation.request_id, p_token: activation.token, p_configuration: {} });
+  calls = database({ ...receipt, request_id: id });
+  assert.equal((await invoke(request('POST', activation))).status, 503); assert.equal(calls.length, 1);
+  let attempts = 0; globalThis.fetch = async () => { attempts++; throw new Error('Lost response'); };
+  assert.equal((await invoke(request('POST', activation))).status, 503); assert.equal(attempts, 1);
 });
