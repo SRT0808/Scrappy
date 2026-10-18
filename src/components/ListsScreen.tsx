@@ -5,7 +5,7 @@ import { ListsError, requestLists, type List, type ListAction, type ListBody } f
 import { parseBudget } from '../lib/baskets';
 import { PurchaseSummary } from './PurchaseSummary';
 
-type Props = { onExpired: (message: string) => void; onLogout: () => void; sessionBusy: boolean; sessionError: string; onHome?: () => void; showLogout?: boolean; onDetail?: (id: string) => void };
+type Props = { onExpired: (message: string) => void; onLogout: () => void; sessionBusy: boolean; sessionError: string; onHome?: () => void; showLogout?: boolean; onDetail?: (id: string, name?: string) => void };
 
 export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, onHome, showLogout = true, onDetail }: Props) {
   const [lists, setLists] = useState<List[]>([]);
@@ -22,6 +22,7 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, on
   const [currency, setCurrency] = useState('PEN');
   const active = useRef<AbortController | null>(null);
   const field = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (editing) field.current?.focus(); }, [editing]);
   const locked = busy || sessionBusy;
   const mutationLocked = locked || needsRefresh;
 
@@ -83,11 +84,11 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, on
 
   return <section aria-labelledby="lists-title" aria-busy={locked} className="mx-auto w-full max-w-2xl self-start">
     <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-      <div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 id="lists-title" className="text-3xl font-semibold tracking-tight">Tus canastas</h1><p className="mt-3 text-sm text-muted-foreground">Combina productos y cantidades sin modificar sus metas individuales.</p></div>
+      <div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 id="lists-title" className="text-3xl font-semibold tracking-tight">Tus canastas</h1><p className="mt-3 text-sm text-muted-foreground">Organiza tus compras y compara opciones.</p></div>
       {showLogout && <Button variant="outline" disabled={locked} onClick={onLogout}>{sessionBusy ? 'Cerrando sesión…' : 'Cerrar sesión'}</Button>}
     </div>
     {onHome && <div className="mb-6"><Button variant="outline" disabled={locked} onClick={onHome}>Volver a Inicio</Button></div>}
-    <form onSubmit={save} className="mb-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <details open={editing !== null || (loaded && lists.length === 0)} className="mb-6 rounded-2xl border border-border bg-card p-4"><summary className="cursor-pointer py-2 font-medium">{editing ? 'Renombrar canasta' : lists.length ? 'Crear otra canasta' : 'Crear mi primera canasta'}</summary><form onSubmit={save} className="mb-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
       <label htmlFor="list-name" className="text-sm font-medium">{editing ? 'Nuevo nombre' : 'Nombre de la nueva canasta'}</label>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
         <Input ref={field} id="list-name" value={name} disabled={mutationLocked || !loaded} onChange={event => setName(event.target.value)} placeholder="Por ejemplo, Tecnología" aria-describedby="list-name-help" />
@@ -95,7 +96,7 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, on
         {editing && <Button variant="outline" type="button" disabled={locked} onClick={() => { setEditing(null); setName(''); field.current?.focus(); }}>Cancelar</Button>}
       </div>
       <p id="list-name-help" className="mt-3 text-xs text-muted-foreground">Entre 1 y 100 caracteres.</p>
-    </form>
+    </form></details>
     {(error || sessionError) && <p role="alert" className="mb-4 text-sm leading-relaxed text-destructive">{error || sessionError}</p>}
     <p role="status" className="mb-4 text-sm text-primary">{busy ? 'Guardando o cargando canastas…' : notice}</p>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{loaded ? `${lists.length} ${lists.length === 1 ? 'canasta' : 'canastas'}` : 'Tus colecciones'}</p><Button variant="outline" disabled={locked} onClick={() => void run('read')}>Actualizar canastas</Button></div>
@@ -105,12 +106,13 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, on
         <h2 className="mb-4 break-words text-lg font-medium">{list.emoji && <span aria-hidden="true">{list.emoji} </span>}{list.name}</h2>
         {list.basket && <PurchaseSummary id={list.id} basket={list.basket} onExpired={onExpired} />}
         <div className="flex flex-wrap gap-2">
-          {onDetail && <Button disabled={mutationLocked} onClick={() => onDetail(list.id)}>Ver canasta</Button>}
+          {onDetail && <Button disabled={mutationLocked} onClick={() => onDetail(list.id, list.name)}>Ver canasta</Button>}
+          <details className="min-w-0"><summary className="cursor-pointer rounded-lg border border-border px-4 py-3 text-sm">Más opciones</summary><div className="mt-3 flex flex-wrap gap-2">
           <Button variant="outline" disabled={mutationLocked || index === 0} aria-label={`Subir ${list.name}`} onClick={() => move(index, -1)}>↑</Button>
           <Button variant="outline" disabled={mutationLocked || index === lists.length - 1} aria-label={`Bajar ${list.name}`} onClick={() => move(index, 1)}>↓</Button>
           <Button variant="outline" disabled={mutationLocked} aria-label={`Renombrar ${list.name}`} onClick={() => { setEditing(list.id); setName(list.name); setDeleting(null); setError(''); field.current?.focus(); }}>Renombrar</Button>
           <Button variant="outline" disabled={mutationLocked} aria-label={`Eliminar ${list.name}`} onClick={() => { setDeleting(list.id); setError(''); }}>Eliminar</Button>
-          <Button variant="outline" disabled={mutationLocked} aria-label={`Configurar canasta de ${list.name}`} onClick={() => { setBasketId(list.id); setBudget(list.basket?.budget != null ? String(list.basket.budget) : ''); setCurrency(list.basket?.currency ?? 'PEN'); setError(''); }}>Canasta</Button>
+          <Button variant="outline" disabled={mutationLocked} aria-label={`Configurar canasta de ${list.name}`} onClick={() => { setBasketId(list.id); setBudget(list.basket?.budget != null ? String(list.basket.budget) : ''); setCurrency(list.basket?.currency ?? 'PEN'); setError(''); }}>Presupuesto y moneda</Button></div></details>
         </div>
         {basketId === list.id && <form className="mt-5 space-y-3 border-t border-border pt-4" onSubmit={event => {
           event.preventDefault();

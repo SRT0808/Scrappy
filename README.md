@@ -2071,3 +2071,56 @@ forma progresiva](https://www.nngroup.com/articles/progressive-disclosure/) y en
 [reconocer información en lugar de recordarla](https://www.nngroup.com/articles/recognition-and-recall/).
 Son fundamentos de las propuestas; los hallazgos concretos proceden del código
 de Scrappy y deben contrastarse después con las tareas del dueño.
+
+### Rediseño UI/UX implementado en local (18 oct 2026)
+
+El dueño confirmó que se deben conservar todas las funcionalidades y la
+profundidad del análisis. El cambio reorganiza cómo se encuentran y configuran
+las opciones; conserva motor, contratos API/SQL, cálculos y operación automática.
+
+- **Canastas:** la consulta abre con el nombre y los importes. Si una preferencia
+  produce una compra distinta de la recomendación, se muestran ambas y se destaca
+  el importe de tu elección. No se duplica el desglose cuando las compras coinciden.
+- **Edición bajo demanda:** cuatro pasos —qué necesitas, opciones de compra,
+  combos/preferencias y presupuesto/avisos— conservan el mismo borrador. Los
+  controles avanzados siguen disponibles; cambiar de paso no publica ni recalcula.
+- **Opción sencilla:** elegir necesidad, producto seguido, contenido y número de
+  compras construye la oferta y alternativa explícitas. Conserva combos,
+  referencias y fijaciones existentes; no acepta extras/sobrantes por el usuario.
+  Presentaciones duplicadas y referencias solapadas tienen mensajes específicos.
+- **URLs en contexto:** el flujo existente de lectura/confirmación se abre dentro
+  de la canasta. El editor permanece montado y conserva campos, paso y borrador.
+  Tras guardar el producto se actualiza el catálogo para poder seleccionarlo.
+- **Cambios sin guardar:** navegación interna con confirmación de salida,
+  protección de recarga y controles de navegación bloqueados durante las
+  operaciones de la canasta. Las respuestas inciertas siguen requiriendo consulta
+  y conciliación; no hay reenvío automático. Un error de entrada permite corregir.
+- **Historial y activación:** acceso de lectura a las composiciones/snapshots
+  conservados desde el detalle de alternativas. La comparación se ofrece después
+  del uso básico legacy; activar mantiene elecciones explícitas y recibo durable.
+  Se puede descartar una preparación que todavía no se haya enviado.
+- **Menos texto inicial:** versiones, IDs y recibos técnicos quedan desplegables;
+  precios incompletos, exclusiones, cálculos limitados y preferencias inválidas
+  siguen explícitos. Guardar explica la espera hasta la próxima ejecución; actualizar
+  consulta y no vuelve a guardar ni fuerza scraping.
+- **Productos y navegación:** secciones persistentes en móvil, filtros/orden
+  desplegables, acciones de producto junto al resumen y diagnóstico CSS opcional.
+  Crear otra canasta y sus acciones administrativas son desplegables. Renombrar
+  abre el formulario y enfoca el nombre. Se mantienen eliminar, ordenar, pausar,
+  reparar, revisar ahora, presupuestos, cantidades y enlaces de tienda.
+
+Validación Windows/local: build/typechecks y PWA (23 recursos) aprobados; 56 tests
+de aceptación afectados y 37 de distribución/navegación aprobados en ejecuciones
+dirigidas con solapamiento, más casos dirigidos de foco, historial y respuesta
+incierta. Las regresiones de Añadir producto, Detalle y estadísticas también
+pasaron; no se presentan esas cifras como una suma de tests únicos. Se revisaron
+32 estados visuales a 320/390 px con fixtures locales, sin overflow ni errores JS,
+incluidos consulta, cuatro pasos, preferencias, historial, guardado, confirmación
+de URL, activación y cancelación. Las mutaciones del harness fueron exclusivamente
+contra su servidor de fixtures. La web/API local devuelve el 401 esperado sin sesión.
+
+Revisión manual de React, accesibilidad, conservación de borradores, CAS y
+entregas ambiguas sin bloqueantes. No hay `/review` local automatizado disponible;
+la herramienta conectada exige un PR remoto. Evidencia privada: `.scrappy/ux-*.log`
+y `.scrappy/ux-visual/`. La versión de desarrollo está en
+[localhost](https://localhost:5173/); esta tarea no publicó ni promovió a main.

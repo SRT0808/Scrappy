@@ -102,6 +102,14 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }:
         <div><p className="text-xs text-muted-foreground">Tu meta{metrics?.reached ? ' · alcanzada' : ''}</p><p className="mt-2 text-lg tabular-nums [overflow-wrap:anywhere]">{formatPrice(metrics?.target ?? null, p.currency)}</p></div>
         <div><p className="text-xs text-muted-foreground">Referencia</p><p className="mt-2 text-lg tabular-nums [overflow-wrap:anywhere]">{formatPrice(p.reference_price, p.currency)}</p></div>
       </div>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Button variant="outline" disabled={busy || loading} onClick={() => setRepairing(true)}>Reparar enlace</Button>
+        <Button variant="outline" disabled={busy || loading || p.status === 'pending_confirmation'} onClick={beginEdit}>Editar</Button>
+        <Button variant="outline" disabled={busy || loading || p.status === 'pending_confirmation'} onClick={() => void act(p.status === 'paused' ? 'resume' : 'pause')}>{p.status === 'paused' ? 'Reanudar' : 'Pausar'}</Button>
+        <Button disabled={busy || loading || !['active', 'error'].includes(p.status) || reviewQueued !== undefined} onClick={() => void act('review')}>Revisar ahora</Button>
+        <Button variant="outline" disabled={busy || loading} onClick={() => { setDeleting(true); setEdit(null); }}>Eliminar</Button>
+        <Button variant="outline" asChild><a href={p.url} target="_blank" rel="noopener noreferrer">Abrir tienda ↗</a></Button>
+      </div>
       <div className="mt-6 min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h2 className="text-lg font-medium">Historial de precios</h2>
         <div aria-label="Rango del historial" className="mt-4 flex flex-wrap gap-2">{historyRanges.map(value => <Button key={value} variant={range === value ? 'default' : 'outline'} aria-pressed={range === value} disabled={busy || loading} onClick={() => setRange(value)}>{value === 'all' ? 'Todo' : `${value} días`}</Button>)}</div>
@@ -113,14 +121,6 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }:
         <h2 className="text-lg font-medium">Estadísticas históricas</h2><p className="mt-2 text-xs text-muted-foreground">{stats.count} lecturas válidas de {p.currency || 'moneda sin confirmar'} · todo el historial</p>
         <dl className="mt-5 grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3">{([['Mínimo', stats.min], ['Máximo', stats.max], ['Promedio', stats.average]] as const).map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-xl tabular-nums [overflow-wrap:anywhere]">{value === null ? 'Sin datos' : formatPrice(value, p.currency)}</dd></div>)}</dl>
         <p className="mt-5 text-sm text-muted-foreground">Tendencia del descuento: {stats.discount_change === null ? 'se necesitan dos lecturas y una referencia positiva.' : `${stats.discount_change > 0 ? '+' : ''}${new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 }).format(stats.discount_change)} puntos porcentuales desde la primera lectura.`}</p>
-      </div>
-      <div className="mt-6 flex flex-wrap gap-3">
-        <Button variant="outline" disabled={busy || loading} onClick={() => setRepairing(true)}>Reparar enlace</Button>
-        <Button variant="outline" disabled={busy || loading || p.status === 'pending_confirmation'} onClick={beginEdit}>Editar</Button>
-        <Button variant="outline" disabled={busy || loading || p.status === 'pending_confirmation'} onClick={() => void act(p.status === 'paused' ? 'resume' : 'pause')}>{p.status === 'paused' ? 'Reanudar' : 'Pausar'}</Button>
-        <Button disabled={busy || loading || !['active', 'error'].includes(p.status) || reviewQueued !== undefined} onClick={() => void act('review')}>Revisar ahora</Button>
-        <Button variant="outline" disabled={busy || loading} onClick={() => { setDeleting(true); setEdit(null); }}>Eliminar</Button>
-        <Button variant="outline" asChild><a href={p.url} target="_blank" rel="noopener noreferrer">Abrir tienda ↗</a></Button>
       </div>
       {reviewQueued !== undefined && <p className="mt-3 text-xs text-muted-foreground">Revisión pendiente de resultado. Si falla, actualiza el historial antes de reintentar. <button className="underline" disabled={busy || loading} onClick={() => setReviewQueued(undefined)}>Permitir otro intento</button></p>}
       {deleting && <div role="group" aria-label="Confirmar eliminación" className="mt-5 rounded-xl border border-destructive/40 p-5"><p className="text-sm">Se eliminarán el producto y todo su historial de precios.</p><div className="mt-4 flex flex-wrap gap-3"><Button disabled={busy} onClick={() => void act('delete')}>Eliminar definitivamente</Button><Button variant="outline" disabled={busy} onClick={() => setDeleting(false)}>Cancelar</Button></div></div>}

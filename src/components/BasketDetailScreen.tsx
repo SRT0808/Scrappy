@@ -9,7 +9,7 @@ const BasketHistory = lazy(() => import('./BasketHistory'));
 const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm';
 const date = (value: string | null) => value ? new Date(value).toLocaleString('es-PE') : 'Sin lectura válida';
 
-export function BasketDetailScreen({ id, onBack, onExpired }: { id: string; onBack: () => void; onExpired: (message: string) => void }) {
+export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired }: { id: string; historyOnly?: boolean; onBack: () => void; onExpired: (message: string) => void }) {
   const [detail,setDetail] = useState<BasketDetail | null>(null);
   const [products,setProducts] = useState<ProductSummary[]>([]);
   const [range,setRange] = useState('30');
@@ -52,14 +52,15 @@ export function BasketDetailScreen({ id, onBack, onExpired }: { id: string; onBa
   const stats=basketStatistics(points,version ?? 0);
   const currency=points[0]?.currency ?? detail?.basket.currency ?? 'PEN';
   const available=products.filter(p => !detail?.basket.lines?.some(l => l.product_id===p.id));
+  const Heading = historyOnly ? 'h2' : 'h1';
   return <section className="mx-auto w-full min-w-0 max-w-4xl" aria-busy={loading || busy}>
-    <Button variant="outline" disabled={busy} onClick={onBack}>← Volver a Canastas</Button>
-    <h1 className="mt-6 mb-4 break-words text-3xl font-semibold">{detail?.name ?? 'Detalle de canasta'}</h1>
+    <Button variant="outline" disabled={busy} onClick={onBack}>{historyOnly ? 'Volver al resumen' : '← Volver a Canastas'}</Button>
+    <Heading className="mt-6 mb-4 break-words text-3xl font-semibold">{historyOnly ? 'Historial de la canasta' : detail?.name ?? 'Detalle de canasta'}</Heading>
     {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
     <p role="status" className="mb-4 text-sm text-primary">{loading ? 'Cargando canasta…' : busy ? 'Guardando…' : ''}</p>
     <Button variant="outline" disabled={loading || busy} onClick={() => setRefresh(n => n+1)}>Actualizar canasta</Button>
     {detail && <>
-      <div className="mt-5"><BasketSummary basket={detail.basket} /></div>
+      {!historyOnly && <><div className="mt-5"><BasketSummary basket={detail.basket} /></div>
       <section className="rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h2 className="text-lg font-medium">Productos y frescura</h2>
         <ol className="mt-4 divide-y divide-border">{detail.basket.lines!.map(l => {
@@ -83,6 +84,7 @@ export function BasketDetailScreen({ id, onBack, onExpired }: { id: string; onBa
           <Button disabled={busy || uncertain || !productId}>Agregar a canasta</Button>
         </form>
       </section>
+      </>}
       <section className="mt-6 min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h2 className="text-lg font-medium">Historial por composición</h2>
         <p className="mt-2 text-xs text-muted-foreground">Cada versión conserva sus cantidades y moneda. Las series nunca se mezclan.</p>

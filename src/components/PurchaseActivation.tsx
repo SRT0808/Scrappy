@@ -4,8 +4,9 @@ import { Button } from './ui/button';
 import { PurchaseEditor } from './PurchaseEditor';
 import { requestProducts, type ProductSummary } from '../lib/products';
 
-export function PurchaseActivation({ id, onActivated, onExpired }: {
+export function PurchaseActivation({ id, onActivated, onExpired, onDirtyChange, onBusyChange }: {
   id: string; onActivated: () => void; onExpired: (message: string) => void;
+  onDirtyChange?: (dirty: boolean) => void; onBusyChange?: (busy: boolean) => void;
 }) {
   const key = `scrappy.activation.${id}`;
   const [pending, setPending] = useState(() => sessionStorage.getItem(key) ?? '');
@@ -17,6 +18,9 @@ export function PurchaseActivation({ id, onActivated, onExpired }: {
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const dirty = !!pending || !!preview && (!!budget || !!winner || confirmed || JSON.stringify(draft) !== JSON.stringify(publication(preview.configuration)));
+  useEffect(() => { onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
+  useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
   const active = useRef(true), inFlight = useRef(false);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
   function failure(e: unknown) {
@@ -86,6 +90,7 @@ export function PurchaseActivation({ id, onActivated, onExpired }: {
         <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />Confirmo esta conversión y los avisos seleccionados</label>
       </fieldset>
       <Button disabled={busy || !confirmed || !budget || !winner}>Confirmar activación de esta canasta</Button>
+      <Button type="button" variant="outline" disabled={busy} onClick={() => { setPreview(null); setDraft(null); setBudget(''); setWinner(''); setConfirmed(false); }}>Descartar preparación</Button>
     </form>}
   </section>;
 }

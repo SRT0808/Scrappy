@@ -5,6 +5,20 @@ import { publication } from '../../src/lib/purchases';
 import { purchaseFixture, purchaseId } from '../fixtures/purchase-ui';
 
 beforeEach(() => sessionStorage.clear());
+it('reports unsaved activation choices and allows discarding preparation without publishing',async()=>{
+ const preview={schema_version:2,list_id:purchaseId,version:'5',token:'a'.repeat(64),configuration:purchaseFixture().configuration!};
+ const fetch=vi.fn(async()=>Response.json(preview)); vi.stubGlobal('fetch',fetch);
+ const dirty=vi.fn(),busy=vi.fn();
+ render(<PurchaseActivation id={purchaseId} onActivated={vi.fn()} onExpired={vi.fn()} onDirtyChange={dirty} onBusyChange={busy}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Preparar conversión'}));await screen.findByText(/Versión 5 → 6/);
+ expect(dirty).toHaveBeenLastCalledWith(false);
+ fireEvent.change(screen.getByLabelText('Avisar cambio de ganador'),{target:{value:'yes'}});
+ await waitFor(()=>expect(dirty).toHaveBeenLastCalledWith(true));
+ fireEvent.click(screen.getByRole('button',{name:'Descartar preparación'}));
+ await waitFor(()=>expect(dirty).toHaveBeenLastCalledWith(false));
+ expect(screen.queryByRole('button',{name:'Confirmar activación de esta canasta'})).not.toBeInTheDocument();
+ expect(fetch.mock.calls).toHaveLength(1);expect(busy).toHaveBeenCalledWith(true);
+});
 function mount(mode: 'ok' | 'lost' | 'conflict' | 'empty' | 'expired' = 'ok') {
  const configuration=publication(purchaseFixture().configuration!);
  if(mode==='empty') Object.assign(configuration,{needs:[],offers:[],alternatives:[],pins:[],reference:[]});

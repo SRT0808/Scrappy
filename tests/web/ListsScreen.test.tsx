@@ -39,26 +39,29 @@ describe('lists screen', () => {
     mount();
     const user = userEvent.setup();
     await screen.findByRole('heading', { name: first.name });
-    expect(screen.getByRole('button', { name: 'Subir Tecnología' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Bajar Tecnología' })).toBeDisabled();
+    expect(screen.getByRole('button', { hidden: true, name: 'Subir Tecnología' })).toBeDisabled();
+    expect(screen.getByRole('button', { hidden: true, name: 'Bajar Tecnología' })).toBeDisabled();
+    await user.click(screen.getByText('Crear otra canasta'));
     await user.type(screen.getByLabelText('Nombre de la nueva canasta'), ' Hogar ');
-    await user.click(screen.getByRole('button', { name: 'Crear canasta' }));
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Crear canasta' }));
     await screen.findByRole('heading', { name: 'Hogar' });
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Renombrar Hogar' }).closest('details')!.querySelector('summary')!);
     await user.click(screen.getByRole('button', { name: 'Renombrar Hogar' }));
+    expect(screen.getByLabelText('Nuevo nombre')).toHaveFocus();
     await user.clear(screen.getByLabelText('Nuevo nombre'));
     await user.type(screen.getByLabelText('Nuevo nombre'), 'Casa');
-    await user.click(screen.getByRole('button', { name: 'Guardar nombre' }));
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Guardar nombre' }));
     await screen.findByRole('heading', { name: 'Casa' });
-    await user.click(screen.getByRole('button', { name: 'Subir Casa' }));
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Subir Casa' }));
     await waitFor(() => expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Casa'));
-    await user.click(screen.getByRole('button', { name: 'Bajar Casa' }));
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Bajar Casa' }));
     await waitFor(() => expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Tecnología'));
-    await user.click(screen.getByRole('button', { name: 'Eliminar Casa' }));
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Eliminar Casa' }));
     expect(fetch).toHaveBeenCalledTimes(5);
-    await user.click(screen.getByRole('button', { name: 'Cancelar eliminación' }));
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Cancelar eliminación' }));
     expect(screen.queryByRole('button', { name: 'Confirmar eliminación' })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Eliminar Casa' }));
-    await user.click(screen.getByRole('button', { name: 'Confirmar eliminación' }));
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Eliminar Casa' }));
+    await user.click(screen.getByRole('button', { hidden: true, name: 'Confirmar eliminación' }));
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Casa' })).not.toBeInTheDocument());
     expect(fetch.mock.calls.map(call => [call[0], call[1].method])).toEqual([
       ['/api/lists', 'GET'], ['/api/lists', 'POST'], [`/api/lists/${second.id}`, 'PATCH'],
@@ -93,8 +96,8 @@ describe('lists screen', () => {
     mock(json({ lists: [first] }), json({ error: 'private details' }, 409));
     mount();
     await screen.findByText(first.name);
-    await userEvent.click(screen.getByRole('button', { name: 'Eliminar Tecnología' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Confirmar eliminación' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Eliminar Tecnología' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Confirmar eliminación' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('contiene productos');
     expect(screen.getByRole('heading', { name: first.name })).toBeInTheDocument();
     expect(screen.queryByText('private details')).not.toBeInTheDocument();
@@ -104,13 +107,13 @@ describe('lists screen', () => {
     const fetch = mock(json({ lists: [first, second] }), status ? json({}, status) : new TypeError('network'), json({ lists: [second, first] }));
     mount();
     await screen.findByText(first.name);
-    await userEvent.click(screen.getByRole('button', { name: 'Subir Hogar' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Subir Hogar' }));
     await screen.findByRole('alert');
     expect(screen.getAllByRole('listitem')[0]).toHaveTextContent(first.name);
-    expect(screen.getByRole('button', { name: 'Crear canasta' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Actualizar canastas' }));
+    expect(screen.getByRole('button', { hidden: true, name: 'Crear canasta' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Actualizar canastas' }));
     await waitFor(() => expect(screen.getAllByRole('listitem')[0]).toHaveTextContent(second.name));
-    expect(screen.getByRole('button', { name: 'Crear canasta' })).toBeEnabled();
+    expect(screen.getByRole('button', { hidden: true, name: 'Crear canasta' })).toBeEnabled();
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
@@ -118,17 +121,17 @@ describe('lists screen', () => {
     mock(json({}, 503), json({ lists: [first] }), json({}, 400));
     mount();
     await screen.findByRole('alert');
-    expect(screen.getByRole('button', { name: 'Crear canasta' })).toBeDisabled();
-    await userEvent.click(screen.getByRole('button', { name: 'Actualizar canastas' }));
+    expect(screen.getByRole('button', { hidden: true, name: 'Crear canasta' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Actualizar canastas' }));
     await screen.findByText(first.name);
-    await userEvent.click(screen.getByRole('button', { name: 'Renombrar Tecnología' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Renombrar Tecnología' }));
     const input = screen.getByLabelText('Nuevo nombre');
     fireEvent.change(input, { target: { value: 'Nuevo' } });
     fireEvent.submit(input.closest('form')!);
     await screen.findByRole('alert');
     expect(input).toHaveValue('Nuevo');
     expect(screen.getByRole('heading', { name: first.name })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Cancelar' }));
     expect(screen.getByLabelText('Nombre de la nueva canasta')).toHaveValue('');
   });
 
@@ -143,8 +146,8 @@ describe('lists screen', () => {
     fireEvent.submit(input.closest('form')!);
     fireEvent.submit(input.closest('form')!);
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole('button', { name: 'Cerrar sesión' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Actualizar canastas' })).toBeDisabled();
+    expect(screen.getByRole('button', { hidden: true, name: 'Cerrar sesión' })).toBeDisabled();
+    expect(screen.getByRole('button', { hidden: true, name: 'Actualizar canastas' })).toBeDisabled();
     expect(screen.queryByRole('heading', { name: first.name })).not.toBeInTheDocument();
     finish(json({ list: first }));
     await screen.findByRole('heading', { name: first.name });
@@ -155,9 +158,9 @@ describe('lists screen', () => {
     render(<App />);
     if (action === 'create') {
       await screen.findByText('Tu catálogo espera tu próximo producto');
-      await userEvent.click(screen.getByRole('button', { name: 'Gestionar canastas' }));
+      await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Gestionar canastas' }));
       fireEvent.change(screen.getByLabelText('Nombre de la nueva canasta'), { target: { value: first.name } });
-      await userEvent.click(screen.getByRole('button', { name: 'Crear canasta' }));
+      await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Crear canasta' }));
     }
     expect(await screen.findByLabelText('Clave de acceso')).toHaveValue('');
     expect(screen.getByRole('alert')).toHaveTextContent('Tu sesión ha caducado');

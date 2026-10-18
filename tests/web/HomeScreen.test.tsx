@@ -35,7 +35,7 @@ describe('independent catalog', () => {
         : url === '/api/lists' ? json({ lists: [] }) : json({ products: [] }));
       vi.stubGlobal('fetch', fetch);
       mount(true);
-      await screen.findByRole('heading', { name: 'Necesidades y alternativas' });
+      await screen.findByRole('heading', { name: 'Tu canasta' });
       await screen.findByText(/Ahorro frente a referencia: S\/ 0.01/);
       expect(fetch.mock.calls.some(([url]) => url === `/api/baskets/${purchaseId}/purchases?page=0`)).toBe(true);
       expect(document.title).toBe('Scrappy · Detalle de canasta');

@@ -32,14 +32,14 @@ describe('basket MVP', () => {
     vi.stubGlobal('fetch', fetch);
     render(<ListsScreen {...props} />);
     await screen.findByRole('heading', { name: list.name });
-    await userEvent.click(screen.getByRole('button', { name: 'Configurar canasta de Tecnología' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Configurar canasta de Tecnología' }));
     fireEvent.change(screen.getByLabelText('Gasto máximo'), { target: { value: '100,10' } });
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar canasta' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Guardar canasta' }));
     await screen.findByText('Gasto objetivo alcanzado');
     expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ basket_budget: 100.10, basket_currency: 'PEN' });
     expect(fetch.mock.calls[1][1].method).toBe('PATCH');
-    await userEvent.click(screen.getByRole('button', { name: 'Configurar canasta de Tecnología' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Desactivar canasta' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Configurar canasta de Tecnología' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Desactivar canasta' }));
     await waitFor(() => expect(screen.queryByLabelText('Resumen de canasta')).not.toBeInTheDocument());
     expect(JSON.parse(fetch.mock.calls[2][1].body)).toEqual({ basket_budget: null, basket_currency: null });
   });
@@ -49,10 +49,10 @@ describe('basket MVP', () => {
     vi.stubGlobal('fetch', fetch);
     render(<ListsScreen {...props} />);
     await screen.findByRole('heading', { name: list.name });
-    await userEvent.click(screen.getByRole('button', { name: 'Configurar canasta de Tecnología' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Configurar canasta de Tecnología' }));
     for (const value of ['0', '1.001', '-1']) {
       fireEvent.change(screen.getByLabelText('Gasto máximo'), { target: { value } });
-      await userEvent.click(screen.getByRole('button', { name: 'Guardar canasta' }));
+      await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Guardar canasta' }));
       expect(screen.getByRole('alert')).toHaveTextContent('gasto máximo positivo');
     }
     expect(fetch).toHaveBeenCalledTimes(1);
@@ -64,10 +64,10 @@ describe('basket MVP', () => {
     const onDetail = vi.fn();
     render(<ListsScreen {...props} onDetail={onDetail} />);
     await screen.findByRole('heading', { name: list.name });
-    await userEvent.click(screen.getByRole('button', { name: 'Configurar canasta de Tecnología' }));
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Configurar canasta de Tecnología' }));
     fireEvent.change(screen.getByLabelText('Gasto máximo'), { target: { value: '200' } });
-    await userEvent.click(screen.getByRole('button', { name: 'Ver canasta' }));
-    expect(onDetail).toHaveBeenCalledWith(list.id);
+    await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Ver canasta' }));
+    expect(onDetail).toHaveBeenCalledWith(list.id, list.name);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 

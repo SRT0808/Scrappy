@@ -149,7 +149,7 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
     const body: Confirmation = { list_id: listId || null, name: name.trim(), currency, candidate_index: candidate,
       reference_price: reference, target_type: targetType, target_value: target, check_interval_hours: interval };
     if (!confirmed || !validConfirmation(body)) {
-      setError('Confirma el precio y la moneda, elige una lista y revisa la referencia y la condición.'); return;
+      setError('Confirma el precio y la moneda, y revisa la referencia y tu meta. La canasta es opcional.'); return;
     }
     void run({ action: 'confirm', ...body });
   }
@@ -183,14 +183,14 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
       <section aria-labelledby="reading-title" className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <h2 id="reading-title" ref={resultTitle} tabIndex={-1} className="mb-4 text-lg font-semibold">Confirma lo que encontramos</h2>
         <div className="flex min-w-0 gap-4">{result.image_url && /^https?:\/\//i.test(result.image_url) && <img src={result.image_url} alt="" referrerPolicy="no-referrer" className="size-20 shrink-0 rounded-lg bg-muted object-contain" onError={event => { event.currentTarget.hidden = true; }} />}
-          <div className="min-w-0"><p className="break-words font-medium">{result.name || 'Producto sin nombre'}</p><p className="mt-2 text-xl font-semibold text-primary tabular-nums">{chosenPrice ? `${chosenPrice} ${currency || 'Moneda por confirmar'}` : 'Precio sin leer'}</p><p className="mt-2 text-xs text-muted-foreground">Método: {({ json_ld: 'Datos estructurados', meta_microdata: 'Metadatos', heuristic: 'Precio visible', recipe: 'Selector CSS', adaptive: 'Selector recuperado', none: 'Sin resultado' } as Record<string, string>)[result.method] ?? result.method} · Confianza: {Math.round(result.confidence * 100)} %</p></div>
+          <div className="min-w-0"><p className="break-words font-medium">{result.name || 'Producto sin nombre'}</p><p className="mt-2 text-xl font-semibold text-primary tabular-nums">{chosenPrice ? `${chosenPrice} ${currency || 'Moneda por confirmar'}` : 'Precio sin leer'}</p><details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer py-2">Detalles de la lectura</summary><p>Método: {({ json_ld: 'Datos estructurados', meta_microdata: 'Metadatos', heuristic: 'Precio visible', recipe: 'Selector CSS', adaptive: 'Selector recuperado', none: 'Sin resultado' } as Record<string, string>)[result.method] ?? result.method} · Confianza: {Math.round(result.confidence * 100)} %</p></details></div>
         </div>
         {result.warnings.length > 0 && <ul className="mt-4 space-y-1 text-sm text-muted-foreground">{result.warnings.map((warning, index) => <li key={index} className="break-words">{warning}</li>)}</ul>}
         {result.candidates.length > 0 && <fieldset className="mt-5 min-w-0 space-y-2"><legend className="mb-3 text-sm font-medium">{ambiguous ? 'Elige el precio correcto para continuar' : 'Otros precios detectados'}</legend>{result.candidates.map((choice, index) => <label key={index} className="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm"><input type="radio" name="candidate" checked={candidate === index} disabled={locked || uncertain} onChange={() => choose(index)} className="mt-1 shrink-0 accent-emerald-500" /><span className="min-w-0 break-words"><span className="font-medium tabular-nums">{choice.price} {choice.currency || 'Moneda por confirmar'}</span><span className="mt-1 block text-muted-foreground">{choice.context}</span></span></label>)}</fieldset>}
       </section>
-      <form onSubmit={event => start(event, true)} className="space-y-3 rounded-2xl border border-border bg-card p-5">
+      <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer py-2 text-sm font-medium">¿El precio no es correcto? Opciones avanzadas</summary><form onSubmit={event => start(event, true)} className="space-y-3 rounded-2xl border border-border bg-card p-5">
         <label htmlFor="price-selector" className="text-sm font-medium">Enseñar un selector CSS</label><p className="text-xs text-muted-foreground">Si el precio falta o es incorrecto, indica el selector y vuelve a leer la tienda.</p><Input id="price-selector" value={selector} disabled={locked} onChange={event => setSelector(event.target.value)} placeholder=".precio-final" maxLength={500} /><Button type="submit" variant="outline" disabled={locked || uncertain}>Leer con selector</Button>
-      </form>
+      </form></details>
       {reading?.status === 'ready' && <form onSubmit={save} className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
         <h2 className="text-lg font-semibold">{repair ? `Confirmar reparación de ${repair.name}` : 'Define tu meta'}</h2>
         <fieldset disabled={locked || uncertain} className="space-y-5">
