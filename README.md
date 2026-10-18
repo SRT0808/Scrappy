@@ -2124,3 +2124,31 @@ entregas ambiguas sin bloqueantes. No hay `/review` local automatizado disponibl
 la herramienta conectada exige un PR remoto. Evidencia privada: `.scrappy/ux-*.log`
 y `.scrappy/ux-visual/`. La versión de desarrollo está en
 [localhost](https://localhost:5173/); esta tarea no publicó ni promovió a main.
+
+
+### Rediseño publicado y verificado (18 oct 2026)
+
+Con autorización explícita del dueño, el candidato `a899d87babcd81d15aca52bded2a042424d58b11`
+se publicó en main y Vercel `dpl_Agpx1iY8SgUs8MnU6nirWL7m3e1W` quedó READY.
+El alias [Scrappy](https://scrappy-silk.vercel.app) se comprobó contra ese deployment,
+después de verificar su URL independiente. El override de build se aplicó solamente
+a esta publicación; se conserva la política de builds automáticos y el firewall.
+
+Verificación desplegada: sesión anónima 401, login y sesión autenticada 200,
+consultas reales de listas, productos y ambas canastas 200; 39 estados visuales
+a 320/390/1280 px, incluyendo resumen, cuatro pasos, editor avanzado, formulario
+URL sin extracción, historial, productos/detalle, listado, ajustes y legacy.
+Sin overflow ni errores JavaScript; el navegador de verificación permitió solo GET
+sobre la API. No se guardaron borradores reales, activaciones ni notificaciones.
+Los logs de errores de este deployment consultados durante el cierre estaban vacíos.
+
+Comparación antes/después: cron-job.org 8633587, payload main/all cada 3h,
+firewall, workflow, variable del worker, inventario de secretos y modos/versiones
+sin cambios. Healthchecks está up con periodo 3h y gracia 9h. Solo Skincare
+permanece en alternativas v2; Yesstyle Skincare permanece vacía en legacy v1.
+El último ciclo ordinario observado fue 39165919660, exitoso antes de esta
+publicación; esta mejora de interfaz no fuerza otro ciclo ni pretende acreditar
+recepción nueva de avisos. No hubo migraciones ni cambios del backend/motor.
+Evidencia privada: `.scrappy/release-a899d87/` (preflight, build, comprobaciones,
+comparación operativa y capturas). La evidencia local del apartado anterior sigue
+vigente; su referencia a no publicación describe el cierre local anterior.
