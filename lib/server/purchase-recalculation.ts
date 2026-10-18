@@ -14,7 +14,7 @@ const uuid = /^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/;
 // The caller owns an exclusive connection for the entire bounded pass. Durable
 // pending work is the existing runtime/current validity predicate, never RAM.
 export async function recalculatePendingPurchases(
-  db: PurchaseConnection, options: { limit?: number; afterListId?: string } = {},
+  db: PurchaseConnection, options: { limit?: number; afterListId?: string; shouldContinue?: () => boolean } = {},
 ) {
   const limit = options.limit ?? 25;
   if (!Number.isInteger(limit) || limit < 1 || limit > 100 ||
@@ -27,6 +27,9 @@ export async function recalculatePendingPurchases(
     ORDER BY l.id LIMIT $2::integer`, [options.afterListId ?? null, limit])).rows;
   const outcomes: PurchaseRecalculationOutcome[] = [];
   for (const row of candidates) {
+    if (options.shouldContinue && !options.shouldContinue()) {
+      return { outcomes, nextAfterListId: null, stopped: true };
+    }
     const listId = (row.value as { list_id: string }).list_id;
     try {
       const captured = await capturePendingPurchaseInputs(db, listId);
