@@ -1819,9 +1819,9 @@ this does not close Phase 6 or authorize a release.
 ### Stage-5 release candidate (2026-10-17 Lima)
 
 Candidate code: `cf320a75a0c1a71197b64797b3ed3e8564a0cef0` on `develop`,
-based on `1d2e5c0`. The following documentation commit completes the candidate;
-its full revision is available from `git log -1 develop`. Review the complete
-range from the base through that documentation commit before deciding on main.
+based on `1d2e5c0`. Documentation commit
+`88fa7e3e96c3794cbcf967dbb5fa0923b6aa60af` completes the candidate. The review
+range is `1d2e5c0..88fa7e3`; later review documentation does not change its identity.
 
 | Commit | Review scope |
 | --- | --- |
@@ -1846,3 +1846,36 @@ main promotion, deployment and any enablement/conversion. Real SQL login/TLS/poo
 compatibility, deployed migration/API readiness, timing/free usage and ordinary
 run reconciliation remain deployment checks; offline acceptance does not prove
 them. Preserve the Healthchecks 3h/9h and sole ordinary scheduler configuration.
+
+### Candidate review recommendation (2026-10-17 Lima, SPEC 14/15)
+
+Recommendation: accept `88fa7e3e96c3794cbcf967dbb5fa0923b6aa60af` as the
+locally accepted candidate for the owner's release decision. Manual review of
+the complete `1d2e5c0..88fa7e3` range (five commits, 30 files) found no blocking
+findings. This recommendation is not authorization to publish, promote, deploy
+or activate it.
+
+Review covered the bounded worker's independent recalculation/delivery sweeps,
+durable claim-before-send and ambiguous receipt handling, exclusive PostgreSQL
+sessions and verified TLS/role restrictions, historical notification context,
+atomic activation with source fingerprint/version checks and durable replay
+receipts, guarded rollback, authenticated API and explicit UI notice choices.
+Actions remains opt-in, runs recovery after successful or failed Python reviews,
+excludes reading/test-notification modes and preserves failure/heartbeat ordering.
+The local callback remains explicitly composed and disconnected from Vite.
+
+Validation: compared implementation and fixture coverage with the stage-1 through
+stage-4 acceptance recorded above and SPEC 14/15; checked the exact Git range,
+clean starting worktree, environment template and whitespace. Previously accepted
+unit/API/web/build/temporary-PostgreSQL/visual evidence is retained, not rerun or
+represented as fresh execution. No automated local `/review` capability is
+available; the exposed review tool requires an existing remote pull request.
+
+Before a separately authorized deployment, verify the dedicated PostgreSQL 16+
+login, actual TLS and session/pool compatibility, migration/API readiness and
+free runtime usage. Before activation, agree exact baskets, configurations,
+notice choices and real-send scope; reconcile attributable ordinary-run effects
+afterward. These operational checks remain unproven by local fixtures. No remote
+access, publication, promotion, migration, deployment, send or activation was
+performed during this review. Next action belongs to the owner: decide whether
+to authorize publication of this exact candidate; no operational action is queued.
