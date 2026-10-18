@@ -11,6 +11,9 @@ import { runRecalculationCases } from './purchase-recalculation-cases.mjs';
 import { runNoticeCases } from './purchase-notice-cases.mjs';
 import { runPurchaseApiCases } from './purchase-api-cases.mjs';
 import { runLocalReviewCases } from './local-purchase-review-cases.mjs';
+import { runWorkerCases } from './purchase-worker-cases.mjs';
+import { runAdapterCases } from './purchase-adapter-cases.mjs';
+import { runActivationCases } from './purchase-activation-cases.mjs';
 
 // No .env, live clients, browser, network services or fixed test port.
 const bin = process.env.POSTGRES_BIN ?? 'C:/Program Files/PostgreSQL/18/bin';
@@ -21,7 +24,7 @@ const run = (name, args) => execFileSync(exe(name), args, { encoding: 'utf8', wi
 const listener = createServer();
 await new Promise((ok, fail) => { listener.once('error', fail); listener.listen(0, '127.0.0.1', ok); });
 const port = listener.address().port; await new Promise(ok => listener.close(ok));
-const args = ['-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=verbose', '-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', '-d', 'postgres'];
+const args = ['-X', '-q', '-At', '-P', 'null=null', '-v', 'ON_ERROR_STOP=1', '-v', 'VERBOSITY=verbose', '-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', '-d', 'postgres'];
 const literal = value => value === null ? 'NULL' : Array.isArray(value) ? `ARRAY[${value.map(literal).join(',')}]::uuid[]` : typeof value === 'boolean' ? String(value) : `'${String(value).replaceAll("'", "''")}'`;
 const connections = [];
 const publications = process.env.PURCHASE_PUBLICATION_LOCAL === '1';
@@ -29,10 +32,13 @@ const recalculations = process.env.PURCHASE_RECALCULATION_LOCAL === '1';
 const notices = process.env.PURCHASE_NOTICES_LOCAL === '1';
 const purchaseApi = process.env.PURCHASE_API_LOCAL === '1';
 const localReviews = process.env.PURCHASE_LOCAL_REVIEWS === '1';
-const writers = process.env.PURCHASE_WRITERS_LOCAL === '1' || publications || recalculations || notices || purchaseApi || localReviews;
+const worker = process.env.PURCHASE_WORKER_LOCAL === '1';
+const activation = process.env.PURCHASE_ACTIVATION_LOCAL === '1';
+const adapters = process.env.PURCHASE_ADAPTERS_LOCAL === '1';
+const writers = process.env.PURCHASE_WRITERS_LOCAL === '1' || publications || recalculations || notices || purchaseApi || localReviews || worker || adapters || activation;
 async function connect(name = randomUUID()) {
   const child = spawn(exe('psql'), args, { windowsHide: true, stdio: 'pipe' });
-  let buffer = '', errors = '', pending, ended = false;
+  let buffer = '', errors = '', pending, ended = false, closing = false;
   child.stdout.setEncoding('utf8'); child.stderr.setEncoding('utf8');
   child.stdout.on('data', chunk => {
     buffer += chunk.replaceAll('\r', '');
@@ -45,11 +51,12 @@ async function connect(name = randomUUID()) {
     }
   });
   child.stderr.on('data', chunk => { errors += chunk; });
+  child.stdin.on('error', error => pending?.fail(error));
   child.on('error', error => pending?.fail(error));
   const exited = new Promise(ok => child.on('exit', () => { ended = true; pending?.fail(Object.assign(new Error(errors || 'psql disconnected'), { code: errors.match(/ERROR:\s+([A-Z0-9]{5}):/)?.[1] })); pending = undefined; ok(); }));
   const db = {
     async query(sql, parameters = []) {
-      if (pending || ended) throw new Error('Connection is busy or closed');
+      if (pending || ended || closing) throw new Error('Connection is busy or closed');
       const marker = 'END_' + randomUUID();
       return new Promise((ok, fail) => {
         const timer=setTimeout(()=>{child.kill(); fail(new Error('psql protocol timeout'));},20000);
@@ -57,7 +64,10 @@ async function connect(name = randomUUID()) {
         child.stdin.write(sql.replace(/\$(\d+)/g, (_, i) => literal(parameters[Number(i) - 1])) + ';\n\\echo ' + marker + '\n');
       });
     },
-    async close() { if (!ended) child.stdin.end('\\q\n'); await exited; },
+    async close() {
+      if (!ended && !closing) { closing = true; child.stdin.end('\\q\n'); }
+      await exited;
+    },
   };
   connections.push(db);
   await db.query(`set application_name=${literal(name)}; set statement_timeout='15s'`);
@@ -119,7 +129,7 @@ try {
   const count = () => value('select count(*)::int from purchase_evaluations');
   let writerGroup = 0;
   const test = async (name, work) => {
-    if (publications || recalculations || notices || purchaseApi || localReviews) return;
+    if (publications || recalculations || notices || purchaseApi || localReviews || worker || adapters || activation) return;
     if (writers !== name.startsWith('writers:')) return;
     if (writers && ++writerGroup < Number(process.env.PURCHASE_WRITERS_FROM ?? 1)) return;
     await work(); cases++; console.log('PASS ' + name);
@@ -280,7 +290,7 @@ try {
     assert.equal(await value("select to_jsonb(to_regclass('public.purchase_runtime') is null)",check),true);
     assert.equal(await value("select count(*)::int from information_schema.columns where table_name='purchase_evaluations' and column_name in ('capture','archive','committed_state_revision')",check),0);
   });
-  if (writers && !publications && !recalculations && !notices && !purchaseApi) {
+  if (writers && !publications && !recalculations && !notices && !purchaseApi && !activation) {
     const rpc = async (command, db) => {
       const connection = db ?? await connect();
       await connection.query('begin isolation level serializable; set local role service_role');
@@ -440,7 +450,21 @@ try {
     run('psql', [...args, '-f', resolve('supabase/migrations/20261016040000_purchase_notices.sql')]);
     cases = await runPurchaseApiCases({ admin, connect, value, row, list, product, md5, literal, run, args, capture, evaluate, commit });
   }
-  console.log(`Local PostgreSQL: ${cases} acceptance groups passed; temporary cluster only${localReviews ? ', local review integration' : purchaseApi ? ', API' : notices ? ', notices' : recalculations ? ', recalculation' : publications ? ', publication' : writers ? ', writers integrated' : ', protocol only'}.`);
+  if (worker) {
+    run('psql', [...args, '-f', resolve('supabase/migrations/20261016030000_purchase_publication.sql')]);
+    run('psql', [...args, '-f', resolve('supabase/migrations/20261016040000_purchase_notices.sql')]);
+    cases = await runWorkerCases({ admin, connect, value, row, list, product, literal, capture, evaluate, commit });
+  }
+  if (activation) {
+    for (const name of ['20261016030000_purchase_publication.sql','20261016040000_purchase_notices.sql','20261016050000_purchase_api.sql']) run('psql', [...args, '-f', resolve('supabase/migrations',name)]);
+    cases = await runActivationCases({ admin, connect, value, row, list, product, md5, literal, run, args, capture, evaluate, commit });
+  }
+  if (adapters) {
+    run('psql', [...args, '-f', resolve('supabase/migrations/20261016030000_purchase_publication.sql')]);
+    run('psql', [...args, '-f', resolve('supabase/migrations/20261016040000_purchase_notices.sql')]);
+    cases = await runAdapterCases({ admin, value, row, list, product, literal, port, psql: exe('psql'), args });
+  }
+  console.log(`Local PostgreSQL: ${cases} acceptance groups passed; temporary cluster only${adapters ? ', adapters/callback' : worker ? ', worker' : localReviews ? ', local review integration' : purchaseApi ? ', API' : notices ? ', notices' : recalculations ? ', recalculation' : publications ? ', publication' : writers ? ', writers integrated' : ', protocol only'}.`);
 } finally {
   await Promise.allSettled(connections.map(db=>db.close()));
   if(started) run('pg_ctl',['-D',data,'-m','immediate','-w','stop']);

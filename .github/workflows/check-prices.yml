@@ -93,6 +93,7 @@ jobs:
         run: python -m playwright install-deps chromium
 
       - name: Review products and send notifications
+        id: review
         env:
           RUN_MODE: ${{ inputs.mode || 'all' }}
           PRODUCT_ID: ${{ inputs.product_id }}
@@ -104,6 +105,42 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
         run: python -m scrappy.run --mode "$RUN_MODE" --product-id "$PRODUCT_ID" --reading-id "$READING_ID"
+
+      # Deployment opt-in only. Run after a failed review too: it may have
+      # committed prices before failing. Never mask that original failure.
+      - name: Set up Node for alternatives
+        id: purchase_node
+        if: >-
+          !cancelled() && vars.PURCHASE_WORKER_ENABLED == 'true' &&
+          (inputs.mode == '' || inputs.mode == 'all' || inputs.mode == 'product') &&
+          (steps.review.outcome == 'success' || steps.review.outcome == 'failure')
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build alternatives runtime
+        id: purchase_build
+        if: >-
+          !cancelled() && steps.purchase_node.outcome == 'success'
+        run: |
+          npm ci --no-audit --no-fund
+          npx tsc
+
+      - name: Recalculate alternatives and deliver pending notices
+        if: >-
+          !cancelled() && steps.purchase_build.outcome == 'success'
+        env:
+          PURCHASE_WORKER_ENABLED: ${{ vars.PURCHASE_WORKER_ENABLED }}
+          RUN_MODE: ${{ inputs.mode || 'all' }}
+          PURCHASE_DATABASE_URL: ${{ secrets.PURCHASE_DATABASE_URL }}
+          PURCHASE_DATABASE_CA: ${{ secrets.PURCHASE_DATABASE_CA }}
+          PURCHASE_APP_ORIGIN: ${{ secrets.PURCHASE_APP_ORIGIN }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
+        run: node .scrappy/api-build/scripts/purchase-actions.js
 
       - name: Ping heartbeat
         if: success() && inputs.mode != 'reading'
