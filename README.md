@@ -504,7 +504,11 @@ No application, workflow or migration changes belong to this pending package.
 Keep private evidence outside Git; no commit, push, promotion or deployment was
 performed. This review does not assert current external service health.
 
-## Phase 6 release candidate (prepared locally, 16 Oct 2026 Lima)
+## Phase 6 release candidate (deployed; legacy reopening blocked, 16 Oct 2026 Lima)
+
+Current execution status is recorded after the recovery table below. The package
+preparation and local acceptance paragraphs describe the earlier reviewed work;
+they do not mean that the six migrations are still uninstalled.
 
 This candidate isolates Phase 6 from base `7b660a1` on `develop`. All pending
 application, SQL, fixture and documentation changes belong to this feature;
@@ -536,6 +540,469 @@ complete that integration. Unused installation may use guarded downs in reverse
 order while all writers remain excluded; publication/notice usage can forbid down,
 so never force a rollback or delete its protection ledgers. No installation,
 backup, activation, promotion, push, deployment or real delivery is performed here.
+
+### Coordinated rollout and recovery for `1d2e5c0` (reviewed sequence; execution below)
+
+Target: `1d2e5c0bc2d24f23f9a7541478c86dc50a605d4a`, based on `7b660a1`.
+This is an execution sequence for a later owner-authorized maintenance window,
+not authorization to run it. No remote state was inspected for this preparation;
+the installed SQL ledger, live application SHA, access controls and backup
+recoverability must be established at that window. Keep the existing three-hour
+scheduler and Healthchecks 3h/9h configuration outside historical mission tests.
+Promotion, installation, maintenance controls and reopening real legacy operation
+need explicit scope from the owner. Alternatives activation and new real notice
+tests remain separate decisions even after this rollout succeeds.
+
+1. **Record the recovery baseline before touching production.** Privately record
+   the current main SHA, serving deployment ID/SHA, installed migrations, workflow
+   and scheduler enabled states, pending/running Actions and local processes.
+   `7b660a1` is the candidate's Git base, not proof of the serving rollback target.
+   Confirm the baseline schema includes migrations through `20261011040000` and
+   reconcile any already installed Phase 6 prefix; never replay completed files.
+   If actual SQL/code differs from the reviewed baseline, stop for reconciliation.
+2. **Exclude and drain all writers.** Disable dispatch at both cron-job.org and
+   **Check prices**; prevent manual/API dispatch too. Block public API access on
+   the production alias and every credential-bearing deployment URL, including
+   clients with existing sessions. Closing a browser or hiding a UI button is
+   insufficient. Verify the access barrier before SQL; its exact provider control
+   must be available and checked in the authorized window, not assumed from old
+   private commissioning scripts. Stop Windows fallback, dev servers, local
+   Python/review hooks and direct SQL clients. Drain active HTTP/DB requests and
+   running/queued Actions, including runs checked out at the old SHA. Cancelling
+   a run can leave partial writes or delivery ambiguity: reconcile runs, readings,
+   events and channel receipts before proceeding. The SQL gate and Actions
+   concurrency group do not exclude old code or external channel requests.
+   Keep Healthchecks active; record maintenance time and possible absence alerts;
+   do not send synthetic heartbeats or repeat the closed outage mission.
+3. **Back up the quiescent database.** Preserve schema, data, function definitions,
+   grants and the installation ledger privately with an available restore method;
+   verify the backup is readable/restorable in isolation before proceeding.
+   Record legacy IDs, memberships, quantities, prices, histories, alert latches,
+   composition versions and totals at a fixed timestamp for later comparison.
+   No backup or restore is performed by this preparation.
+4. **Install SQL before any candidate writer can run.** Execute the six complete
+   files individually, recording each successful COMMIT in the private ledger:
+
+   | Order | File in `supabase/migrations/` | Contract added |
+   | --- | --- | --- |
+   | 1 | `20261016000000_purchase_shadow.sql` | Additive graph/backfill; mode stays legacy |
+   | 2 | `20261016010000_purchase_persistence.sql` | Gate, runtime, capture and evaluation |
+   | 3 | `20261016020000_purchase_writers.sql` | Gated legacy RPCs, new writers and revoked direct grants |
+   | 4 | `20261016030000_purchase_publication.sql` | Versioned configuration publication |
+   | 5 | `20261016040000_purchase_notices.sql` | Evaluation events and channel receipt state |
+   | 6 | `20261016050000_purchase_api.sql` | Configuration/history read RPC |
+
+   Each file has its own transaction; the six files are not one atomic release.
+   On error or uncertain COMMIT, keep exclusion, inspect actual objects/ledger and
+   determine the committed prefix before any retry. Do not append a COMMIT to a
+   failed transaction or run the whole directory again. Confirm PostgREST exposes
+   the final RPC signatures and isolation settings after its schema reload.
+5. **Check SQL and switch matching code while access remains blocked.** Compare
+   the conservation baseline, all lists still `legacy`, empty publication/notice
+   usage ledgers, empty evaluations/events/deliveries, and the singleton gate.
+   Inspect RLS, denied direct service writes/private schema access, allowed RPC
+   execution and wrapper SERIALIZABLE metadata against the migration files.
+   Do not call `enter_purchase_operation` as a read-only probe: it writes a fence.
+   Only after SQL checks may the owner promote the reviewed candidate to main and
+   deploy matching API/web; promotion may trigger deployment automatically.
+   Verify the serving deployment's source SHA and that future Actions checkout
+   the same main SHA. Record any approved documentation-only descendant explicitly.
+   Old deployed writers cannot safely resume after the direct grants are revoked.
+6. **Separate harmless checks from controlled writes.** Through the restricted
+   operator path, check anonymous session denial, authenticated catalogs, legacy
+   totals/detail and GET purchases (including legacy mode/history pagination).
+   Reading a legacy purchase configuration does not activate it; PUT cannot switch
+   a legacy basket to alternatives. Before reopening writers, the separate
+   execution scope must also cover a controlled legacy RPC round trip through
+   deployed PostgREST to verify actual SERIALIZABLE behavior, CAS/conflict handling
+   and matching API/Python persistence. Use isolated fixture identities, compare
+   affected state and reconcile/clean up precisely; never use notification tests,
+   `all` or `product` as supposedly harmless probes. They can scrape, write, send
+   real alerts and ping Healthchecks. Unit/local SQL evidence does not establish
+   deployed PostgREST behavior. A 409/isolation error stops reopening; no blind
+   retry of a mutation, review or delivery is allowed.
+7. **Reopen legacy operation only after the execution checks pass.** Preserve
+   legacy mode everywhere and leave the alternatives worker, local callback and
+   notice transport disconnected. Restore only the previously authorized API,
+   workflow and single scheduler states, after stale queues are resolved. Observe
+   the next ordinary slot: main SHA, run completion/counts, persisted checks,
+   legacy snapshots/receipts and genuine heartbeat. Do not dispatch catch-up runs
+   or accelerated slots. Record the outcome and any partial/ambiguous delivery;
+   activation requires a later reviewed worker/transport and explicit decision.
+
+**Recovery decision points (all writers stay excluded until reconciled):**
+
+| Failure boundary | Recovery |
+| --- | --- |
+| Before the first SQL COMMIT | Keep baseline code/schema; reopen only after confirming no changes or outstanding writers. |
+| Partial SQL prefix, before candidate code | Inspect committed prefix. Prefer completing a reviewed forward fix. If unused and owner-authorized, run only matching committed downs, descending; never invoke absent objects' downs. |
+| All SQL installed, deployment or contract check fails | Keep the API blocked and scheduler/workflow stopped; repair forward with matching code. Reverting only the frontend or serving old API/Python against revoked direct grants is insufficient. |
+| Unused installation is to be reversed | With exclusion, use matching files in `supabase/rollback/`, timestamps `20261016050000` → `20261016040000` → `20261016030000` → `20261016020000` → `20261016010000` → `20261016000000`, in reverse dependency order. Each COMMIT is independent. Restore and verify the recorded baseline API/web/main execution target before any old writer resumes. |
+| A down refuses, publication/capture/notice usage exists, or state is uncertain | Stop reversal. Preserve v2 graphs, evaluations, receipts and internal protection ledgers, including deleted-list publication evidence. Keep writes blocked; use a reviewed forward repair. Never reset mode, remove a ledger, use CASCADE manually or flatten history to bypass a guard. |
+| Restore is chosen by the owner | Restore the quiescent backup and matching code as one recovery operation. Reconcile every later write and channel receipt first; a database restore cannot retract external messages and can make sent events appear pending. Never automatically resend or reclaim ambiguous/claimed deliveries. |
+
+The downs are documented as local/pre-activation recovery and have only local
+fixture evidence; their presence is not production restore approval. This review
+checked the sequence against the six actual ups/downs, API mode guard, writer
+callers and workflow. It ran no SQL, provider operation, HTTP probe or delivery;
+previous accepted suites/build/visual checks were retained without repetition.
+
+### Authorized execution: SQL/application verified, initial reopening stopped
+
+On 16 Oct 2026 Lima, the owner authorized resuming the full rollout at red level.
+The quiescent backup restored in an isolated PostgreSQL instance with all 13
+public tables and 162 rows matching. All six migrations committed individually;
+their hashes and commit confirmations are recorded privately. Original rows,
+memberships, histories, latches, composition versions and fixed-time basket totals
+were conserved; RLS, grants, private schema denial and wrapper isolation metadata
+passed. There was no pre-existing database migration table: the private release
+ledger records this installation without inventing a Supabase ledger.
+
+Remote main and develop were promoted to exactly
+`1d2e5c0bc2d24f23f9a7541478c86dc50a605d4a`. Production deployment
+`dpl_9qkx5RurbBL45kvaUryM11y9BgNq` reached READY from that Git source.
+Its build passed; 16 restricted HTTP reads covered authentication, catalogs,
+legacy detail, purchases pagination and PWA assets. Seven legacy API operations
+proved editing, quantity changes and stale-version rejection without extra writes.
+The actual Python Database.save_review transport persisted a synthetic review
+through deployed PostgREST; a stale replay was rejected without another history
+row, and the deployed API returned the updated price/total. These successful
+gate-first RPCs establish actual SERIALIZABLE execution, beyond metadata alone.
+No scraping, notification transport or test dispatch was used. Fixtures were
+removed and all original rows and fixed-time totals compared equal again.
+
+Execution stopped after two failed checks, under AGENTS.md. The first raw probe
+received Vercel authentication's 302 before WAF; authenticated vercel curl then
+passed 18 exclusion checks over five aliases and four ready deployments, with
+and without a valid application session. The second failure occurred while
+narrowing maintenance to `/api` on retired deployment hosts: the production alias
+returned 403 instead of the expected anonymous 401. Configuration was recorded;
+propagation versus host-condition behavior is not yet established. No reopening
+retry or further functional repair was attempted.
+
+**State at the initial stop (superseded below).** The global maintenance barrier was restored and
+verified with valid sessions against the production alias and candidate URL.
+Cron-job.org job 8633587 is disabled, Check prices is disabled_manually, and no
+Actions or other client transactions remain active. Healthchecks was unchanged;
+the application and ordinary scheduled reviews remain unavailable until reopening
+is resolved. Every basket remains legacy; evaluations, purchase events/deliveries
+and publication/notice usage ledgers are empty. The gate fence is 15 from the
+controlled successful operations and must not be reset. Alternatives worker,
+callback and transport remain disconnected. The first ordinary candidate slot
+has not been observed. Do not replay migrations or restore only the old API.
+
+Private evidence: `.scrappy/release-1d2e5c0/red/`, especially `migrations.json`,
+`sql-verification.json`, `application-read-passed.json`, `legacy-api-write-passed.json`,
+`python-persistence.json`, `legacy-python-api-passed.json`, `cleanup-passed.json`,
+`reopening-firewall-at-stop.json`, `stopped-verification.json` and `backup/`.
+At that stop, continuation required the owner's decision after the red-level failure: diagnose
+the reopening response, exclude retired API writers, prove public and authenticated
+access, then restore only the original workflow/job states and three-hour schedule.
+
+### Authorized reopening completed (17 Oct 2026 Lima)
+
+The owner authorized continuing at red level. Fresh read-only checks confirmed
+the candidate SHA/deployment, stopped workflow/job, global barrier and inactive
+alternatives before changing access. The maintenance rule was narrowed to `/api`
+on the 18 retired deployment/alias hosts, preserving every unrelated firewall rule.
+The production alias returned application 401 after 1,382 ms on the first
+post-change sample. Four current hosts (three aliases and the candidate URL)
+each returned 401 anonymously and 200 with a valid application session; four
+retired READY deployments and two retired aliases returned WAF 403 even with a
+valid session. The public home and authenticated list catalog returned 200.
+The previous 403 did not recur; its cause remains unproven, so this evidence does
+not establish a provider propagation guarantee or a host-condition defect.
+
+Legacy access, Check prices and cron-job.org job 8633587 were restored by
+00:01:58 Lima. The job's original three-hour UTC schedule, dispatch payload and
+other settings compared equal; no catch-up/manual dispatch was sent. The next
+ordinary slot is 17 Oct at 01:00 Lima (06:00 UTC), still pending observation.
+Main/deployment remain exactly `1d2e5c0`; no code promotion, migration, backup,
+fixture write, scraping or notification test was repeated. Healthchecks was
+unchanged. Both baskets remain legacy, evaluations/events/deliveries and
+publication/notice usage remain empty, and the gate fence remains 15.
+Alternatives worker, local callback and notice transport remain disconnected.
+
+Private evidence in `.scrappy/release-1d2e5c0/red/`:
+`reopen-resume-baseline.json`, `reopen-resume-barrier.json`,
+`reopen-reviewed-change.json`, `reopen-propagation-samples.json`,
+`reopen-api-passed.json`, `reopen-before-scheduler.json` and
+`reopen-final-verification.json`. Reopening is verified.
+
+The first ordinary slot, 17 Oct 2026 at 01:00 Lima (06:00 UTC), is reconciled:
+provider receipt `8633587-17-9-3` identifies successful Actions run `39008340533`,
+attempt 1 on main at the exact candidate SHA. Captures at 00:55 and 01:02 Lima
+show one new completed DB run (`6c2001d2-7ad9-4407-a612-abf38cf1157c`), zero due
+products, zero reviews, and an FX refresh. Products, prices, basket snapshots,
+events and notification receipts are unchanged; no new extraction or delivery
+is claimed. The successful heartbeat step matches Healthchecks at 01:01:36 Lima,
+with its counter increasing from 47 to 48 and the original 3h/9h settings intact.
+Both baskets remain legacy and alternatives evaluation/event/delivery/publication/
+notice usage tables remain empty. Cron schedule/payload and active workflow are
+preserved. The observer exited; no manual dispatch, SQL replay, accelerated test
+or alternatives activation occurred. Private evidence: `ordinary-reconciled.json`,
+`ordinary-before.json`, `ordinary-after.json`, `ordinary-provider.json`,
+`ordinary-actions.json` and `ordinary-job.private.log` in the same directory.
+Alternatives activation and worker/callback/transport integration remain separate
+owner decisions; the closed mission tests must not be restarted.
+
+## Alternatives integration and activation scope (defined, inactive; SPEC 14/15)
+
+Defined on 2026-10-17 (Lima). This is the plan for subsequent implementation and
+acceptance, not an activation procedure ready to execute. The latest recorded
+baseline is candidate `1d2e5c0`, two legacy baskets and the reconciled ordinary slot
+above; no fresh remote health check is claimed. Existing local acceptance remains
+valid. Deployment installed the schema/application, but did not connect the worker,
+local callback or delivery transports. `PUT /api/baskets/:id/purchases` requires
+alternatives mode and cannot perform the initial conversion.
+
+### Scope and dependency order
+
+| Stage | Deliverable and prerequisites | Completion boundary |
+| --- | --- | --- |
+| 1. Bounded worker, offline | Compose `recalculatePendingPurchases` and `deliverPurchaseNoticeLocally` with injected exclusive connections, channel callbacks and clock. Discover pending deliveries independently of new evaluations. Reuse existing capture/commit/claim/finish contracts. | Temporary PostgreSQL fixtures and fake senders only; no default startup hook, environment reads or live connection. |
+| 2. Runtime adapters and local callback | Supply a real PostgreSQL session adapter, general Spanish ntfy/email message adapters, and explicit opt-in wiring to `localReadings`. Reuse the stage-1 worker for `afterProductReview` and `recover()`. | Local integration with fixtures, fake provider endpoints and temporary DB; defaults remain disconnected. |
+| 3. Atomic activation contract/API/UI | Add a service-only gated activation RPC, authenticated API and explicit per-basket confirmation, with the conversion rules below. Depends on a recoverable worker and mixed-mode UI/read/write guards. | Local conversion/concurrency/auth tests and one visual verification of the changed activation screen; real baskets remain legacy. |
+| 4. Operational wiring and review | Add a Node worker invocation to the existing Actions job after Python review modes `all`/`product`, including zero due products and a Python failure after durable writes. Keep `reading`/`test_notification` outside this path. | Test workflow ordering/failure/heartbeat contracts offline, run affected checks/build and final review; present an exact develop candidate for the owner's main decision. |
+| 5. Authorized deployment and activation | After local acceptance, owner decides exact promotion, operational connections, basket IDs/configurations, enabled notice settings and real-send scope. Deploy the compatible worker/adapters/activation path before converting any basket. | Read back configuration and reconcile attributable ordinary-run effects; no accelerated mission or new outage rehearsal. |
+
+Stage 1 is the next implementation task; stages 2–5 depend on its acceptance.
+Stage-1 offline acceptance is complete (2026-10-17 Lima): `purchase-worker.ts`
+adds injected connections/channels/clock, separate 25-item cursor sweeps, a
+cooperative 180-second deadline, channel timeouts and durable recovery. Runtime
+adapters must honor the injected connection/query budgets; no default wiring or
+live connection exists. Nine worker unit tests and eleven affected regression
+tests were previously accepted; current typecheck passed. The psql bridge now
+closes idempotently, handles stdin errors and represents SQL NULL explicitly,
+preserving a row when a channel is already claimed. Seven temporary PostgreSQL
+groups passed, including concurrent workers without duplicate sends, terminal
+channel outcomes and lost durable claim/finish acknowledgements. The eighth
+group now passes deadline/recovery and conservation against the fixture baseline,
+including its seven pre-existing legacy snapshots, instead of absolute totals.
+Only that pending group was executed in this closure, with minimal fresh fixture
+setup: `$env:PURCHASE_WORKER_LOCAL='1'; $env:PURCHASE_WORKER_FROM='8'; node tests/purchase-persistence-sql.mjs`.
+The prior seven groups and twenty unit/regression tests retain their acceptance;
+they were not rerun. Manual code review of the stage-1 worker, shared helpers,
+psql bridge and tests found no blocking findings; diff-check passed. Runtime
+adapters must still enforce actual timing/TLS/role constraints in stage 2.
+The closure's temporary cluster was stopped and removed by cleanup; the older
+private diagnostic fixture remains under `.scrappy/purchase-persistence-pg-qSGVxF/`.
+No real sends, activation, runtime adapters or callback wiring were performed in stage 1.
+
+### Stage 2 offline acceptance (2026-10-17 Lima)
+
+`purchasePostgres` now supplies a fresh exclusive `pg` session per worker sweep.
+It requires an explicit SQL URL with credentials and no query options, verified
+TLS (optional PEM CA), a dedicated NOINHERIT login with no ownership/elevated
+attributes, and only non-inheriting, non-admin membership with SET access to
+`service_role`. Startup verifies the login and assumed role. Connection is bounded
+to 5s, SQL to 2s or the remaining worker budget, and close to 2s with socket
+destruction. Client timeouts disconnect rather than reuse uncertain sessions;
+existing transaction helpers retain SERIALIZABLE/rollback behavior. Nonempty
+startup options prevent accidental PGOPTIONS inheritance. The explicit
+`localFixture` escape disables TLS only for numeric loopback temporary databases.
+Role membership options require PostgreSQL 16+; deployed login/pool compatibility
+and actual certificate/privilege checks remain deployment prerequisites.
+
+`purchaseTransports` takes explicit configuration and optional provider doubles.
+The default ntfy/Gmail transports verify HTTPS/TLS and use the worker's abort
+signal/15s budget; SMTP closes on cancellation. Spanish notices identify the
+frozen event, exact configuration version and evaluation timestamp, label it as
+historical, and link to the current basket on a validated HTTPS application
+origin. Provider acceptance is `sent`, definite rejection `failed`, and uncertain
+or timed-out delivery `ambiguous`; this does not prove device receipt. The only
+alternatives receipt authority remains `purchase_deliveries`.
+
+`localPurchaseRuntime(root, { connect, channels, now })` explicitly composes these
+adapters with the stage-1 worker and `localReadings`: product-child completion
+invokes the worker even on a nonzero exit; `recover()` is explicit and coalesces
+with an active callback. Construction performs no connection or recovery. Vite
+continues using its original disconnected executor. To opt in later, supply
+`connect: purchasePostgres({ databaseUrl, ca })` and
+`channels: purchaseTransports({ appOrigin, ntfyTopic, gmailUser, gmailPassword, emailTo })`.
+The optional PURCHASE_DATABASE_URL/CA and PURCHASE_APP_ORIGIN names are reserved
+in `.env.example`; callers must map them explicitly, only in authorized local
+runtime/Actions. No worker credentials belong in Vercel or browser bundles.
+
+Acceptance: ten distinct adapter unit tests and six distinct temporary PostgreSQL
+groups passed, including real `pg` transactions/privilege failures, bounded
+connection/SQL/close behavior, fake HTTP/SMTP acceptance/rejection/timeouts,
+overlap, child failure after durable review and recovery after callback outage.
+Price checks increased only for the two fixture reviews; legacy snapshots and
+notifications matched their baseline. Revalidation after driver hardening ran
+only affected groups; the provider-only group retained its earlier acceptance.
+Commands: `npx tsc`, then `node --test .scrappy/api-build/tests/purchase-adapters.test.js`;
+for the temporary database, set `$env:PURCHASE_ADAPTERS_LOCAL='1'` and run
+`node tests/purchase-persistence-sql.mjs` without loading `.env`. The
+PURCHASE_ADAPTERS_MATCH test-only regex can select affected groups.
+Manual review found no remaining blocking findings; the temporary cluster was
+stopped/removed. No remote connection, real sends, activation, workflow change,
+default callback, deployment or promotion was performed. Stages 3–5 remain pending.
+
+### Stage 3 offline acceptance (2026-10-17 Lima)
+
+Atomic per-basket activation is accepted locally: service-only preview and
+activation RPCs rebuild current legacy memberships, check composition version
+and source fingerprint, publish version +1 and store a durable request receipt.
+Authenticated GET/POST routes and the confirmation screen require explicit notice
+choices; uncertain responses are reconciled by receipt readback without automatic
+mutation retries. Empty baskets require an explicit valid graph. Rollback refuses
+to discard activation receipts; recovery requires compatible code or forward repair.
+
+All six temporary PostgreSQL activation groups are accepted across the recorded
+runs. This closure ran only the pending sixth group:
+`$env:PURCHASE_ACTIVATION_LOCAL='1'; $env:PURCHASE_ACTIVATION_FROM='6'; node tests/purchase-persistence-sql.mjs`.
+Its conservation baseline is captured inside the legacy writer transaction after
+the quantity edit (2 to 3), including its legitimate snapshot. The rejected stale
+confirmation, fresh activation and refused rollback preserve that complete baseline,
+including basket items, products, price checks, legacy snapshots and notifications.
+The temporary cluster was stopped and removed by cleanup.
+
+Previously accepted evidence remains valid without rerunning unchanged checks:
+nine API tests, six activation UI tests, 23 web regression tests, both typechecks,
+build/PWA and local visual confirmation at 320/390 px (`.scrappy/activation-visual`).
+Manual closure review covered migration/rollback, gate/CAS and receipts,
+session/origin guards, explicit UI confirmation, ambiguous-response recovery and
+mixed-mode integration; no blocking findings remain. Diff-check passed.
+Changes remain uncommitted on develop. No remote connection, real basket activation,
+real send, deployment or promotion occurred. Stage 4 operational wiring and offline
+workflow review was completed in stage 4 below; stage 5 and any main promotion
+require the owner's decision.
+
+### Stage 4 offline acceptance (2026-10-17 Lima)
+
+The existing `check-prices.yml` job now builds and invokes
+`scripts/purchase-actions.ts` after Python `all`/`product` reviews, including an
+empty due-product set and a failed review that may have committed prices.
+Explicit status conditions allow recovery after Python failure without changing
+its failed outcome. Node setup/build/worker failures prevent the success heartbeat
+and reach the existing failure ping. `reading` and `test_notification` skip this
+runtime; existing heartbeat behavior, main guard, concurrency and cadence remain.
+
+The Actions repository **variable** `PURCHASE_WORKER_ENABLED` must equal `true`
+to enable these new steps. It is unset/disabled by default and was not changed
+remotely. Stage 5 must provision the dedicated login and verify TLS/pool/role
+compatibility, then configure Actions secrets `PURCHASE_DATABASE_URL`, optional
+PEM `PURCHASE_DATABASE_CA`, and HTTPS `PURCHASE_APP_ORIGIN`, reusing the four
+existing notice secrets. Never place these SQL credentials in Vercel/the browser.
+The explicit CLI checks the flag/mode before constructing adapters, performs a
+durable recovery sweep, reports counts/backlog, and exits nonzero on infrastructure
+failure with a sanitized Spanish error. Imports perform no runtime work.
+
+Offline acceptance: five Node tests passed, covering CLI gates and sanitized exit,
+both review modes with zero reviewed products, independent delivery discovery
+after infrastructure failure, and the actual workflow expressions across modes,
+gate states and Python/setup/build/worker failures. TypeScript and full web/PWA
+build passed. Earlier stage-1/2/3 fixture acceptance remains valid, including a
+Python child failing after durable writes and restart without duplicate sends;
+unchanged suites were not repeated. Manual final review covered workflow status
+propagation, secret scoping, runtime composition and activation dependencies with
+no blocking findings. No Actions run, live connection, send, basket activation,
+deployment or promotion was performed. The accepted changes are packaged on
+develop; see the stage-5 candidate below for the exact code revision.
+
+The Python scraper remains the only price-review engine. The TypeScript worker
+uses persisted prices/FX and never dispatches readings or scrapes URLs. Product
+alerts and legacy snapshots/receipts retain their existing owners. No new scheduler,
+paid service, automatic offer discovery or second implementation of the optimizer.
+
+### Worker, connection and delivery contracts
+
+- Each worker invocation performs one UUID-cursor recalculation sweep, pages of
+  25 baskets, then a separate delivery sweep, pages of 25 events ordered by
+  their archived evaluation time and event ID (join the matching evaluation;
+  events have no creation-time column). Discover events with at least one **pending
+  channel**, not merely newly committed evaluations or the aggregate event status.
+  Restart discovery from the beginning on the next invocation; no in-memory queue
+  is authoritative. A conflict/deferred basket does not prevent later IDs or
+  already-pending notices from progressing. Callback overlap coalesces as in
+  `localPurchaseReviews`; recovery starts with a new connection and fresh capture.
+- Bound each invocation to 180 seconds, checking the deadline between items and
+  before channel claims; transport timeouts are at most 15 seconds and a channel
+  starts only with enough remaining time to finish/record it. Stop discovery at
+  the deadline and report remaining work; never kill and automatically replay a
+  claimed send. Backlog remains durable for the next ordinary run. Tests must
+  prove these bounds and later-ID progress; operational timing must fit the
+  existing 20-minute job limit before deployment. Conflicts/backlog are reported;
+  connection/discovery/receipt failures fail the worker step. Valid incomplete
+  comparisons are business results, not infrastructure failures.
+- Preserve a single exclusive PostgreSQL connection across each SERIALIZABLE
+  transaction, with parameterized queries, verified TLS outside local fixtures,
+  bounded connect/query timeouts, rollback and close on every exit. Stage 2 may
+  add `pg` as the necessary Node runtime driver; stage 2 installed it offline.
+  Use a dedicated server-only `PURCHASE_DATABASE_URL`, separate from migration
+  credentials, for a login restricted to the existing service-role contract;
+  never use the database owner for the worker. Pool/role compatibility and least
+  privileges are deployment prerequisites. A REST service key is not a SQL login,
+  and separate PostgREST requests cannot replace this transaction connection.
+  Update `.env.example` and secret placement when implementing the adapter:
+  worker credentials belong only in authorized local runtime/Actions, never the
+  browser or Vercel API. No account or secret is needed for stage-1 fixtures.
+- Reuse ntfy/Gmail accounts and `nodemailer`; extract/generalize transport code
+  where useful without changing existing test/product notifications. Existing
+  Settings functions send a fixed test payload and cannot directly send purchase
+  notices. Require a validated application origin for the basket deep link;
+  include event identity, configuration version and evaluation time in Spanish
+  messages. Discover frozen pending events across versions as historical notices,
+  clearly dated, without presenting them as the current recommendation or silently
+  discarding them. Recipients can inspect the current basket through the link.
+- Claim each channel durably before sending. Only confirmed provider acceptance
+  yields `sent`; definite rejection yields `failed`; timeout, uncertain acceptance
+  or unclassified error yields `ambiguous`. A lost claim acknowledgement prevents
+  sending; a lost finish acknowledgement prevents replay. Never reclaim `claimed`,
+  `failed` or `ambiguous` automatically. Continue the other channel independently
+  and expose receipts for operator inspection. Keep `purchase_deliveries` as the
+  sole alternatives receipt authority; do not call Python `deliver()` or create
+  duplicate legacy `notifications`. Provider acceptance and device receipt are
+  separate evidence; no exactly-once receipt guarantee is claimed.
+- In Actions, the worker runs after review completion even if Python failed;
+  the original Python failure must remain a failure. Success heartbeat follows
+  both successful steps, and the existing failure ping covers either failure.
+  Do not send a success heartbeat for failed discovery/receipt persistence.
+  `reading` keeps its existing heartbeat exclusion. Keep cron payload/cadence,
+  job concurrency, main guard and Healthchecks 3h/9h configuration unchanged.
+
+### Per-basket activation and recovery
+
+Activation requires a new atomic operation, not a bare `purchase_mode` update or
+a call to the existing alternatives-only PUT. Under the gate/list locks and
+SERIALIZABLE isolation, compare the expected legacy composition version, rebuild
+the shadow from current memberships, validate limits/units/graph and preserve IDs,
+quantities, product history, references and legacy observations. Publish the
+confirmed graph as version +1, switch mode and invalidate the evaluation together.
+The confirmation shows preserved configuration, resulting needs/offers and notice
+settings. Notice settings require explicit selection: a first qualifying budget
+evaluation may send; the first verified winner establishes a baseline without a
+winner-change notice. Do not assume that conversion is notification-free.
+
+Use a durable activation request identity/receipt so a lost successful response
+can be reconciled by authenticated readback without a second version advance.
+Reject stale or competing edits with 409; invalid/oversized conversion leaves the
+whole legacy basket untouched. There is no bulk or automatic activation. Empty
+baskets require a valid explicitly confirmed graph, not fabricated purchases.
+Legacy and alternatives baskets must remain usable together, including shared
+trackers, confirmation/repair guards and all non-winning offer dependencies.
+
+After conversion, recovery pauses the alternatives worker/senders and affected
+configuration writes while preserving readable versioned data and receipts.
+Restore the last compatible application/worker or repair forward; do not reset
+mode, flatten combos, drop migrations or clear claim/baseline/history to retry.
+Individual/legacy operation may continue only with compatible guards. Outstanding
+claimed/ambiguous deliveries need inspection; restarting discovery never resends
+them. Any production restore or expanded real-send scope needs its own decision.
+
+### Validation gates (planned, not executed by this definition)
+
+| Gate | Minimum new evidence |
+| --- | --- |
+| Worker offline | Unit orchestration plus temporary PostgreSQL: no due products but pending config/FX/day work; pagination/deadline and failing early UUID; crash after evaluation before delivery; old-version pending event; concurrent workers, partial channels, lost claim/finish responses and restart without duplicate evaluations/sends. |
+| Adapters/callback | TLS/role/transaction adapter tests; fake ntfy/SMTP acceptance, rejection and timeout; basket link/version/date rendering; failed child after saved review, overlap and restart recovery; no extra price checks or legacy receipts. |
+| Activation | Conservation at fixed price/FX, version +1 exactly once, stale CAS and concurrent membership/review edit, lost response/readback, invalid/oversized graph, disabled notices versus first budget event, first-winner baseline, auth/RLS and mixed legacy/alternatives regression. |
+| Local release | Affected tests and build, activation screen visual check, workflow success/failure/heartbeat ordering and final `/review`; retain prior SPEC 15 evidence without repeating unchanged suites. |
+| Authorized operation | Verify runtime credentials/access and exact deployed SHA first; record chosen basket IDs, before/after version/config and conservation. Reconcile an ordinary run with worker counts, current evaluation/archive, applicable event/channel receipts and genuine heartbeat. Zero eligible events cannot prove transport delivery; use separately authorized real sends and owner receipt confirmation when applicable. Keep free-usage/time evidence and pending limitations explicit. |
+
+No implementation, activation, credential/configuration change, remote request,
+notification, commit or promotion is performed by this definition task.
 
 ## Phase 6 local acceptance (SPEC 14/15)
 
@@ -1347,3 +1814,35 @@ SQL/engine tests is claimed executed by this design task:
 Design review found no unresolved schema/API blocker within the explicit finite
 comparison domain. Executable migration and its local tests remain pending;
 this does not close Phase 6 or authorize a release.
+
+
+### Stage-5 release candidate (2026-10-17 Lima)
+
+Candidate code: `cf320a75a0c1a71197b64797b3ed3e8564a0cef0` on `develop`,
+based on `1d2e5c0`. The following documentation commit completes the candidate;
+its full revision is available from `git log -1 develop`. Review the complete
+range from the base through that documentation commit before deciding on main.
+
+| Commit | Review scope |
+| --- | --- |
+| `692bbc2` | Bounded recovery worker, shared notice/recalculation helpers and worker fixtures. |
+| `97353dc` | Explicit PostgreSQL/notification adapters, local composition, dependencies and environment template. |
+| `c97d9f1` | Atomic activation migration/guarded rollback, authenticated API, confirmation UI and fixtures. |
+| `cf320a7` | Disabled-by-default Actions integration, workflow ordering tests and shared SQL fixture entry point. |
+
+The SQL fixture entry point in the last code commit connects all three fixture
+modules; review and use the complete candidate for SQL acceptance. Recorded
+stage-1 through stage-4 Windows/local evidence above remains applicable: no
+functional edits were made during packaging and unchanged suites were not rerun.
+Final packaging checks cover whitespace, tracked-file scope, commit grouping and
+manual review of worker, adapters, activation and workflow boundaries. Manual
+review found no blocking issue; no automated `/review` was available in this chat.
+
+This is a local release candidate, not a deployed or operational acceptance.
+No push, main promotion, migration application, live connection, notification,
+worker enablement or basket conversion was performed. `PURCHASE_WORKER_ENABLED`
+remains false/unset by default. The owner must separately authorize publication,
+main promotion, deployment and any enablement/conversion. Real SQL login/TLS/pool
+compatibility, deployed migration/API readiness, timing/free usage and ordinary
+run reconciliation remain deployment checks; offline acceptance does not prove
+them. Preserve the Healthchecks 3h/9h and sole ordinary scheduler configuration.
