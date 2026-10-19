@@ -2152,3 +2152,22 @@ recepción nueva de avisos. No hubo migraciones ni cambios del backend/motor.
 Evidencia privada: `.scrappy/release-a899d87/` (preflight, build, comprobaciones,
 comparación operativa y capturas). La evidencia local del apartado anterior sigue
 vigente; su referencia a no publicación describe el cierre local anterior.
+
+### Acceso a conversión legacy visible (19 oct 2026)
+
+Tras la prueba del dueño en Yesstyle, se movió «Configurar comparación» al inicio
+del detalle de canastas legacy, inmediatamente debajo del título y antes del
+resumen/productos. El texto indica que revisar la configuración no activa la
+conversión y que esta solo se aplica tras confirmar. No modifica por sí mismo
+la decisión de activar únicamente Skincare.
+
+Commit `7c898171494d101d33ba123ad463b14e96c44c6c` está en main y READY en Vercel
+como `dpl_5FmjfrmYtTfwvTqDjHpgWPFe22UT`. En el dominio estable se verificó Yesstyle
+a 390 y 1280 px: el CTA aparece junto al título, abre la configuración y no
+envía cambios; la API durante la revisión permitió exclusivamente GET. Build y
+typechecks pasaron. Scheduler, firewall, workflow, variable/secrets de Actions y
+modo legacy de Yesstyle / alternatives de Skincare se conservaron. Healthchecks
+seguía up y el último ciclo programado observado terminó correctamente. La
+composición legacy de Yesstyle ahora figura v3 con dos productos en la lectura
+actual; no se restauró su composición anterior. Evidencia privada:
+`.scrappy/release-7c89817/`.
