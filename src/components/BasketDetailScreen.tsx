@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { basketStatistics, requestBasket, type BasketDetail } from '../lib/baskets';
 import { requestProducts, type ProductSummary } from '../lib/products';
 import { BasketSummary } from './BasketSummary';
@@ -9,7 +9,7 @@ const BasketHistory = lazy(() => import('./BasketHistory'));
 const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm';
 const date = (value: string | null) => value ? new Date(value).toLocaleString('es-PE') : 'Sin lectura válida';
 
-export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired }: { id: string; historyOnly?: boolean; onBack: () => void; onExpired: (message: string) => void }) {
+export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired, children }: { id: string; historyOnly?: boolean; onBack: () => void; onExpired: (message: string) => void; children?: ReactNode }) {
   const [detail,setDetail] = useState<BasketDetail | null>(null);
   const [products,setProducts] = useState<ProductSummary[]>([]);
   const [range,setRange] = useState('30');
@@ -56,6 +56,7 @@ export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired 
   return <section className="mx-auto w-full min-w-0 max-w-4xl" aria-busy={loading || busy}>
     <Button variant="outline" disabled={busy} onClick={onBack}>{historyOnly ? 'Volver al resumen' : '← Volver a Canastas'}</Button>
     <Heading className="mt-6 mb-4 break-words text-3xl font-semibold">{historyOnly ? 'Historial de la canasta' : detail?.name ?? 'Detalle de canasta'}</Heading>
+    {!historyOnly && detail && children}
     {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
     <p role="status" className="mb-4 text-sm text-primary">{loading ? 'Cargando canasta…' : busy ? 'Guardando…' : ''}</p>
     <Button variant="outline" disabled={loading || busy} onClick={() => setRefresh(n => n+1)}>Actualizar canasta</Button>

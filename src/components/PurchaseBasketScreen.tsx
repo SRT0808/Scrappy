@@ -94,7 +94,14 @@ export function PurchaseBasketScreen({ id, name = 'Tu canasta', onDirtyChange, o
     const controller = new AbortController(); operation.current = controller; setBusy(true);
     void loadProducts(controller.signal).then(() => { if (!controller.signal.aborted) { setAddingProduct(false); setNotice('Producto añadido. Ya puedes elegirlo en las opciones de compra; tu borrador se conserva.'); } }).catch(e => { if (!controller.signal.aborted) { setAddingProduct(false); failure(e); } }).finally(() => { if (operation.current === controller) { operation.current = null; setBusy(false); } });
   }} /> : null;
-  if (data?.mode === 'legacy') return <><BasketDetailScreen id={id} onBack={onBack} onExpired={onExpired} /><section className="mx-auto mt-6 max-w-4xl rounded-xl border border-border p-5"><h2 className="font-medium">¿Quieres comparar distintas formas de comprar?</h2><p className="mt-2 mb-4 text-sm text-muted-foreground">Compara productos, packs y combos para cubrir lo que necesitas.</p><Button variant="outline" disabled={activationDirty || activationBusy} onClick={() => setShowActivation(v => !v)} aria-expanded={showActivation}>Comparar opciones de compra</Button>{showActivation && <PurchaseActivation key={id} id={id} onDirtyChange={setActivationDirty} onBusyChange={setActivationBusy} onExpired={onExpired} onActivated={() => void consult()} />}</section></>;
+  if (data?.mode === 'legacy') return <BasketDetailScreen id={id} onBack={onBack} onExpired={onExpired}>
+    <section className="mb-5 rounded-xl border border-primary/30 bg-primary/5 p-5" aria-label="Configurar comparación de compra">
+      <h2 className="font-medium">¿Quieres comparar formas de cubrir tu compra?</h2>
+      <p className="mt-2 mb-4 text-sm text-muted-foreground">Configura necesidades, productos o combos para esta canasta. Revisar la preparación no activa nada; se aplicará solo al confirmar.</p>
+      <Button variant="outline" disabled={activationDirty || activationBusy} onClick={() => setShowActivation(v => !v)} aria-expanded={showActivation} aria-controls="purchase-activation">{showActivation ? 'Cerrar configuración' : 'Configurar comparación'}</Button>
+      {showActivation && <div id="purchase-activation"><PurchaseActivation key={id} id={id} onDirtyChange={setActivationDirty} onBusyChange={setActivationBusy} onExpired={onExpired} onActivated={() => void consult()} /></div>}
+    </section>
+  </BasketDetailScreen>;
   return <>{addProductForm}<section hidden={addingProduct} aria-busy={busy} className="mx-auto w-full min-w-0 max-w-3xl space-y-5">
     <Button variant="outline" disabled={busy} onClick={onBack}>← Volver a Canastas</Button>
     <div><h1 className="text-3xl font-semibold">{name}</h1><p className="mt-2 text-sm text-muted-foreground">Tu compra y las opciones para cubrirla.</p></div>
