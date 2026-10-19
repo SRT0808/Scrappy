@@ -32,7 +32,9 @@ describe('purchase experience', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Editar mi compra' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Nombre de necesidad 1' }), { target: { value: 'Agua para viaje' } });
     await userEvent.click(screen.getByRole('button', { name: '2. Opciones de compra' }));
-    expect(screen.getByRole('button', { name: 'Añadir opción de compra' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ Comparar producto' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '+ Comparar producto' }));
+    expect(screen.getByRole('dialog', { name: 'Elige con qué comparar' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: '3. Combos y preferencias' }));
     expect(screen.getByRole('checkbox', { name: 'Usar siempre Combo fijado' })).toBeChecked();
     await userEvent.click(screen.getByRole('button', { name: '4. Presupuesto y avisos' }));
@@ -42,14 +44,22 @@ describe('purchase experience', () => {
     expect(fetch.mock.calls.some(([, o]) => o?.method === 'PUT')).toBe(false);
   });
 
+  it('opens the product comparison dialog from a cart item', async () => {
+    mock(); render(<PurchaseBasketScreen id={purchaseId} onBack={vi.fn()} onExpired={vi.fn()} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Comparar producto' }));
+    expect(screen.getByRole('dialog', { name: 'Elige con qué comparar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Elegir/ })).toBeEnabled();
+  });
+
   it('creates an exact simple option and leaves existing combos, pins and references intact', async () => {
     let latest: Configuration = purchaseFixture().configuration!;
     function Editor() { const [c, setC] = useState(latest); return <PurchaseOptionBuilder configuration={c} products={[product]} onChange={value => { latest = value; setC(value); }} />; }
     const original = structuredClone(latest); render(<Editor />);
-    await userEvent.selectOptions(screen.getByLabelText('Producto que comprarías'), product.id);
-    fireEvent.change(screen.getByLabelText('Contenido por presentación (ml)'), { target: { value: '500' } });
-    fireEvent.change(screen.getByLabelText('Cuántas comprarías'), { target: { value: '2' } });
-    await userEvent.click(screen.getByRole('button', { name: 'Añadir opción de compra' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Comparar producto' }));
+    await userEvent.click(screen.getByRole('button', { name: /Elegir/ }));
+    fireEvent.change(screen.getByLabelText('Contenido por envase (ml)'), { target: { value: '500' } });
+    fireEvent.change(screen.getByLabelText('Unidades a comprar'), { target: { value: '2' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir al carrito' }));
     expect(latest.offers.at(-1)?.coverage).toEqual([{ need_id: uid(1), quantity: '500' }]);
     expect(latest.alternatives.at(-1)?.items[0].purchase_units).toBe(2);
     expect(latest.offers.slice(0, 2)).toEqual(original.offers);
@@ -59,21 +69,21 @@ describe('purchase experience', () => {
 
   it('rejects fractional purchases without altering the graph', async () => {
     const change = vi.fn(); render(<PurchaseOptionBuilder configuration={purchaseFixture().configuration!} products={[product]} onChange={change} />);
-    await userEvent.selectOptions(screen.getByLabelText('Producto que comprarías'), product.id);
-    fireEvent.change(screen.getByLabelText('Cuántas comprarías'), { target: { value: '1.5' } });
-    await userEvent.click(screen.getByRole('button', { name: 'Añadir opción de compra' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('número entero'); expect(change).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: '+ Comparar producto' }));
+    await userEvent.click(screen.getByRole('button', { name: /Elegir/ }));
+    fireEvent.change(screen.getByLabelText('Unidades a comprar'), { target: { value: '1.5' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir al carrito' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('cuántas unidades'); expect(change).not.toHaveBeenCalled();
   });
 
   it('explains duplicate presentations and overlapping references without altering existing choices', async () => {
     const change = vi.fn(); const existingProduct = { ...product, id: uid(4) };
     render(<PurchaseOptionBuilder configuration={purchaseFixture().configuration!} products={[existingProduct, product]} onChange={change} />);
-    await userEvent.selectOptions(screen.getByLabelText('Producto que comprarías'), existingProduct.id);
-    await userEvent.click(screen.getByRole('button', { name: 'Añadir opción de compra' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('ya tiene una presentación');
-    await userEvent.selectOptions(screen.getByLabelText('Producto que comprarías'), product.id);
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Incluir esta opción en mi compra de referencia' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Añadir opción de compra' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Comparar producto' }));
+    expect(screen.getByRole('button', { name: /Botella 500 ml.*Ya añadido/ })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: /Elegir/ }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Tomar esta opción como mi compra de referencia' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir al carrito' }));
     expect(screen.getByRole('alert')).toHaveTextContent('referencia ya cubre'); expect(change).not.toHaveBeenCalled();
   });
 
@@ -82,6 +92,7 @@ describe('purchase experience', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Editar mi compra' }));
     fireEvent.change(screen.getByLabelText('Nombre de necesidad 1'), { target: { value: 'Mi borrador' } });
     await userEvent.click(screen.getByRole('button', { name: '2. Opciones de compra' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Comparar producto' }));
     await userEvent.click(screen.getByRole('button', { name: 'Añadir producto por enlace' }));
     expect(screen.getByRole('heading', { name: 'Añadir producto' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Volver a mi compra' }));

@@ -23,6 +23,7 @@ export function PurchaseBasketScreen({ id, name = 'Tu canasta', onDirtyChange, o
   const [addingProduct, setAddingProduct] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [showActivation, setShowActivation] = useState(false);
+  const [comparisonNeedIds, setComparisonNeedIds] = useState<string[]>([]);
   const [activationDirty, setActivationDirty] = useState(false);
   const [activationBusy, setActivationBusy] = useState(false);
   const dirty = activationDirty || !!draft && !!data?.configuration && JSON.stringify(draft) !== JSON.stringify(publication(data.configuration));
@@ -44,7 +45,7 @@ export function PurchaseBasketScreen({ id, name = 'Tu canasta', onDirtyChange, o
     const controller = new AbortController();
     operation.current = controller;
     setBusy(true); setData(null); setDraft(null); setBase(''); setProducts([]); setPage(0);
-    setLocked(false); setNeedsConsult(false); setError(''); setNotice(''); setEditing(false); setAddingProduct(false); setShowHistory(false);
+    setLocked(false); setNeedsConsult(false); setError(''); setNotice(''); setEditing(false); setAddingProduct(false); setShowHistory(false); setComparisonNeedIds([]);
     readPurchases(id, 0, controller.signal).then(async d => {
       if (controller.signal.aborted) return;
       setData(d); setBase(d.version); setDraft(d.configuration ? publication(d.configuration) : null);
@@ -108,12 +109,12 @@ export function PurchaseBasketScreen({ id, name = 'Tu canasta', onDirtyChange, o
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <p role="status" className="text-sm text-primary">{busy ? 'Consultando o guardando…' : notice}</p>
     <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={() => void consult()}>Actualizar resultado</Button>{locked && data?.configuration && <Button variant="outline" disabled={busy || needsConsult} onClick={() => { setDraft(publication(data.configuration!)); setBase(data.version); setLocked(false); setNotice('Versión guardada cargada; borrador anterior descartado.'); }}>Descartar borrador y cargar versión guardada</Button>}</div>
-    {data && <PurchaseResults data={data} products={products} />}
+    {data && <PurchaseResults data={data} products={products} onCompare={needIds => { setComparisonNeedIds(needIds); setEditing(true); }} />}
     {draft && <div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={() => setEditing(v => !v)} aria-expanded={editing} aria-controls="purchase-editor">{editing ? 'Cerrar editor' : 'Editar mi compra'}</Button><Button variant="outline" disabled={busy} onClick={() => setShowHistory(v => !v)} aria-expanded={showHistory}>{showHistory ? 'Cerrar historial' : 'Ver historial de la canasta'}</Button></div>}
     {dirty && <p role="status" className="text-sm text-primary">Tienes cambios sin guardar. El resultado corresponde a la última configuración guardada.</p>}
     {showHistory && <BasketDetailScreen id={id} historyOnly onBack={() => setShowHistory(false)} onExpired={onExpired} />}
     {draft && <form id="purchase-editor" hidden={!editing} className="space-y-5 rounded-2xl border border-border bg-card p-4 sm:p-6" onSubmit={e => { e.preventDefault(); void save(); }}>
-      <PurchaseEditor value={draft} products={products} onChange={setDraft} disabled={busy || locked} onAddProduct={() => setAddingProduct(true)} />
+      <PurchaseEditor value={draft} products={products} onChange={setDraft} disabled={busy || locked} onAddProduct={() => setAddingProduct(true)} comparisonNeedIds={comparisonNeedIds} onComparisonDone={() => setComparisonNeedIds([])} />
       {locked && <p className="text-sm text-destructive">Guardado bloqueado. Consulta el estado antes de continuar.</p>}
       <Button type="submit" disabled={busy || locked}>Guardar cambios</Button>
     </form>}
