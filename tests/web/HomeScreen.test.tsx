@@ -22,7 +22,7 @@ function mount(strict = false) {
   return onExpired;
 }
 function mock(products: ProductSummary[] = [product], lists = [first, second]) {
-  const fetch = vi.fn((url: string, _options?: RequestInit) => Promise.resolve(url === '/api/lists' ? json({ lists }) : json({ products })));
+  const fetch = vi.fn((url: string, _options?: RequestInit) => Promise.resolve(url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/lists' ? json({ lists }) : json({ products })));
   vi.stubGlobal('fetch', fetch);
   return fetch;
 }
@@ -32,7 +32,7 @@ describe('independent catalog', () => {
     try {
       window.history.replaceState(null, '', `/?basket=${purchaseId.toUpperCase()}&source=notice#details`);
       const fetch = vi.fn(async (url: string) => url.includes('/purchases') ? json(purchaseFixture())
-        : url === '/api/lists' ? json({ lists: [] }) : json({ products: [] }));
+        : url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/lists' ? json({ lists: [] }) : json({ products: [] }));
       vi.stubGlobal('fetch', fetch);
       mount(true);
       await screen.findByRole('heading', { name: 'Tu canasta' });
@@ -70,7 +70,7 @@ describe('independent catalog', () => {
     expect(await screen.findByRole('heading', { name: 'Añadir producto' })).toBeInTheDocument();
   });
   it.each(['pending', 'failed'])('shows the catalog when basket loading is %s', async state => {
-    vi.stubGlobal('fetch', vi.fn((url: string) => url === '/api/lists'
+    vi.stubGlobal('fetch', vi.fn((url: string) => url === '/api/product-groups' ? Promise.resolve(json({ groups: [] })) : url === '/api/lists'
       ? state === 'pending' ? new Promise<Response>(() => {}) : Promise.resolve(json({}, 503))
       : Promise.resolve(json({ products: [product] }))));
     mount();
@@ -82,7 +82,7 @@ describe('independent catalog', () => {
     const detail = (await import('../fixtures/basket-experience')).basketDetail;
     const fetch = mock([], [first]);
     fetch.mockImplementation((url: string) => Promise.resolve(url.includes('/purchases') ? json({ schema_version: 2, list_id: first.id, mode: 'legacy', version: '1', configuration: null, latest_evaluation: null, stale_reason: 'mode', events: [], has_more: false }) : url.startsWith('/api/baskets/') ? json({ detail })
-      : url === '/api/lists' ? json({ lists: [first] }) : json({ products: [] })));
+      : url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/lists' ? json({ lists: [first] }) : json({ products: [] })));
     mount(); await screen.findByText('Tu catálogo espera tu próximo producto');
     await userEvent.click(screen.getByRole('button', { name: 'Gestionar canastas' }));
     expect(await screen.findByRole('heading', { name: 'Tus canastas' })).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe('independent catalog', () => {
     expect(document.title).toBe('Scrappy · Detalle de canasta');
   });
   it('expires product sessions and survives StrictMode', async () => {
-    const fetch=mock(); fetch.mockImplementation((url: string) => Promise.resolve(url === '/api/lists' ? json({ lists: [] }) : json({},401)));
+    const fetch=mock(); fetch.mockImplementation((url: string) => Promise.resolve(url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/lists' ? json({ lists: [] }) : json({},401)));
     const expired=mount(true); await waitFor(() => expect(expired).toHaveBeenCalledWith(expect.stringContaining('sesión')));
   });
 });

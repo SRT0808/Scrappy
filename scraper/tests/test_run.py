@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import io
 import json
+import os
 from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
@@ -33,6 +34,11 @@ class ReviewTests(unittest.TestCase):
         self.reading = extract((Path(__file__).parent / "fixtures/json_ld.html").read_bytes(), PRODUCT["url"])
         self.reading = replace(self.reading, price=Decimal("100"))
         self.database = Mock()
+        self.database.has_product_group.return_value = False
+        self.database.claim_product_group_events.return_value = []
+        patcher = patch.dict(os.environ, {"PURCHASE_APP_ORIGIN": "https://scrappy.example"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self.read = Mock(return_value=self.reading)
         self.sleep = Mock()
 

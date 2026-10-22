@@ -2194,3 +2194,118 @@ reintentar la creación requiere antes un GET 404 y conserva el ID original.
 No se garantiza deduplicación entre pestañas o tras recargar/cerrar la pantalla.
 La mejora conserva el workflow y el contrato API. Su promoción y despliegue fueron
 autorizados por el dueño el 2026-10-22; el SHA y la aceptación se registran en STATUS.
+
+### Identical offers with a shared goal: agreed behavior (2026-10-22)
+
+Scope: extension of SPEC §11/11.1 and §14/15, defined with the owner.
+Implementation, isolated local acceptance and code review are complete.
+Development stays on develop; the owner authorized local promotion to main.
+Publishing main, deployment and live migrations remain separate from local acceptance.
+
+- A group represents offers explicitly declared by the owner to have the same
+  formula, presentation and quantity. No automatic equivalence inference. Offers
+  must use one currency and each offer belongs to at most one group. Combos stay
+  separate and participate through existing basket alternatives.
+- Products displays one group card in place of its offer cards. Group detail
+  exposes the stores, their prices and histories. Creation supports dragging one
+  offer onto another and an accessible Select → Group action, both followed by
+  equivalence confirmation. Choose one offer as the initial name, image and common
+  reference; edit the name/reference and choose an offer image before confirming.
+- Add an existing tracked offer or paste a new URL from group detail. New URLs
+  retain the normal reading/confirmation flow before explicit group membership.
+  Each offer keeps its identity, URL, currency, extraction state, history and check
+  interval. Existing baskets, quantities, alternatives and combos are unchanged;
+  groups do not automatically replace basket offers or select stores for them.
+- The shared goal controls goal notices while grouped. Preserve previous individual
+  goals for restoration and suppress their individual goal notices while grouped.
+  Operational extraction warnings retain their existing per-offer behavior.
+  Define the common goal as an amount or a discount from an editable common
+  reference. Persist the chosen input mode: reference edits preserve the entered
+  percentage and recalculate the amount, or preserve the entered amount and
+  recalculate its equivalent percentage. Show the outcome before saving.
+- The graph shows one distinguishable, hideable line per offer, including history
+  predating grouping, plus the current common goal line. Retain provenance and
+  timestamps; do not invent missing prices or turn failures into zero. The current
+  goal line does not represent historical goal configurations. A separate
+  best-price history is outside the agreed first implementation.
+- Evaluate the best confirmed, available, active, fresh, valid offer using existing
+  validity rules. Failed, stale, suspicious, unavailable or paused offers are
+  excluded explicitly. A valid offer may trigger the group goal even if another
+  store is excluded; qualify the comparison as limited to verified offers. With
+  no eligible offer, preserve alert state and wait; missing data is not a rise.
+- One group goal event uses the existing independent ntfy/email delivery machinery.
+  Another store reaching the goal does not itself repeat that notice. A further
+  decrease of at least 5% from the last alerted price may notify again. Rearm when
+  the best eligible price exceeds the goal by more than 3%. Store changes alone
+  neither rearm nor trigger another notice.
+- Creating a group, changing its target amount or adding an offer starts a new
+  goal configuration eligible for notification at the next scheduled evaluation,
+  even if already below target; warn before saving when currently known to meet
+  the goal. Renaming, changing the image or editing a reference without changing
+  the target amount does not reset alerts. Resuming notices, removing an offer
+  and recovering valid readings preserve the last alert state and evaluate the
+  normal rules, without an unconditional fresh notice.
+- Pause group means pause its goal notices only: offer checks/history and baskets
+  continue. Pausing an individual offer retains existing behavior and excludes
+  it from group goal evaluation. Ungroup restores previous individual goals;
+  removing an offer restores its previous goal, and leaving just one offer
+  dissolves the group and restores that remaining offer's previous goal as well.
+  Show these effects before confirmation. Ungrouping never deletes offers or
+  history. Deleting an offer is a separate confirmed action showing group/basket
+  consequences and preserving existing deletion rules.
+- Notifications open the group in Scrappy, identify the triggering offer, its
+  notified price and timestamp, and provide a store link. Distinguish the notified
+  price from a later current price. Authentication remains required as usual.
+
+Acceptance examples for the local implementation:
+
+1. Group two identical PEN offers with references S/67.50 and S/69.90. Select
+   S/69.90 as common reference and a 40% discount: both share target S/41.94.
+   Existing offer IDs, observations, check intervals and basket configuration stay
+   intact. Reject mixed currencies and already-grouped offers without moving them.
+2. Group creation via drag and via selection reaches the same confirmation;
+   cancellation leaves membership, individual goals and alert states unchanged.
+   Mobile emulation and keyboard operation cover selection without dragging.
+3. A valid S/40 offer meets S/41.94 despite another store's failed reading. One
+   group event is produced; a later second store at S/40 does not duplicate it.
+   No eligible offers preserves state, and recovery alone cannot reset it.
+   Test exact 5% decrease and strictly-more-than-3% rearm boundaries.
+4. For a 40% goal, changing reference S/69.90 → S/70 changes target to S/42;
+   for an amount goal S/40, the same edit leaves target S/40. Only an actual
+   target change resets the goal configuration. Saving makes no immediate send.
+5. Pause group notices while offer checks continue. Resume without unconditional
+   duplicate; retain normal crossing/additional-drop rules. Add an already-cheap
+   offer with the pre-save warning and evaluate its new configuration next cycle.
+6. Remove an offer and then dissolve a two-offer group: restore both original
+   goals without losing histories or changing baskets. Distinguish this from
+   deleting an offer. Display both store histories before/after the grouping date;
+   a notice deep link shows the original offer/price/time even after price changes.
+
+Local implementation accepted on 2026-10-22: migration
+`20261022000000_product_groups.sql`, authenticated server API/contract, Python
+group claims/delivery and Products group screens. Membership masks individual
+goals without overwriting them; removing offers restores the original goals and
+retains histories, intervals and basket configuration. SERIALIZABLE operations,
+version checks, restricted RPC grants and RLS protect membership and delivery.
+Individual sends reserve an offer for up to five minutes; grouping rejects an
+active reservation and late expired receipts cannot update restored goals.
+Both-channel individual failure permits the existing retry; group claims advance
+state before delivery and never replay ambiguous receipts. An already authorized
+external send cannot be recalled.
+
+Acceptance combines the previously approved isolated PostgreSQL checks, 49 Python
+tests, five API tests and affected web tests with the final passing catalog-return
+regression, build/typechecks and local visual checks. The regression identifies
+its offer by domain instead of relying on timestamp-dependent catalog order.
+Eighteen visual states at 320/390 px cover catalog, detail, history, editor,
+adding an existing offer, separation confirmation, individual offer management,
+historical notice links and creation; no overflow or JavaScript errors. Private
+visual evidence is in `.scrappy/group-visual/`. Manual review covers the complete
+diff, authentication/RLS, membership and delivery races, restoration and UI flows;
+no blocking findings remain.
+
+Before publishing main, install this migration through a separately authorized
+deployment operation and verify the deployed API and scraper contract together.
+Pushing main automatically starts Vercel and makes the new scraper available to
+the existing scheduler; local promotion alone does neither. No remote migration,
+deployment or live notification was performed for this local acceptance.

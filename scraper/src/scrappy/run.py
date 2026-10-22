@@ -18,6 +18,7 @@ from scrappy.alerts import process_alerts
 from scrappy.notifications import test_notification
 from scrappy.readings import execute_reading
 from scrappy.baskets import process_baskets
+from scrappy.groups import process_product_groups
 from scrappy.exchange_rates import refresh_exchange_rate
 
 
@@ -101,6 +102,7 @@ def execute_reviews(database, product_id=None, *, read=read_product, now=utcnow,
             checked += 1
             ok += int(result.accepted)
         process_baskets(database, now())
+        process_product_groups(database, now())
         completed = True
     finally:
         counts = {"checked": checked, "ok_count": ok, "fail_count": checked - ok}

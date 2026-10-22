@@ -4,6 +4,7 @@ import type { ApiRequest, Handler } from '../lib/server/auth.js';
 import { localReadings } from './local-readings.js';
 
 const routes: Record<string, string> = {
+  '/api/product-groups': '/api/product-groups.ts',
   '/api/settings': '/api/settings.ts',
   '/api/login': '/api/login.ts',
   '/api/logout': '/api/logout.ts',

@@ -45,6 +45,26 @@ class Database:
     def claim_basket_events(self, list_id=None):
         return self.request("POST", "rpc/claim_basket_events", {"p_list_id": list_id})
 
+    def has_product_group(self, product_id):
+        rows = self.request("GET", f"product_group_members?product_id=eq.{UUID(product_id)}&select=group_id")
+        return bool(rows)
+
+    def claim_product_group_events(self):
+        return self.request("POST", "rpc/claim_product_group_events", {})
+
+    def begin_product_goal_delivery(self, product_id, checked_at):
+        return self.request("POST", "rpc/begin_product_goal_delivery", {
+            "p_id": str(UUID(product_id)), "p_checked_at": checked_at.isoformat(),
+        })
+
+    def finish_product_goal_delivery(self, product_id, token):
+        self.request("POST", "rpc/finish_product_goal_delivery", {
+            "p_id": str(UUID(product_id)), "p_token": str(UUID(token)),
+        })
+
+    def finish_product_group_event(self, event_id, sent):
+        self.request("POST", "rpc/finish_product_group_event", {"p_id": str(UUID(event_id)), "p_sent": sent})
+
     def save_exchange_rate(self, rate):
         return self.request("POST", "rpc/cache_exchange_rate", {"p_rate": rate})
 
@@ -59,12 +79,13 @@ class Database:
             "p_checks": checks,
         })
 
-    def save_alert_state(self, product, checked_at, changes):
+    def save_alert_state(self, product, checked_at, changes, *, delivery_token=None):
         # Compare the saved review version and prior alert state before writing.
-        if not self.request("POST", "rpc/save_product_alert_state", {
+        if not self.request("POST", "rpc/complete_product_goal_delivery" if delivery_token else "rpc/save_product_alert_state", {
             "p_id": str(UUID(product['id'])), "p_checked_at": checked_at.isoformat(),
             "p_expected": {field: product[field] for field in ("alert_state", "last_alert_price", "last_alert_at")},
             "p_changes": changes,
+            **({"p_token": str(UUID(delivery_token))} if delivery_token else {}),
         }):
             raise RuntimeError("El producto cambió durante la notificación.")
 

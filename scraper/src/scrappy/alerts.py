@@ -69,11 +69,19 @@ def process_alerts(database, product, result, checked_at, *, notify=deliver, sus
         notify(database, product["id"], "extraction_failed", notification_payload("extraction_failed", product), checked_at)
         return
     price = result.reading.price
+    if database.has_product_group(product["id"]):
+        return
     event = goal_event(product, price, alert_allowed=result.alert_allowed)
     if event == "rearm":
         database.save_alert_state(product, checked_at, {"alert_state": "armed"})
     elif event:
-        if notify(database, product["id"], event, notification_payload(event, product, price), checked_at):
-            database.save_alert_state(product, checked_at, {
-                "alert_state": "triggered", "last_alert_price": str(price), "last_alert_at": checked_at.isoformat(),
-            })
+        token = database.begin_product_goal_delivery(product["id"], checked_at)
+        if not token:
+            return
+        try:
+            if notify(database, product["id"], event, notification_payload(event, product, price), checked_at):
+                database.save_alert_state(product, checked_at, {
+                    "alert_state": "triggered", "last_alert_price": str(price), "last_alert_at": checked_at.isoformat(),
+                }, delivery_token=token)
+        finally:
+            database.finish_product_goal_delivery(product["id"], token)

@@ -123,7 +123,7 @@ describe('product detail', () => {
     await expect(requestDetail(detail.product.id)).rejects.toThrow('no es válida');
   });
   it('opens detail from home and returns to reload the selected list', async () => {
-    const fetch = vi.fn(async (url: string) => url === '/api/lists' ? json({ lists: [list] }) : url === '/api/products' ? json({ products: [detail.product] }) : json({ detail }));
+    const fetch = vi.fn(async (url: string) => url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/lists' ? json({ lists: [list] }) : url === '/api/products' ? json({ products: [detail.product] }) : json({ detail }));
     vi.stubGlobal('fetch', fetch);
     render(<HomeScreen onExpired={vi.fn()} onLogout={vi.fn()} sessionBusy={false} sessionError="" />);
     await userEvent.click(await screen.findByRole('button', { name: 'Ver detalle de Monitor' }));

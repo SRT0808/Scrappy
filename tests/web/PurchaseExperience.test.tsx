@@ -15,7 +15,7 @@ const product: ProductSummary = { id: uid(50), name: 'Botella 500 ml', url: 'htt
   created_at: '2026-10-18', last_checked_at: null, last_success_at: null, history: [], list_id: null };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 function mock() {
-  const fetch = vi.fn(async (url: string, options?: RequestInit) => url === '/api/products' ? json({ products: [product] })
+  const fetch = vi.fn(async (url: string, options?: RequestInit) => url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/products' ? json({ products: [product] })
     : url === '/api/lists' ? json({ lists: [{ id: purchaseId, name: 'Mi compra', position: 0, emoji: null, created_at: '2026-10-18' }] })
       : url.includes('/purchases') ? options?.method === 'PUT' ? json({}, 400) : json(purchaseFixture())
         : json({ detail: { ...basketDetail, id: purchaseId } }));

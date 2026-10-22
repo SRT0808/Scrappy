@@ -1,0 +1,106 @@
+import {fireEvent,render,screen,waitFor,within} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {expect,it,vi} from 'vitest';
+import {GroupEditor} from '../../src/components/GroupEditor';
+import {GroupDetailScreen} from '../../src/components/GroupDetailScreen';
+import {HomeScreen} from '../../src/components/HomeScreen';
+import {groupFixture,groupId,offerId,productFixture} from '../fixtures/group-ui';
+vi.mock('../../src/components/GroupHistory',()=>({default:()=> <div>Historial por tienda</div>}));
+const json=(body:unknown)=>Response.json(body);
+const home=()=>render(<HomeScreen onExpired={vi.fn()} onLogout={vi.fn()} sessionBusy={false} sessionError=""/>);
+it('requires equivalence confirmation and preserves percentage or amount when reference changes',async()=>{
+ const onSave=vi.fn();const g=groupFixture();
+ render(<GroupEditor creating offers={g.offers} busy={false} error="" onCancel={vi.fn()} onSave={onSave}/>);
+ const save=screen.getByRole('button',{name:'Crear grupo'});
+ expect(save).toBeDisabled();
+ await userEvent.selectOptions(screen.getByLabelText('Definir meta como'),'percent');
+ await userEvent.type(screen.getByLabelText('Descuento deseado (%)'),'40');
+ fireEvent.change(screen.getByLabelText('Referencia común (PEN)'),{target:{value:'69.90'}});
+ expect(screen.getByText(/Meta común: S\/ 41.94/)).toBeInTheDocument();
+ expect(screen.getByText(/Una oferta ya cumple/)).toBeInTheDocument();
+ await userEvent.click(screen.getByRole('checkbox'));
+ await userEvent.click(save);
+ expect(onSave).toHaveBeenCalledWith(expect.objectContaining({target_type:'percent',target_value:'40',reference_price:'69.90'}));
+ fireEvent.change(screen.getByLabelText('Referencia común (PEN)'),{target:{value:'70'}});
+ expect(screen.getByText(/Meta común: S\/ 42.00/)).toBeInTheDocument();
+ await userEvent.selectOptions(screen.getByLabelText('Definir meta como'),'price');
+ await userEvent.type(screen.getByLabelText('Monto objetivo'),'40');
+ fireEvent.change(screen.getByLabelText('Referencia común (PEN)'),{target:{value:'75'}});
+ expect(screen.getByText(/Meta común: S\/ 40.00/)).toBeInTheDocument();
+});
+it('creates through accessible selection, blocks navigation during save and masks member cards',async()=>{
+ const g=groupFixture();let created=false;let finish!:(value:Response)=>void;
+ const fetch=vi.fn(async(url:string,options?:RequestInit)=>{
+  if(url==='/api/lists')return json({lists:[]});
+  if(url==='/api/products')return json({products:[productFixture(1),productFixture(2)]});
+  if(options?.method==='POST'){created=true;return new Promise<Response>(r=>{finish=r;});}
+  return json({groups:created?[{...g,id:new URL(url,'http://local').searchParams.get('id')??g.id}]:[]});
+ });vi.stubGlobal('fetch',fetch);home();
+ await userEvent.click(await screen.findByRole('button',{name:'Seleccionar para agrupar'}));
+ for(const box of screen.getAllByRole('checkbox'))await userEvent.click(box);
+ await userEvent.click(screen.getByRole('button',{name:'Agrupar (2)'}));
+ await userEvent.click(screen.getByRole('checkbox'));
+ await userEvent.click(screen.getByRole('button',{name:'Crear grupo'}));
+ expect(screen.getByRole('button',{name:'Ir a Canastas'})).toBeDisabled();
+ const mutation=fetch.mock.calls.find(([,options])=>options?.method==='POST')!;
+ const id=new URL(mutation[0],'http://local').searchParams.get('id')!;
+ finish(json({group:{...g,id}}));
+ await screen.findByRole('heading',{name:g.name});
+ await userEvent.click(screen.getByRole('button',{name:'← Volver a Productos'}));
+ await screen.findByRole('button',{name:'Ver tiendas y gráfica'});
+ expect(screen.queryByRole('button',{name:/Ver detalle de Limpiador/})).not.toBeInTheDocument();
+});
+it('dragging offers uses the same confirmation and cancellation makes no mutation',async()=>{
+ const fetch=vi.fn(async(url:string,_options?:RequestInit)=>url==='/api/lists'?json({lists:[]}):url==='/api/product-groups'?json({groups:[]}):json({products:[productFixture(1),productFixture(2)]}));
+ vi.stubGlobal('fetch',fetch);home();
+ const controls=await screen.findAllByRole('button',{name:/Arrastrar para agrupar/});
+ const dataTransfer={getData:()=>offerId(1),setData:vi.fn()};
+ fireEvent.dragStart(controls[0],{dataTransfer});fireEvent.drop(controls[1].parentElement!.parentElement!,{dataTransfer});
+ await screen.findByRole('form',{name:'Crear grupo'});
+ await userEvent.click(screen.getByRole('button',{name:'Cancelar'}));
+ await screen.findByRole('heading',{name:'Productos'});
+ expect(fetch.mock.calls.every(call=>call[1]?.method!=='POST')).toBe(true);
+});
+it('excludes candidates already in any group and confirms restoration before separation',async()=>{
+ const g=groupFixture();const onBusy=vi.fn();
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>url==='/api/products'?json({products:[productFixture(1),productFixture(3),productFixture(4)]}):json({groups:url.includes('?')?[g]:[g,{...g,id:offerId(9),offers:[{...g.offers[0],id:offerId(3)}]}]})));
+ render(<GroupDetailScreen id={groupId} onBack={vi.fn()} onExpired={vi.fn()} onOffer={vi.fn()} onBusyChange={onBusy}/>);
+ await userEvent.click(await screen.findByRole('button',{name:'Añadir oferta existente'}));
+ const select=await screen.findByLabelText('Oferta');
+ await waitFor(()=>expect(within(select).getAllByRole('option')).toHaveLength(2));
+ expect(within(select).getAllByRole('option')[1]).toHaveValue(offerId(4));
+ await userEvent.click(screen.getByRole('button',{name:'Cancelar incorporación'}));
+ await userEvent.click(screen.getByRole('button',{name:'Desagrupar'}));
+ expect(screen.getByText(/ambas recuperan sus metas/)).toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'Confirmar separación'})).toBeInTheDocument();
+});
+it('retains the notified price, timestamp and store link after dissolution',async()=>{
+ const g=groupFixture();g.dissolved=true;g.offers=[];
+ vi.stubGlobal('fetch',vi.fn(async()=>json({groups:[g]})));
+ render(<GroupDetailScreen id={groupId} eventId={offerId(8)} onBack={vi.fn()} onExpired={vi.fn()} onOffer={vi.fn()} onBusyChange={vi.fn()}/>);
+ await screen.findByText(/Precio avisado/);
+ expect(screen.getByText(/S\/ 40.00/)).toBeInTheDocument();
+ expect(screen.getByRole('link',{name:'Abrir oferta avisada ↗'})).toHaveAttribute('href','https://tienda1.pe/item');
+ expect(screen.queryByRole('button',{name:'Desagrupar'})).not.toBeInTheDocument();
+});
+it('clears the shared goal context when returning to the catalog after separation',async()=>{
+ const g=groupFixture();let grouped=true;
+ const p=productFixture(1);
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>{
+  if(url==='/api/lists')return json({lists:[]});
+  if(url==='/api/products')return json({products:[p,productFixture(2)]});
+  if(url.startsWith('/api/products/'))return json({detail:{product:{...p,check_interval_hours:3},history:[],reviews:[],statistics:{count:0,min:null,max:null,average:null,discount_change:null}}});
+  return json({groups:url.includes('?')?[g]:grouped?[g]:[]});
+ }));home();
+ await userEvent.click(await screen.findByRole('button',{name:'Ver tiendas y gráfica'}));
+ await userEvent.click((await screen.findAllByRole('button',{name:'Ver oferta y gestionar'}))[0]);
+ await screen.findByText(/La meta y referencia se gestionan/);
+ grouped=false;
+ await userEvent.click(screen.getByRole('button',{name:'← Volver a Inicio'}));
+ const cards=await screen.findAllByRole('button',{name:/Ver detalle de Limpiador/});
+ const card=cards.find(button=>button.closest('article')?.textContent?.includes(p.domain));
+ expect(card).toBeDefined();
+ await userEvent.click(card!);
+ await screen.findByText(/^Tu meta(?: · alcanzada)?$/);
+ expect(screen.queryByText(/La meta y referencia se gestionan/)).not.toBeInTheDocument();
+});

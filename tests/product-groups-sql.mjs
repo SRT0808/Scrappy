@@ -1,0 +1,84 @@
+import assert from 'node:assert/strict';
+import {readdir,mkdir,mkdtemp,rm} from 'node:fs/promises';
+import {execFileSync,execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {resolve,join,sep} from 'node:path';
+import {createServer} from 'node:net';
+const bin=process.env.POSTGRES_BIN??'C:/Program Files/PostgreSQL/18/bin',root=resolve('.scrappy');
+await mkdir(root,{recursive:true});const dir=await mkdtemp(join(root,'groups-pg-')),data=join(dir,'data');
+const exe=n=>join(bin,n+(process.platform==='win32'?'.exe':''));
+const run=(n,args)=>execFileSync(exe(n),args,{encoding:'utf8',windowsHide:true,stdio:n==='pg_ctl'?'ignore':'pipe',timeout:60000});
+const server=createServer();await new Promise(r=>server.listen(0,'127.0.0.1',r));const port=server.address().port;await new Promise(r=>server.close(r));
+const args=['-X','-v','ON_ERROR_STOP=1','-h','127.0.0.1','-p',String(port),'-U','postgres','-d','postgres'];
+const sql=s=>run('psql',[...args,'-c',s]);let started=false;
+const gid='11111111-1111-4111-8111-111111111111',p=n=>`22222222-2222-4222-8222-${String(n).padStart(12,'0')}`;
+const call=(action,body={},version='(select version from product_groups limit 1)')=>`select public.mutate_product_group('${gid}',${action==='create'?'null':version},'${action}','${JSON.stringify(body)}'::jsonb)`;
+const admin=s=>sql(`begin isolation level serializable;${s};commit;`);
+const tx=s=>sql(`begin isolation level serializable;set local role service_role;${s};commit;`);
+const check=(expr,message)=>admin(`do $$ begin if (${expr}) is distinct from true then raise exception '${message}';end if;end $$;`);
+const edit={name:'Cleanser',reference_price:'69.90',target_type:'percent',target_value:'40',image_product_id:p(1)};
+try{
+ run('initdb',['-D',data,'-U','postgres','--auth=trust','--encoding=UTF8','--no-locale']);run('pg_ctl',['-D',data,'-l',join(dir,'postgres.log'),'-o',`-h 127.0.0.1 -p ${port}`,'-w','start']);started=true;
+ sql('create role anon;create role authenticated;create role service_role bypassrls;');
+ for(const name of (await readdir('supabase/migrations')).filter(n=>n.endsWith('.sql')).sort())run('psql',[...args,'-f',resolve('supabase/migrations',name)]);
+ sql(`begin isolation level serializable;insert into products(id,url,domain,name,currency,reference_price,target_type,target_price,target_percent,status,last_price,last_success_at,last_checked_at) values
+ ('${p(1)}','https://one.test/item','one.test','One','PEN',67.50,'price',40,null,'active',40,now(),now()),
+ ('${p(2)}','https://two.test/item','two.test','Two','PEN',69.90,'percent',41.94,40,'active',45,now(),now()),
+ ('${p(3)}','https://three.test/item','three.test','Three','USD',70,'price',40,null,'active',40,now(),now()),
+ ('${p(4)}','https://four.test/item','four.test','Four','PEN',70,'price',40,null,'active',30,now(),now());
+ insert into lists(id,name) values('${p(9)}','Basket');insert into basket_items(list_id,product_id) values('${p(9)}','${p(1)}');
+ insert into price_checks(product_id,ok,price,currency,checked_at) values('${p(1)}',true,60,'PEN',now()-interval '10 days');
+ create table originals as select id,to_jsonb(p) j from products p;
+ create table old_items as select * from basket_items;commit;`);
+ assert.throws(()=>tx(call('create',{...edit,same_product:true,product_ids:[p(1),p(3)]})),/currency_mismatch/);
+ tx(`select public.begin_product_goal_delivery('${p(1)}',(select last_checked_at from products where id='${p(1)}'))`);
+ assert.throws(()=>tx(call('create',{...edit,same_product:true,product_ids:[p(1),p(2)]})),/individual_notice_in_flight/);
+ admin(`update product_goal_deliveries set expires_at=now()-interval '1 second'`);
+ check(`not exists(select 1 from public.complete_product_goal_delivery('${p(1)}',(select last_checked_at from products where id='${p(1)}'),'{"alert_state":"armed","last_alert_price":null,"last_alert_at":null}','{"alert_state":"triggered"}',(select token from product_goal_deliveries where product_id='${p(1)}')))`,'expired receipt rejected');
+ admin(`select public.finish_product_goal_delivery('${p(1)}',(select token from public.product_goal_deliveries where product_id='${p(1)}'))`);
+ tx(call('create',{...edit,same_product:true,product_ids:[p(1),p(2)]}));
+ check(`(select count(*) from product_group_members)=2 and (select public.product_group_target(g)=41.94 from product_groups g)`,'shared target');
+ check(`not exists(select 1 from products p join originals o using(id) where to_jsonb(p)<>o.j) and (select count(*) from basket_items)=(select count(*) from old_items)`,'conservation');
+ check(`(public.read_product_groups('${gid}',true)->0->'offers'->0->'history')::text like '%60%'`,'historical data');
+ assert.throws(()=>tx(call('create',{...edit,same_product:true,product_ids:[p(1),p(2)]}).replace(gid,p(8))),/invalid_membership/);
+ check(`(select public.begin_product_goal_delivery('${p(1)}',last_checked_at) is null from products where id='${p(1)}')`,'grouped individual suppression');
+ assert.throws(()=>tx(call('pause',{paused:true},99)),/ERROR/);
+ const claim=`begin isolation level serializable;set local role service_role;select count(*) from public.claim_product_group_events();select pg_sleep(0.1);commit;`;
+ const results=await Promise.allSettled([1,2].map(()=>promisify(execFile)(exe('psql'),[...args,'-c',claim],{encoding:'utf8',windowsHide:true})));
+ assert.ok(results.some(r=>r.status==='fulfilled'));
+ for(const r of results)if(r.status==='rejected')assert.match(r.reason.stderr,/could not serialize|deadlock/);
+ check(`(select count(*) from product_group_events)=1`,'concurrent duplicate');
+ tx('select count(*) from public.claim_product_group_events()');check(`(select count(*) from product_group_events)=1`,'repeat event');
+ admin(`update products set last_price=40 where id='${p(2)}'`);tx('select count(*) from public.claim_product_group_events()');check(`(select count(*) from product_group_events)=1`,'second store duplicate');
+ admin(`update products set last_price=38 where id='${p(2)}'`);tx('select count(*) from public.claim_product_group_events()');check(`(select count(*) from product_group_events)=2`,'five percent boundary');
+ admin(`update products set last_price=43.19`);tx('select count(*) from public.claim_product_group_events()');check(`(select alert_state from product_groups)='triggered'`,'below rearm boundary');
+ admin(`update products set last_price=43.20`);tx('select count(*) from public.claim_product_group_events()');check(`(select alert_state from product_groups)='armed'`,'rearm');
+ admin(`update products set consecutive_failures=1`);tx('select count(*) from public.claim_product_group_events()');check(`(select count(*) from product_group_events)=2`,'failures excluded');
+ admin(`update products set consecutive_failures=0,last_price=40`);tx(call('pause',{paused:true}));tx('select count(*) from public.claim_product_group_events()');check(`(select count(*) from product_group_events)=2`,'paused notice');
+ tx(call('pause',{paused:false}));tx('select count(*) from public.claim_product_group_events()');check(`(select count(*) from product_group_events)=3`,'normal rearmed recovery');
+ tx(call('edit',{...edit,name:'Renamed'}));tx('select count(*) from public.claim_product_group_events()');check(`(select count(*) from product_group_events)=3`,'cosmetic reset');
+ tx(call('edit',{...edit,reference_price:'70'}));check(`(select public.product_group_target(g)=42 from product_groups g)`,'percent mode');
+ tx(call('edit',{...edit,target_type:'price',target_value:'40',reference_price:'75'}));check(`(select public.product_group_target(g)=40 from product_groups g)`,'amount mode');
+ admin(`savepoint boundary;
+ update product_groups set alert_state='triggered',last_alert_price=40;
+ update products set last_price=41.20;
+ select count(*) from public.claim_product_group_events();
+ do $$ begin if (select alert_state from product_groups)<>'triggered' then raise exception 'exact three percent must not rearm';end if;end $$;
+ update products set last_price=41.21;
+ select count(*) from public.claim_product_group_events();
+ do $$ begin if (select alert_state from product_groups)<>'armed' then raise exception 'above three percent must rearm';end if;end $$;
+ rollback to boundary;`);
+ assert.throws(()=>admin(`update products set target_price=1 where id='${p(1)}'`),/edit_shared_goal_in_group/);
+ assert.throws(()=>admin(`delete from products where id='${p(1)}'`),/remove_offer_from_group_first/);
+ assert.throws(()=>sql(`set role anon;select public.read_product_groups();`),/ERROR/);
+ assert.throws(()=>sql(`set role service_role;update product_groups set name='Bypass';`),/ERROR/);
+ tx(call('add',{product_id:p(4),same_product:true}));
+ check(`(select alert_state from product_groups)='armed' and (select count(*) from product_group_members)=3`,'added offer resets configuration');
+ tx(call('remove',{product_id:p(4)}));
+ check(`not (select dissolved from product_groups) and (select count(*) from product_group_members)=2`,'remove without dissolution');
+ tx(call('remove',{product_id:p(1)}));check(`(select dissolved from product_groups) and not exists(select 1 from product_group_members)`,'dissolve singleton');
+ check(`(select target_price=40 from products where id='${p(1)}') and (select target_percent=40 from products where id='${p(2)}')`,'original goals');
+ check(`jsonb_array_length(public.read_product_groups('${gid}',true)->0->'events')=3 and exists(select 1 from price_checks where product_id='${p(1)}')`,'retained evidence');
+ console.log('Product groups SQL: local migration, conservation, history, concurrency, alert boundaries, exclusions, pause, goals, dissolution, RLS passed.');
+}catch(e){throw new Error(e.stderr?.toString()||e.message);}
+finally{if(started)run('pg_ctl',['-D',data,'-m','immediate','-w','stop']);if(!dir.startsWith(root+sep)||!dir.split(sep).at(-1).startsWith('groups-pg-'))throw Error('Unsafe cleanup');await rm(dir,{recursive:true,force:true});}

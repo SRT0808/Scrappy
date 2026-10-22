@@ -74,12 +74,14 @@ class BasketTests(TestCase):
 
     def test_aggregate_runs_after_individual_reviews_without_obsolete_membership(self):
         database = Mock()
+        database.claim_product_group_events.return_value = []
         database.request.side_effect = [[{"id": RUN_ID}], [], [], None]
         database.due_products.return_value = [{key: value for key, value in PRODUCT.items() if key != "list_id"}]
         order = []
         with patch("scrappy.run.review_product", side_effect=lambda *a, **k: order.append("individual") or Mock(accepted=True)), \
              patch("scrappy.run.refresh_exchange_rate", side_effect=lambda *a: order.append("fx")), \
-             patch("scrappy.run.process_baskets", side_effect=lambda *a: order.append("basket")) as baskets:
+             patch("scrappy.run.process_baskets", side_effect=lambda *a: order.append("basket")) as baskets, \
+             patch("scrappy.run.process_product_groups"):
             self.assertEqual(execute_reviews(database, PRODUCT["id"], now=lambda: NOW)["checked"], 1)
         self.assertEqual(order, ["fx", "individual", "basket"])
         baskets.assert_called_once_with(database, NOW)

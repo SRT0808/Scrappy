@@ -17,6 +17,7 @@ class AlertTests(unittest.TestCase):
     def setUp(self):
         self.product = {**PRODUCT, "target_price": "100", "name": "Monitor"}
         self.database = Mock()
+        self.database.has_product_group.return_value = False
         self.database.last_failure_notification.return_value = None
         self.notify = Mock(return_value=True)
 

@@ -6,14 +6,15 @@ import { formatPrice } from './ProductCard';
 import { productAction, productMetrics, requestDetail, percentageTarget, type ProductDetail, type ProductEdit, type HistoryRange } from '../lib/products';
 import { historyRanges, validProductEdit } from '../../lib/detail-contract';
 import { intervals } from '../../lib/product-contract';
+import type { ProductGroup } from '../lib/groups';
 import type { List } from '../lib/lists';
 
 const ProductHistory = lazy(() => import('./ProductHistory'));
 const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring';
 const statuses = { active: 'Activo', paused: 'Pausado', error: 'Error', pending_confirmation: 'Por confirmar' };
-type Props = { id: string; lists: List[]; onBack: () => void; onDeleted: () => void; onExpired: (message: string) => void };
+type Props = { group?: ProductGroup; onGroup?: () => void; id: string; lists: List[]; onBack: () => void; onDeleted: () => void; onExpired: (message: string) => void };
 
-export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }: Props) {
+export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired, group, onGroup }: Props) {
   const [repairing, setRepairing] = useState(false);
   const [detail, setDetail] = useState<ProductDetail | null>(null);
   const [range, setRange] = useState<HistoryRange>('30');
@@ -97,23 +98,24 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }:
     <Button variant="outline" disabled={loading || busy} onClick={() => setRefresh(value => value + 1)}>Actualizar detalle</Button>
     {!detail && loading && <div aria-hidden="true" className="mt-6 h-96 rounded-2xl border border-border bg-card motion-safe:animate-pulse" />}
     {detail && p && stats && <>
+      {group&&<aside className="mt-5 space-y-3 rounded-xl border border-primary/40 p-4 text-sm"><p>La meta y referencia se gestionan en {group.name}. La meta individual anterior queda guardada. Para eliminar esta oferta, retírala primero del grupo; las reglas de canastas se conservan.</p><Button variant="outline" onClick={onGroup}>Volver a la meta común</Button></aside>}
       <div className="mt-6 grid min-w-0 gap-4 rounded-2xl border border-border bg-card p-5 sm:grid-cols-3">
         <div><p className="text-xs text-muted-foreground">Último precio conocido</p><p className="mt-2 text-3xl font-semibold tabular-nums [overflow-wrap:anywhere]">{formatPrice(p.last_price, p.currency)}</p></div>
-        <div><p className="text-xs text-muted-foreground">Tu meta{metrics?.reached ? ' · alcanzada' : ''}</p><p className="mt-2 text-lg tabular-nums [overflow-wrap:anywhere]">{formatPrice(metrics?.target ?? null, p.currency)}</p></div>
-        <div><p className="text-xs text-muted-foreground">Referencia</p><p className="mt-2 text-lg tabular-nums [overflow-wrap:anywhere]">{formatPrice(p.reference_price, p.currency)}</p></div>
+        <div><p className="text-xs text-muted-foreground">{group?'Meta común del grupo':'Tu meta'}{(group?p.last_price!==null&&p.last_price<=group.target:metrics?.reached) ? ' · alcanzada' : ''}</p><p className="mt-2 text-lg tabular-nums [overflow-wrap:anywhere]">{formatPrice(group?.target ?? metrics?.target ?? null, p.currency)}</p></div>
+        <div><p className="text-xs text-muted-foreground">Referencia</p><p className="mt-2 text-lg tabular-nums [overflow-wrap:anywhere]">{formatPrice(group?.reference_price ?? p.reference_price, p.currency)}</p></div>
       </div>
       <div className="mt-6 flex flex-wrap gap-3">
         <Button variant="outline" disabled={busy || loading} onClick={() => setRepairing(true)}>Reparar enlace</Button>
         <Button variant="outline" disabled={busy || loading || p.status === 'pending_confirmation'} onClick={beginEdit}>Editar</Button>
         <Button variant="outline" disabled={busy || loading || p.status === 'pending_confirmation'} onClick={() => void act(p.status === 'paused' ? 'resume' : 'pause')}>{p.status === 'paused' ? 'Reanudar' : 'Pausar'}</Button>
         <Button disabled={busy || loading || !['active', 'error'].includes(p.status) || reviewQueued !== undefined} onClick={() => void act('review')}>Revisar ahora</Button>
-        <Button variant="outline" disabled={busy || loading} onClick={() => { setDeleting(true); setEdit(null); }}>Eliminar</Button>
+        <Button variant="outline" disabled={busy || loading || !!group} onClick={() => { setDeleting(true); setEdit(null); }}>Eliminar</Button>
         <Button variant="outline" asChild><a href={p.url} target="_blank" rel="noopener noreferrer">Abrir tienda ↗</a></Button>
       </div>
       <div className="mt-6 min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h2 className="text-lg font-medium">Historial de precios</h2>
         <div aria-label="Rango del historial" className="mt-4 flex flex-wrap gap-2">{historyRanges.map(value => <Button key={value} variant={range === value ? 'default' : 'outline'} aria-pressed={range === value} disabled={busy || loading} onClick={() => setRange(value)}>{value === 'all' ? 'Todo' : `${value} días`}</Button>)}</div>
-        {detail.history.length ? <div role="img" aria-label={`Historial con ${detail.history.length} precios válidos, meta y referencia`} className="mt-5 h-64 min-w-0"><Suspense fallback={<p className="text-sm text-muted-foreground">Cargando gráfico…</p>}><ProductHistory detail={detail} /></Suspense></div>
+        {detail.history.length ? <div role="img" aria-label={`Historial con ${detail.history.length} precios válidos, meta y referencia`} className="mt-5 h-64 min-w-0"><Suspense fallback={<p className="text-sm text-muted-foreground">Cargando gráfico…</p>}><ProductHistory detail={group?{...detail,product:{...p,reference_price:group.reference_price,target_type:'price',target_price:group.target}}:detail} /></Suspense></div>
           : <p className="py-10 text-sm text-muted-foreground">No hay precios válidos en este rango. Prueba «Todo» o solicita una revisión.</p>}
         <p className="mt-3 text-xs text-muted-foreground">Línea verde: precio · discontinua verde: meta · discontinua gris: referencia.</p>
       </div>
@@ -126,9 +128,9 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired }:
       {deleting && <div role="group" aria-label="Confirmar eliminación" className="mt-5 rounded-xl border border-destructive/40 p-5"><p className="text-sm">Se eliminarán el producto y todo su historial de precios.</p><div className="mt-4 flex flex-wrap gap-3"><Button disabled={busy} onClick={() => void act('delete')}>Eliminar definitivamente</Button><Button variant="outline" disabled={busy} onClick={() => setDeleting(false)}>Cancelar</Button></div></div>}
       {edit && <form onSubmit={save} aria-label="Editar producto" className="mt-5 grid min-w-0 gap-5 rounded-2xl border border-border bg-card p-5 sm:grid-cols-2">
         <label className="min-w-0 text-sm">Nombre<Input className="mt-2" value={edit.name} disabled={busy} required maxLength={300} onChange={e => setEdit({ ...edit, name: e.target.value })} /></label>
-        <label className="min-w-0 text-sm">Precio de referencia ({p.currency})<Input className="mt-2" inputMode="decimal" value={edit.reference_price} disabled={busy} required onChange={e => setEdit({ ...edit, reference_price: e.target.value.replace(',', '.') })} /></label>
-        <label className="min-w-0 text-sm">Tipo de meta<select className={selectClass} value={edit.target_type} disabled={busy} onChange={e => setEdit({ ...edit, target_type: e.target.value as ProductEdit['target_type'], target_value: '' })}><option value="price">Precio máximo</option><option value="percent">Descuento porcentual</option></select></label>
-        <label className="min-w-0 text-sm">{edit.target_type === 'percent' ? 'Descuento (%)' : `Precio meta (${p.currency})`}<Input className="mt-2" inputMode="decimal" value={edit.target_value} disabled={busy} required onChange={e => setEdit({ ...edit, target_value: e.target.value.replace(',', '.') })} />{equivalent && <span className="mt-2 block text-xs text-primary">Equivale a {formatPrice(Number(equivalent), p.currency)}</span>}</label>
+        <label className="min-w-0 text-sm">Precio de referencia ({p.currency})<Input className="mt-2" inputMode="decimal" value={edit.reference_price} disabled={busy||!!group} required onChange={e => setEdit({ ...edit, reference_price: e.target.value.replace(',', '.') })} /></label>
+        <label className="min-w-0 text-sm">Tipo de meta<select className={selectClass} value={edit.target_type} disabled={busy||!!group} onChange={e => setEdit({ ...edit, target_type: e.target.value as ProductEdit['target_type'], target_value: '' })}><option value="price">Precio máximo</option><option value="percent">Descuento porcentual</option></select></label>
+        <label className="min-w-0 text-sm">{edit.target_type === 'percent' ? 'Descuento (%)' : `Precio meta (${p.currency})`}<Input className="mt-2" inputMode="decimal" value={edit.target_value} disabled={busy||!!group} required onChange={e => setEdit({ ...edit, target_value: e.target.value.replace(',', '.') })} />{equivalent && <span className="mt-2 block text-xs text-primary">Equivale a {formatPrice(Number(equivalent), p.currency)}</span>}</label>
         <label className="min-w-0 text-sm">Intervalo<select className={selectClass} value={edit.check_interval_hours} disabled={busy} onChange={e => setEdit({ ...edit, check_interval_hours: Number(e.target.value) })}>{intervals.map(hours => <option key={hours} value={hours}>Cada {hours} horas</option>)}</select></label>
         <div className="flex flex-wrap gap-3 sm:col-span-2"><Button type="submit" disabled={busy}>Guardar cambios</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(null)}>Cancelar edición</Button></div>
       </form>}
