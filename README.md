@@ -2171,3 +2171,26 @@ seguía up y el último ciclo programado observado terminó correctamente. La
 composición legacy de Yesstyle ahora figura v3 con dos productos en la lectura
 actual; no se restauró su composición anterior. Evidencia privada:
 `.scrappy/release-7c89817/`.
+
+### Espera al añadir un producto (2026-10-22, SPEC §11 y §14/15)
+
+El run `39802417867` tardó 12 min 40 s en instalar dependencias del sistema
+para Chromium, incluso con la caché de navegadores restaurada. APT descargó
+25,9 MB en 11 min 55 s (36,3 kB/s), con reintentos de paquetes del mirror
+de Ubuntu. La fase del scraper duró 11 s: la demora observada fue de preparación,
+no de extracción. La lectura `20231a3b-a7a1-4eab-b19a-52e5eaed5d2f` terminó
+`failed`, sin precio confiable; el run exitoso solo indica que el proceso terminó.
+Evidencia de solo lectura: pasos de Actions, logs privados en
+`.scrappy/reading-preparation.log` y estado persistido de esa lectura.
+
+Añadir producto distingue cola/preparación (`queued`) y extracción (`reading`);
+el contrato actual no identifica el paso exacto de preparación. Muestra tiempo
+transcurrido desde la solicitud en esta pantalla, actualizado con cada consulta.
+Consulta secuencialmente durante 20 minutos (cada 3 s al principio y cada 10 s
+después del primer minuto), luego informa de la pausa sin declarar fallo.
+«Consultar lectura» retoma consultas GET del mismo ID. Mientras siga pendiente
+o su resultado sea incierto no permite cambiar URL ni salir con el botón del panel;
+reintentar la creación requiere antes un GET 404 y conserva el ID original.
+No se garantiza deduplicación entre pestañas o tras recargar/cerrar la pantalla.
+La mejora conserva el workflow y el contrato API. Su promoción y despliegue fueron
+autorizados por el dueño el 2026-10-22; el SHA y la aceptación se registran en STATUS.

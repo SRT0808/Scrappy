@@ -29,6 +29,9 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
   const [interval, setInterval] = useState(6);
   const [confirmed, setConfirmed] = useState(false);
   const [pollRun, setPollRun] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const [missing, setMissing] = useState(false);
+  const readingStarted = useRef(0);
   const active = useRef<AbortController | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const resultTitle = useRef<HTMLHeadingElement>(null);
@@ -52,6 +55,7 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
 
   function accept(row: Reading) {
     setReading(row);
+    setMissing(false);
     setUncertain(false);
     if (row.status === 'confirmed' && row.product_id) { saved.current(row.product_id, listId); return; }
     if (row.result && applied.current !== row.id) {
@@ -82,11 +86,12 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
       try {
         const row = await requestReading(requestId!, undefined, controller.signal);
         if (controller.signal.aborted) return;
+        setElapsed(Math.floor((Date.now() - readingStarted.current) / 1000));
         accept(row);
         if (row.status === 'queued' || row.status === 'reading') {
-          if (Date.now() - started >= 300_000) {
-            setWaiting(false); setError('La lectura tarda más de lo habitual. Consulta su estado en un momento.');
-          } else timer = setTimeout(() => void poll(), 3000);
+          if (Date.now() - started >= 1_200_000) {
+            setWaiting(false);
+          } else timer = setTimeout(() => void poll(), Date.now() - started >= 60_000 ? 10_000 : 3000);
         } else setWaiting(false);
       } catch (problem) {
         if (!controller.signal.aborted) { setWaiting(false); failure(problem as ProductsError); }
@@ -101,6 +106,7 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
     const controller = new AbortController();
     active.current = controller;
     setBusy(true); setError('');
+    if (body?.action === 'read') setMissing(false);
     try {
       if (body?.action === 'read' && applied.current === null && !repair) {
         const defaultHours = await loadDefaultInterval(controller.signal);
@@ -110,7 +116,10 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
       const row = await requestReading(id, body, controller.signal);
       if (!controller.signal.aborted) { accept(row); setPollRun(value => value + 1); }
     } catch (problem) {
-      if (!controller.signal.aborted) failure(problem as ProductsError);
+      if (!controller.signal.aborted) {
+        if (!body && (problem as ProductsError).status === 404) { setMissing(true); setReading(null); }
+        failure(problem as ProductsError);
+      }
     } finally {
       if (!controller.signal.aborted) { active.current = null; setBusy(false); }
     }
@@ -118,7 +127,7 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
 
   function start(event: FormEvent, withSelector = false) {
     event.preventDefault();
-    if (active.current || waiting) return;
+    if (active.current || waiting || pending || (uncertain && !missing)) return;
     const normalized = productUrl(url);
     if (!normalized || (withSelector && (!selector.trim() || selector.length > 500))) {
       setError('Introduce una URL HTTP(S) pública y un selector de hasta 500 caracteres.'); return;
@@ -126,6 +135,7 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
     const id = crypto.randomUUID();
     const body = { action: 'read' as const, url: normalized, ...(repair ? { repair_product_id: repair.id } : {}), ...(withSelector ? { selector: selector.trim() } : {}) };
     lastRequest.current = body;
+    readingStarted.current = Date.now(); setElapsed(0); setMissing(false);
     setRequestId(id); setReading(null); setConfirmed(false); setUncertain(false); setWaiting(false);
     void run(body, id);
   }
@@ -166,19 +176,27 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
 
   const locked = busy || waiting;
   return <section aria-labelledby="add-title" className="mx-auto w-full max-w-2xl self-start">
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><p className="mb-2 text-xs tracking-[0.16em] text-primary uppercase">Tu próxima oferta</p><h1 id="add-title" className="text-3xl font-semibold">{repair ? 'Reparar enlace' : 'Añadir producto'}</h1></div><Button variant="outline" disabled={busy} onClick={onClose}>{onCloseLabel}</Button></div>
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><p className="mb-2 text-xs tracking-[0.16em] text-primary uppercase">Tu próxima oferta</p><h1 id="add-title" className="text-3xl font-semibold">{repair ? 'Reparar enlace' : 'Añadir producto'}</h1></div><Button variant="outline" disabled={busy || pending || (uncertain && !missing)} onClick={onClose}>{onCloseLabel}</Button></div>
     <p className="mb-6 text-sm text-muted-foreground">1. Leer la tienda · 2. Confirmar el precio · 3. Definir tu meta</p>
     <form onSubmit={event => start(event)} className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
       <label htmlFor="product-url" className="text-sm font-medium">URL del producto</label>
       <Input ref={input} id="product-url" type="url" inputMode="url" required value={url} disabled={locked || !!requestId} onChange={event => setUrl(event.target.value)} placeholder="https://tienda.com/producto" />
       {!requestId && <Button type="submit" disabled={locked} className="w-full sm:w-auto">Leer producto</Button>}
       {requestId && <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" disabled={locked} onClick={() => void run()}>Consultar lectura</Button>
-        <Button type="button" variant="outline" disabled={locked} onClick={() => { setRequestId(null); setReading(null); setUncertain(false); setError(''); }}>Cambiar URL</Button>
-        {uncertain && lastRequest.current && <Button type="button" variant="outline" disabled={locked} onClick={() => void run(lastRequest.current!)}>Reintentar lectura</Button>}
+        <Button type="button" variant="outline" disabled={locked || pending || (uncertain && !missing)} onClick={() => { setRequestId(null); setReading(null); setUncertain(false); setMissing(false); setError(''); }}>Cambiar URL</Button>
+        {missing && lastRequest.current && <Button type="button" variant="outline" disabled={locked} onClick={() => void run(lastRequest.current!)}>Reintentar lectura</Button>}
       </div>}
     </form>
     {error && <p role="alert" className="mt-4 text-sm leading-relaxed text-destructive">{error}</p>}
-    {locked && <div role="status" className="mt-5 rounded-2xl border border-border bg-card p-5"><p className="text-sm text-primary">{waiting ? 'Leyendo la tienda… Puede tardar unos minutos.' : 'Procesando tu solicitud…'}</p><div aria-hidden="true" className="mt-4 h-20 rounded-lg bg-muted motion-safe:animate-pulse" /></div>}
+    {(locked || pending) && <div role="status" className="mt-5 rounded-2xl border border-border bg-card p-5 space-y-3">
+      <p className="text-sm text-primary">{pending ? reading.status === 'queued' ? 'En cola o preparando el lector…' : 'Leyendo la tienda…' : 'Procesando tu solicitud…'}</p>
+      {pending && <>
+        <p className="text-sm text-muted-foreground">{reading.status === 'queued' ? 'El lector todavía no ha empezado con esta tienda. La cola y la preparación del navegador pueden tardar varios minutos.' : 'El lector ya empezó con esta tienda. Esperamos el resultado para que puedas confirmar el precio.'}</p>
+        <p className="text-sm tabular-nums">Tiempo transcurrido: {Math.floor(elapsed / 60)} min {elapsed % 60} s.</p>
+        <p className="text-sm text-muted-foreground">{uncertain ? 'Se interrumpió la consulta. Usa Consultar lectura para recuperar el estado de esta misma solicitud.' : waiting ? 'Consultamos automáticamente hasta 20 minutos. Esta espera no crea otra lectura.' : 'La consulta automática está pausada; esto no cancela la lectura ni confirma un fallo. Usa Consultar lectura para retomar esta misma solicitud.'}</p>
+      </>}
+      {locked && <div aria-hidden="true" className="h-20 rounded-lg bg-muted motion-safe:animate-pulse" />}
+    </div>}
     {result && <div className="mt-6 space-y-5">
       <section aria-labelledby="reading-title" className="rounded-2xl border border-border bg-card p-5 sm:p-6">
         <h2 id="reading-title" ref={resultTitle} tabIndex={-1} className="mb-4 text-lg font-semibold">Confirma lo que encontramos</h2>

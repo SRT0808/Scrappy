@@ -130,6 +130,86 @@ describe('add product', () => {
     } finally { vi.useRealTimers(); }
   });
 
+  it('waits through slow preparation, distinguishes extraction and completes without another POST', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetch = mock();
+      let status = 'queued';
+      fetch.mockImplementation(() => Promise.resolve(json({ reading: { ...row, status, result: status === 'ready' ? result : null } })));
+      mount();
+      fireEvent.change(screen.getByLabelText('URL del producto'), { target: { value: row.url } });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Leer producto' })); });
+      expect(screen.getByText('En cola o preparando el lector…')).toBeInTheDocument();
+      await act(async () => vi.advanceTimersByTimeAsync(790_000));
+      expect(screen.getByText(/Tiempo transcurrido: 13 min/)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Cambiar URL' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Volver a listas' })).toBeDisabled();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      status = 'reading';
+      await act(async () => vi.advanceTimersByTimeAsync(10_000));
+      expect(screen.getByText('Leyendo la tienda…')).toBeInTheDocument();
+      status = 'ready';
+      await act(async () => vi.advanceTimersByTimeAsync(10_000));
+      expect(screen.getByRole('heading', { name: 'Confirma lo que encontramos' })).toBeInTheDocument();
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+      expect(fetch.mock.calls.filter(call => call[1].method === 'POST')).toHaveLength(1);
+      expect(fetch.mock.calls.every(call => call[0] === `/api/products/readings?id=${id}`)).toBe(true);
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('pauses after twenty minutes and resumes the same pending ID with GET only', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetch = mock();
+      fetch.mockImplementation(() => Promise.resolve(json({ reading: { ...row, status: 'queued', result: null } })));
+      mount();
+      fireEvent.change(screen.getByLabelText('URL del producto'), { target: { value: row.url } });
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Leer producto' })); });
+      await act(async () => vi.advanceTimersByTimeAsync(1_210_000));
+      expect(screen.getByText(/La consulta automática está pausada/)).toBeInTheDocument();
+      const count = fetch.mock.calls.length;
+      await act(async () => vi.advanceTimersByTimeAsync(60_000));
+      expect(fetch).toHaveBeenCalledTimes(count);
+      fireEvent.click(screen.getByRole('button', { name: 'Cambiar URL' }));
+      fireEvent.submit(screen.getByLabelText('URL del producto').closest('form')!);
+      expect(fetch).toHaveBeenCalledTimes(count);
+      await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Consultar lectura' })); });
+      await act(async () => vi.advanceTimersByTimeAsync(1000));
+      expect(fetch).toHaveBeenCalledTimes(count + 2);
+      expect(fetch.mock.calls.slice(1).every(call => call[1].method === 'GET' && call[0] === `/api/products/readings?id=${id}`)).toBe(true);
+      expect(screen.getByRole('button', { name: 'Consultar lectura' })).toBeDisabled();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('recovers an uncertain creation with GET instead of creating another reading', async () => {
+    const fetch = mock(new TypeError('network'), json({ reading: { ...row, status: 'queued', result: null } }));
+    mount();
+    fireEvent.change(screen.getByLabelText('URL del producto'), { target: { value: row.url } });
+    await userEvent.click(screen.getByRole('button', { name: 'Leer producto' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Consulta la lectura');
+    expect(screen.queryByRole('button', { name: 'Reintentar lectura' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cambiar URL' })).toBeDisabled();
+    // A GET can establish that the original POST was accepted despite its lost response.
+    await userEvent.click(screen.getByRole('button', { name: 'Consultar lectura' }));
+    expect(screen.getByText('En cola o preparando el lector…')).toBeInTheDocument();
+    expect(fetch.mock.calls[1][1].method).toBe('GET');
+  });
+
+  it('retries the same ID only after a GET confirms it does not exist', async () => {
+    const fetch = mock(new TypeError('network'), json({}, 404), new TypeError('network'), json({ reading: row }));
+    mount();
+    fireEvent.change(screen.getByLabelText('URL del producto'), { target: { value: row.url } });
+    await userEvent.click(screen.getByRole('button', { name: 'Leer producto' }));
+    await screen.findByRole('alert');
+    await userEvent.click(screen.getByRole('button', { name: 'Consultar lectura' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Reintentar lectura' }));
+    expect(screen.queryByRole('button', { name: 'Reintentar lectura' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Consultar lectura' }));
+    expect(await screen.findByRole('heading', { name: 'Confirma lo que encontramos' })).toBeInTheDocument();
+    expect(fetch.mock.calls.map(call => call[1].method)).toEqual(['POST', 'GET', 'POST', 'GET']);
+    expect(fetch.mock.calls.every(call => call[0] === `/api/products/readings?id=${id}`)).toBe(true);
+  });
+
   it('returns to access when the session expires during the reading', async () => {
     mock(json({ authenticated: true }), json({ lists: [list] }), json({ products: [] }), json({}, 401));
     render(<App />);
