@@ -86,7 +86,7 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired, g
 
   if (repairing && p) return <AddProduct lists={[]} repair={{ id, name: p.name || p.domain, currency: p.currency }} onExpired={onExpired} onClose={() => setRepairing(false)} onCloseLabel="Volver al producto" onSaved={() => { setRepairing(false); setRefresh(n => n+1); setNotice('Enlace reparado; historial y metas conservados.'); }} />;
 
-  return <section aria-labelledby="detail-title" aria-busy={loading || busy} className="mx-auto w-full min-w-0 max-w-4xl self-start">
+  return <section aria-labelledby="detail-title" aria-busy={loading || busy} className="mx-auto w-full min-w-0 max-w-7xl self-start">
     <Button variant="outline" onClick={onBack} disabled={busy}>← Volver a Inicio</Button>
     <div className="mt-7 mb-6 min-w-0">
       <p className="mb-2 text-xs tracking-[0.16em] text-primary uppercase">Detalle de producto</p>
@@ -112,21 +112,23 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired, g
         <Button variant="outline" disabled={busy || loading || !!group} onClick={() => { setDeleting(true); setEdit(null); }}>Eliminar</Button>
         <Button variant="outline" asChild><a href={p.url} target="_blank" rel="noopener noreferrer">Abrir tienda ↗</a></Button>
       </div>
-      <div className="mt-6 min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <div className="mt-6 grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h2 className="text-lg font-medium">Historial de precios</h2>
         <div aria-label="Rango del historial" className="mt-4 flex flex-wrap gap-2">{historyRanges.map(value => <Button key={value} variant={range === value ? 'default' : 'outline'} aria-pressed={range === value} disabled={busy || loading} onClick={() => setRange(value)}>{value === 'all' ? 'Todo' : `${value} días`}</Button>)}</div>
         {detail.history.length ? <div role="img" aria-label={`Historial con ${detail.history.length} precios válidos, meta y referencia`} className="mt-5 h-64 min-w-0"><Suspense fallback={<p className="text-sm text-muted-foreground">Cargando gráfico…</p>}><ProductHistory detail={group?{...detail,product:{...p,reference_price:group.reference_price,target_type:'price',target_price:group.target}}:detail} /></Suspense></div>
           : <p className="py-10 text-sm text-muted-foreground">No hay precios válidos en este rango. Prueba «Todo» o solicita una revisión.</p>}
         <p className="mt-3 text-xs text-muted-foreground">Línea verde: precio · discontinua verde: meta · discontinua gris: referencia.</p>
       </div>
-      <div className="mt-6 rounded-2xl border border-border bg-card p-5">
+      <div className="min-w-0 rounded-2xl border border-border bg-card p-5">
         <h2 className="text-lg font-medium">Estadísticas históricas</h2><p className="mt-2 text-xs text-muted-foreground">{stats.count} lecturas válidas de {p.currency || 'moneda sin confirmar'} · todo el historial</p>
-        <dl className="mt-5 grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3">{([['Mínimo', stats.min], ['Máximo', stats.max], ['Promedio', stats.average]] as const).map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-xl tabular-nums [overflow-wrap:anywhere]">{value === null ? 'Sin datos' : formatPrice(value, p.currency)}</dd></div>)}</dl>
+        <dl className="mt-5 grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3 xl:grid-cols-1">{([['Mínimo', stats.min], ['Máximo', stats.max], ['Promedio', stats.average]] as const).map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-xl tabular-nums [overflow-wrap:anywhere]">{value === null ? 'Sin datos' : formatPrice(value, p.currency)}</dd></div>)}</dl>
         <p className="mt-5 text-sm text-muted-foreground">Tendencia del descuento: {stats.discount_change === null ? 'se necesitan dos lecturas y una referencia positiva.' : `${stats.discount_change > 0 ? '+' : ''}${new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 }).format(stats.discount_change)} puntos porcentuales desde la primera lectura.`}</p>
+      </div>
       </div>
       {reviewQueued !== undefined && <p className="mt-3 text-xs text-muted-foreground">Revisión pendiente de resultado. Si falla, actualiza el historial antes de reintentar. <button className="underline" disabled={busy || loading} onClick={() => setReviewQueued(undefined)}>Permitir otro intento</button></p>}
       {deleting && <div role="group" aria-label="Confirmar eliminación" className="mt-5 rounded-xl border border-destructive/40 p-5"><p className="text-sm">Se eliminarán el producto y todo su historial de precios.</p><div className="mt-4 flex flex-wrap gap-3"><Button disabled={busy} onClick={() => void act('delete')}>Eliminar definitivamente</Button><Button variant="outline" disabled={busy} onClick={() => setDeleting(false)}>Cancelar</Button></div></div>}
-      {edit && <form onSubmit={save} aria-label="Editar producto" className="mt-5 grid min-w-0 gap-5 rounded-2xl border border-border bg-card p-5 sm:grid-cols-2">
+      {edit && <form onSubmit={save} aria-label="Editar producto" className="mt-5 grid min-w-0 max-w-4xl gap-5 rounded-2xl border border-border bg-card p-5 sm:grid-cols-2">
         <label className="min-w-0 text-sm">Nombre<Input className="mt-2" value={edit.name} disabled={busy} required maxLength={300} onChange={e => setEdit({ ...edit, name: e.target.value })} /></label>
         <label className="min-w-0 text-sm">Precio de referencia ({p.currency})<Input className="mt-2" inputMode="decimal" value={edit.reference_price} disabled={busy||!!group} required onChange={e => setEdit({ ...edit, reference_price: e.target.value.replace(',', '.') })} /></label>
         <label className="min-w-0 text-sm">Tipo de meta<select className={selectClass} value={edit.target_type} disabled={busy||!!group} onChange={e => setEdit({ ...edit, target_type: e.target.value as ProductEdit['target_type'], target_value: '' })}><option value="price">Precio máximo</option><option value="percent">Descuento porcentual</option></select></label>

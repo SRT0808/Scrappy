@@ -1,3 +1,7 @@
+CANASTAS Y DETALLES ADAPTADOS A ESCRITORIO (2026-10-22 Lima, SPEC §11): ancho máximo 7XL, canastas/carrito/productos de canasta en dos columnas desde XL; gráficas y estadísticas lado a lado, formularios acotados y móvil en una columna. Revisión React dirigida sin hallazgos nuevos; cambios locales en develop, sin publicación.
+Validación: build/typecheck y diff-check aprobados; 67/69 pruebas web distintas aprobadas (tres timeouts pasan aislados con un worker). Quedan dos fallos de tests ajenos a los estilos: mock secuencial de sesión en ListsScreen y texto antiguo del carrito en Purchases. Verificación visual local de cinco vistas a 320/390/1280/1920 px, gráficos cargados, sin overflow/errores JS ni mutaciones; evidencia privada .scrappy/baskets-layout-20261022/.
+Siguiente: actualizar solo esos dos tests al contrato vigente (incluida consulta de grupos y actividad desplegable), ejecutar únicamente ambos casos; después decidir promoción. Main/despliegue y aceptación operativa de grupos siguen separados y a decisión del dueño.
+
 DISEÑO RESPONSIVO DEL CATÁLOGO AJUSTADO (2026-10-22 Lima, SPEC §11/14): el shell de la app puede expandirse a 2XL en escritorio; catálogo muestra cuatro columnas desde 2XL. Móvil conserva menú y tarjetas en una columna. Sin publicación.
 Validación: build/typecheck aprobados, HomeScreen 13/13 y verificación visual con fixtures a 390/1920 px (18 pantallas, sin overflow ni errores JS).
 Siguiente: evaluar si aplicar anchos de lectura amplios a Canastas y detalles; respetar forms/datos en móvil y no desplegar hasta decisión del dueño.

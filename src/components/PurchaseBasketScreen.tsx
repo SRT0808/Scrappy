@@ -103,7 +103,7 @@ export function PurchaseBasketScreen({ id, name = 'Tu canasta', onDirtyChange, o
       {showActivation && <div id="purchase-activation"><PurchaseActivation key={id} id={id} onDirtyChange={setActivationDirty} onBusyChange={setActivationBusy} onExpired={onExpired} onActivated={() => void consult()} /></div>}
     </section>
   </BasketDetailScreen>;
-  return <>{addProductForm}<section hidden={addingProduct} aria-busy={busy} className="mx-auto w-full min-w-0 max-w-3xl space-y-5">
+  return <>{addProductForm}<section hidden={addingProduct} aria-busy={busy} className="mx-auto w-full min-w-0 max-w-7xl space-y-5">
     <Button variant="outline" disabled={busy} onClick={onBack}>← Volver a Canastas</Button>
     <div><h1 className="text-3xl font-semibold">{name}</h1><p className="mt-2 text-sm text-muted-foreground">Tu compra y las opciones para cubrirla.</p></div>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -113,7 +113,7 @@ export function PurchaseBasketScreen({ id, name = 'Tu canasta', onDirtyChange, o
     {draft && <div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={() => setEditing(v => !v)} aria-expanded={editing} aria-controls="purchase-editor">{editing ? 'Cerrar editor' : 'Editar mi compra'}</Button><Button variant="outline" disabled={busy} onClick={() => setShowHistory(v => !v)} aria-expanded={showHistory}>{showHistory ? 'Cerrar historial' : 'Ver historial de la canasta'}</Button></div>}
     {dirty && <p role="status" className="text-sm text-primary">Tienes cambios sin guardar. El resultado corresponde a la última configuración guardada.</p>}
     {showHistory && <BasketDetailScreen id={id} historyOnly onBack={() => setShowHistory(false)} onExpired={onExpired} />}
-    {draft && <form id="purchase-editor" hidden={!editing} className="space-y-5 rounded-2xl border border-border bg-card p-4 sm:p-6" onSubmit={e => { e.preventDefault(); void save(); }}>
+    {draft && <form id="purchase-editor" hidden={!editing} className="max-w-4xl space-y-5 rounded-2xl border border-border bg-card p-4 sm:p-6" onSubmit={e => { e.preventDefault(); void save(); }}>
       <PurchaseEditor value={draft} products={products} onChange={setDraft} disabled={busy || locked} onAddProduct={() => setAddingProduct(true)} comparisonNeedIds={comparisonNeedIds} onComparisonDone={() => setComparisonNeedIds([])} />
       {locked && <p className="text-sm text-destructive">Guardado bloqueado. Consulta el estado antes de continuar.</p>}
       <Button type="submit" disabled={busy || locked}>Guardar cambios</Button>

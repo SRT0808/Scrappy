@@ -53,7 +53,7 @@ export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired,
   const currency=points[0]?.currency ?? detail?.basket.currency ?? 'PEN';
   const available=products.filter(p => !detail?.basket.lines?.some(l => l.product_id===p.id));
   const Heading = historyOnly ? 'h2' : 'h1';
-  return <section className="mx-auto w-full min-w-0 max-w-4xl" aria-busy={loading || busy}>
+  return <section className="mx-auto w-full min-w-0 max-w-7xl" aria-busy={loading || busy}>
     <Button variant="outline" disabled={busy} onClick={onBack}>{historyOnly ? 'Volver al resumen' : '← Volver a Canastas'}</Button>
     <Heading className="mt-6 mb-4 break-words text-3xl font-semibold">{historyOnly ? 'Historial de la canasta' : detail?.name ?? 'Detalle de canasta'}</Heading>
     {!historyOnly && detail && children}
@@ -64,9 +64,9 @@ export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired,
       {!historyOnly && <><div className="mt-5"><BasketSummary basket={detail.basket} /></div>
       <section className="rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h2 className="text-lg font-medium">Productos y frescura</h2>
-        <ol className="mt-4 divide-y divide-border">{detail.basket.lines!.map(l => {
+        <ol className="mt-4 grid gap-x-6 xl:grid-cols-2">{detail.basket.lines!.map(l => {
           const p=products.find(p => p.id===l.product_id);
-          return <li key={l.product_id} className="min-w-0 py-4 [overflow-wrap:anywhere]">
+          return <li key={l.product_id} className="min-w-0 border-t border-border py-4 [overflow-wrap:anywhere]">
             <h3 className="font-medium">{p?.name || p?.domain || l.product_id}</h3>
             <p className="mt-2 text-sm text-muted-foreground">{formatPrice(l.last_price,l.currency)} · {l.unavailable ? 'Agotado' : l.stale ? 'Precio desactualizado' : l.last_price === null ? 'Precio faltante' : l.valid ? 'Precio válido' : 'Conversión no vigente'}</p>
             <p className="mt-1 text-xs text-muted-foreground">Último precio válido: {date(l.last_success_at)} · última revisión: {date(l.last_checked_at)}</p>
@@ -86,16 +86,17 @@ export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired,
         </form>
       </section>
       </>}
-      <section className="mt-6 min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <div className="mt-6 grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <section className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
         <h2 className="text-lg font-medium">Historial por composición</h2>
         <p className="mt-2 text-xs text-muted-foreground">Cada versión conserva sus cantidades y moneda. Las series nunca se mezclan.</p>
-        <label className="mt-4 block text-sm">Composición<select className={selectClass} value={version ?? ''} disabled={busy || loading} onChange={e => setVersion(Number(e.target.value))}>{detail.versions.map(v => <option key={v} value={v}>Versión {v}{v===detail.basket.composition_version ? ' · actual' : ''}</option>)}</select></label>
+        <label className="mt-4 block max-w-sm text-sm">Composición<select className={selectClass} value={version ?? ''} disabled={busy || loading} onChange={e => setVersion(Number(e.target.value))}>{detail.versions.map(v => <option key={v} value={v}>Versión {v}{v===detail.basket.composition_version ? ' · actual' : ''}</option>)}</select></label>
         <div className="mt-4 flex flex-wrap gap-2">{['7','14','30','90','all'].map(r => <Button key={r} variant={range===r ? 'default' : 'outline'} aria-pressed={range===r} disabled={busy || loading} onClick={() => setRange(r)}>{r==='all' ? 'Todo' : `${r} días`}</Button>)}</div>
         {points.length ? <div role="img" aria-label="Gráfico de referencia, total completo y estimado" className="mt-5 h-64 min-w-0"><Suspense fallback={<p>Cargando gráfico…</p>}><BasketHistory points={points} budget={version===detail.basket.composition_version ? detail.basket.budget : null} /></Suspense></div> : <p className="my-8 text-sm text-muted-foreground">Sin snapshots en esta composición y rango.</p>}
         <p className="mt-3 text-xs text-muted-foreground">Verde: total completo · ámbar: estimado · gris: referencia · discontinua verde: meta actual.</p>
         <ol className="mt-4 max-h-48 overflow-y-auto text-xs text-muted-foreground">{points.map(p => <li key={p.id} className="flex flex-wrap justify-between gap-2 py-2"><span>{date(p.calculated_at)} · {p.complete ? 'Completo' : 'Estimado / incompleto'}</span><span>{formatPrice(p.current_total,p.currency)} · ahorro {formatPrice(p.savings,p.currency)} ({p.savings_percent ?? '—'} %)</span></li>)}</ol>
       </section>
-      <section className="mt-6 rounded-2xl border border-border bg-card p-5">
+      <section className="min-w-0 rounded-2xl border border-border bg-card p-5 [overflow-wrap:anywhere]">
         <h2 className="text-lg font-medium">Estadísticas descriptivas</h2>
         <p className="mt-2 text-xs text-muted-foreground">Solo snapshots completos de la composición y rango seleccionados. {stats.count} snapshots · {Math.floor(stats.days)} días observados.</p>
         {!stats.eligible ? <p className="mt-4 text-sm text-muted-foreground">Se necesitan al menos 14 días y 10 snapshots completos. Prueba un rango mayor.</p> : <>
@@ -104,6 +105,7 @@ export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired,
           <p className="mt-4 text-sm text-muted-foreground">El último total completo está {points.filter(p => p.complete).at(-1)!.current_total! < stats.median ? 'por debajo de' : 'igual o por encima de'} la mediana observada. Estos datos describen el historial; no predicen precios futuros.</p>
         </>}
       </section>
+      </div>
     </>}
   </section>;
 }

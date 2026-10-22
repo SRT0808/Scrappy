@@ -14,7 +14,7 @@ export function PurchaseResults({ data, compact = false, products = [], onCompar
   const different = selectionKey(r.effective) !== selectionKey(r.recommendation);
   const money = (v: string | null) => purchaseMoney(v, c.currency);
   return <section aria-label="Resultado de alternativas" className="my-4 space-y-4 [overflow-wrap:anywhere]">
-    <div className="rounded-xl border border-primary/40 bg-card p-4">
+    <div className="max-w-3xl rounded-xl border border-primary/40 bg-card p-4">
       <p className="mb-4 text-sm" hidden={!different}>Tu elección{c.pins.length ? ' · opciones elegidas por ti' : ''}: <strong className="mt-1 block text-3xl tabular-nums">{money(r.effective.total ?? r.effective.knownSubtotal)}</strong>{!r.effective.coverageComplete && ' · subtotal conocido'}</p>
       <h2 className="font-medium">{!r.recommendation.searchComplete ? 'Mejor compra encontrada · optimalidad no demostrada' : r.recommendation.coverageComplete ? 'Más barata entre las opciones verificadas' : 'Recomendación con cobertura pendiente'}</h2>
       <p className="mt-2 text-xl font-semibold">{money(r.recommendation.total ?? r.recommendation.knownSubtotal)}</p>
@@ -36,10 +36,10 @@ export function PurchaseResults({ data, compact = false, products = [], onCompar
   </section>;
 }
 function Selection({ title, selection: s, c, products, onCompare }: { title: string; selection: PurchaseResult['effective']; c: Configuration; products: ProductSummary[]; onCompare?: (needIds: string[]) => void }) {
-  return <section className="space-y-3"><h3 className="font-medium">{title}</h3>{!s.searchComplete && <p className="text-sm">Cálculo limitado; optimalidad no demostrada.</p>}<ul className="space-y-3">{s.purchases.map(p => {
+  return <section className="space-y-3"><h3 className="font-medium">{title}</h3>{!s.searchComplete && <p className="text-sm">Cálculo limitado; optimalidad no demostrada.</p>}<ul className="grid items-start gap-3 xl:grid-cols-2">{s.purchases.map(p => {
     const product = products.find(x => x.id === p.offer.productId);
     const name = product?.name || product?.domain || 'Producto seguido';
-    return <li key={p.offerId} className="rounded-2xl border border-border bg-card p-3 sm:p-4">
+    return <li key={p.offerId} className="min-w-0 rounded-2xl border border-border bg-card p-3 sm:p-4">
       <div className="flex min-w-0 items-center gap-3 sm:gap-4"><ProductThumbnail src={product?.image_url ?? null} alt={name} className="size-20 sm:size-24" />
         <div className="min-w-0 flex-1"><p className="break-words font-medium">{name}</p><p className="mt-1 text-sm text-muted-foreground">{product?.domain ?? 'Catálogo'}</p><p className="mt-2 text-lg font-semibold tabular-nums">{purchaseMoney(p.convertedAmount, c.currency)}</p><p className="text-xs text-muted-foreground">{p.purchaseUnits} {Number(p.purchaseUnits) === 1 ? 'unidad' : 'unidades'} · último precio observado</p></div>
       </div>
