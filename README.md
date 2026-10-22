@@ -2448,3 +2448,26 @@ restoration. Do not replay migrations or probe claims. Private evidence remains
 in `.scrappy/release-570a75b/`, especially `packaging-reviewed.json`,
 `contract-accepted.json`, `auth-deployed-accepted.json`,
 `secondary-reopen-response.json` and `packaging-stopped-state.json`.
+
+### Protected aliases verified; ordinary cycle queued (2026-10-22 Lima)
+
+The private reopening verifier now uses authenticated `vercel curl` for the two
+protected current aliases and direct HTTP for scrappy-silk.vercel.app. All three
+passed application 401 without a session and 200 with a session, including the
+empty groups response. All 12 retired hosts returned WAF 403 with a valid session;
+unrelated firewall rules were preserved. Deployment/SHA remains
+`dpl_DaWTF3pXQXjBUaAKxQyfUrUcc16g` / `e88ba21`. SQL was not replayed.
+
+The single authorized ordinary cycle was submitted once as
+[Actions run 39829398992](https://github.com/SRT0808/Scrappy/actions/runs/39829398992).
+After more than 21 minutes it still reported `queued`, with no jobs or checks.
+No other repository run was active. Operational acceptance and scheduler
+restoration are pending this external execution; do not submit another cycle.
+Public API access is restored, Check prices is active for the accepted run, and
+cron-job.org remains disabled with its schedule/payload preserved. Healthchecks
+3h/9h was not changed. Continue by inspecting this exact run, reconciling its
+database effects, delivery receipts and heartbeat, then restoring cron only on
+success. No real group was created and real group-notice acceptance is not claimed.
+Private evidence: `.scrappy/release-570a75b/reopened.json`, `ordinary-dispatch.json`,
+`ordinary-current.json`, `ordinary-queue-audit.json` and
+`protected-alias-pending-state.json`. Scheduler credential rotation remains separate.
