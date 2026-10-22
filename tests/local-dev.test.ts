@@ -39,12 +39,12 @@ test('local HTTPS serves the web and original API handlers on the same origin', 
     assert.ok(/^https:\/\/example.supabase.co\/rest\/v1\/products\?/.test(String(url)));
     return new Response('[]');
   };
-  const server = await createServer({ server: { port: 0 } });
+  const server = await createServer({ server: { host: '127.0.0.1', port: 0 } });
   try {
     await server.listen();
     const address = server.httpServer!.address();
     assert.ok(address && typeof address === 'object');
-    const origin = `https://localhost:${address.port}`;
+    const origin = `https://127.0.0.1:${address.port}`;
     const send = (path: string, method = 'GET', body?: string, cookie?: string, requestOrigin = origin) =>
       new Promise<{ status: number; headers: import('node:http').IncomingHttpHeaders; body: string }>((resolve, reject) => {
         const req = request(`${origin}${path}`, {

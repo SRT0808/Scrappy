@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { test, afterEach } from 'node:test';
 import type { ServerResponse } from 'node:http';
 import { createHmac } from 'node:crypto';
-import login from '../api/login.js';
-import logout from '../api/logout.js';
+import login from '../lib/server/endpoints/login.js';
+import logout from '../lib/server/endpoints/logout.js';
+import authRoute from '../api/[auth].js';
 import session from '../api/session.js';
 import { COOKIE_NAME, SESSION_SECONDS, clientIp, createSession, matchesAccessKey, validSession } from '../lib/server/auth.js';
 import type { ApiRequest, Handler } from '../lib/server/auth.js';
@@ -48,6 +49,26 @@ function database(result: unknown = 0, status = 200) {
   }) as typeof fetch;
   return attempts;
 }
+
+test('shared authentication function preserves public and rewritten routes and rejects ambiguous routes', async () => {
+  database();
+  for (const url of ['/api/login', '/api/login/', '/api/[auth]?auth=login', '/api/[auth].ts?auth=login', '/api/%5Bauth%5D?auth=login']) {
+    assert.equal((await invoke(authRoute, request({ url }))).status, 200, url);
+  }
+  const headers = { ...request().headers, cookie: `${COOKIE_NAME}=${createSession()}` };
+  for (const url of ['/api/logout', '/api/[auth]?auth=logout']) {
+    const result = await invoke(authRoute, request({ url, headers }));
+    assert.equal(result.status, 200, url);
+    assert.match(result.headers['set-cookie'], /Max-Age=0/);
+  }
+  globalThis.fetch = async () => { throw new Error('Unexpected storage access'); };
+  for (const url of ['/api/unknown', '/api/[auth]', '/api/[auth]?auth=login&auth=logout', '/api/login?auth=logout', '/api/unknown?auth=login', '/api/%ZZ']) {
+    assert.equal((await invoke(authRoute, request({ url }))).status, 404, url);
+  }
+  assert.equal((await invoke(authRoute, request({ url: '/api/logout' }))).status, 401);
+  assert.equal((await invoke(authRoute, request({ url: '/api/login', headers: { ...headers, origin: 'https://evil.example' } }))).status, 403);
+  assert.equal((await invoke(authRoute, request({ url: '/api/login', method: 'GET' }))).status, 405);
+});
 
 test('access key comparison supports Unicode and rejects different lengths', () => {
   assert.equal(matchesAccessKey('test-access-key'), true);

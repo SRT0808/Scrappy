@@ -1,6 +1,6 @@
-import { allowMethod, clientIp, createSession, json, matchesAccessKey, sameOrigin, sessionCookie } from '../lib/server/auth.js';
-import type { Handler } from '../lib/server/auth.js';
-import { recordLoginAttempt } from '../lib/server/login-attempts.js';
+import { allowMethod, clientIp, createSession, json, matchesAccessKey, sameOrigin, sessionCookie } from '../auth.js';
+import type { Handler } from '../auth.js';
+import { recordLoginAttempt } from '../login-attempts.js';
 
 const login: Handler = async (req, res) => {
   if (!allowMethod(req, res, 'POST')) return;

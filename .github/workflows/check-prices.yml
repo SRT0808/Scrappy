@@ -96,6 +96,7 @@ jobs:
         id: review
         env:
           RUN_MODE: ${{ inputs.mode || 'all' }}
+          PURCHASE_APP_ORIGIN: ${{ secrets.PURCHASE_APP_ORIGIN }}
           PRODUCT_ID: ${{ inputs.product_id }}
           READING_ID: ${{ inputs.reading_id }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

@@ -6,8 +6,8 @@ import { localReadings } from './local-readings.js';
 const routes: Record<string, string> = {
   '/api/product-groups': '/api/product-groups.ts',
   '/api/settings': '/api/settings.ts',
-  '/api/login': '/api/login.ts',
-  '/api/logout': '/api/logout.ts',
+  '/api/login': '/api/[auth].ts',
+  '/api/logout': '/api/[auth].ts',
   '/api/session': '/api/session.ts',
   '/api/lists': '/api/lists/index.ts',
   '/api/lists/reorder': '/api/lists/reorder.ts',

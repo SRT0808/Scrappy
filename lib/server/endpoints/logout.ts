@@ -1,4 +1,4 @@
-import { allowMethod, json, sessionCookie, withSession } from '../lib/server/auth.js';
+import { allowMethod, json, sessionCookie, withSession } from '../auth.js';
 
 export default withSession((req, res) => {
   if (!allowMethod(req, res, 'POST')) return;
