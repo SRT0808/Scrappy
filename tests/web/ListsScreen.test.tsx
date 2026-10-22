@@ -154,13 +154,21 @@ describe('lists screen', () => {
   });
 
   it.each(['read', 'create'] as const)('returns to access on expired session during %s', async action => {
-    mock(json({ authenticated: true }), ...(action === 'create' ? [json({ lists: [] }), json({ products: [] }), json({ lists: [] })] : []), json({}, 401));
+    const fetch = vi.fn(async (url: string, options?: RequestInit) => {
+      if (url === '/api/session') return json({ authenticated: true });
+      if (url === '/api/products') return json({ products: [] });
+      if (url === '/api/product-groups') return json({ groups: [] });
+      if (url === '/api/lists') return action === 'read' || options?.method === 'POST' ? json({}, 401) : json({ lists: [] });
+      throw new Error(`Unexpected request: ${options?.method} ${url}`);
+    });
+    vi.stubGlobal('fetch', fetch);
     render(<App />);
     if (action === 'create') {
       await screen.findByText('Tu catálogo espera tu próximo producto');
       await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Gestionar canastas' }));
       fireEvent.change(screen.getByLabelText('Nombre de la nueva canasta'), { target: { value: first.name } });
       await userEvent.click(screen.getByRole('button', { hidden: true, name: 'Crear canasta' }));
+      expect(fetch).toHaveBeenCalledWith('/api/lists', expect.objectContaining({ method: 'POST', body: JSON.stringify({ name: first.name }) }));
     }
     expect(await screen.findByLabelText('Clave de acceso')).toHaveValue('');
     expect(screen.getByRole('alert')).toHaveTextContent('Tu sesión ha caducado');

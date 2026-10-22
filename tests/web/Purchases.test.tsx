@@ -236,7 +236,12 @@ describe('purchase UI', () => {
     await screen.findByText('Más barata entre las opciones verificadas');
     expect(screen.getByText(/Ahorro frente a referencia: S\/ 0.01/)).toBeInTheDocument();
     expect(screen.getByText(/Tu elección · opciones elegidas por ti:/)).toBeInTheDocument();
-    expect(screen.getByText(/1 × Producto seguido .*5.01/)).toBeInTheDocument();
+    const cart = within(screen.getByRole('heading', { name: 'Tu carrito' }).closest('section')!);
+    expect(cart.getAllByRole('listitem')).toHaveLength(1);
+    expect(cart.getByText('Producto seguido', { exact: true })).toBeInTheDocument();
+    expect(cart.getByText('S/ 5.01', { exact: true })).toBeInTheDocument();
+    expect(cart.getByText('1 unidad · último precio observado')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Actividad y avisos', { exact: true }));
     expect(screen.getByText('Correo: Entrega incierta')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Ver recibo de email'));
     expect(screen.getByText(/"status": "ambiguous"/)).toBeInTheDocument();
