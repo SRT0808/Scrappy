@@ -1,3 +1,7 @@
+DISEÑO RESPONSIVO DEL CATÁLOGO AJUSTADO (2026-10-22 Lima, SPEC §11/14): el shell de la app puede expandirse a 2XL en escritorio; catálogo muestra cuatro columnas desde 2XL. Móvil conserva menú y tarjetas en una columna. Sin publicación.
+Validación: build/typecheck aprobados, HomeScreen 13/13 y verificación visual con fixtures a 390/1920 px (18 pantallas, sin overflow ni errores JS).
+Siguiente: evaluar si aplicar anchos de lectura amplios a Canastas y detalles; respetar forms/datos en móvil y no desplegar hasta decisión del dueño.
+
 GRUPOS: REAPERTURA VERIFICADA; CICLO AUTORIZADO EN COLA (2026-10-22 Lima, SPEC §12/14/15): verificador corregido para usar CLI autenticada en aliases protegidos; tres aliases actuales con 401/200 y doce hosts retirados con WAF 403. Vercel READY e88ba21; sin repetir SQL ni crear grupos.
 Validación: acceso CLI bajo barrera y reapertura aprobados. Único dispatch normal aceptado: Actions 39829398992, SHA e88ba21; tras más de 21 minutos sigue queued, sin jobs/checks ni otros runs activos. Cron-job.org sigue false, workflow active para este ciclo; Healthchecks 3h/9h conservado. Evidencia privada .scrappy/release-570a75b/{reopened,ordinary-dispatch,ordinary-current,protected-alias-pending-state}.json.
 Siguiente: esperar el mismo run, conciliar persistencia/avisos/latido y restaurar cron solo tras aprobar; aceptación operativa todavía pendiente. No redispatch, repetir SQL ni sondear claims; rotación del scheduler separada.
