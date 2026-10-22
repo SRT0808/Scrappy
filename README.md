@@ -2309,3 +2309,142 @@ deployment operation and verify the deployed API and scraper contract together.
 Pushing main automatically starts Vercel and makes the new scraper available to
 the existing scheduler; local promotion alone does neither. No remote migration,
 deployment or live notification was performed for this local acceptance.
+
+### Groups production authorization sequence (prepared 2026-10-22 Lima)
+
+Reviewed functional candidate: `570a75b` on local `develop` and local `main`.
+Read-only remote inspection on this date found `main` at `0cf2305` and
+`develop` at `a6220bb`. Recheck these references in the authorized window;
+this preparation neither publishes branches nor authorizes production effects.
+The accepted local tests above remain the development evidence.
+
+1. **Authorize a bounded maintenance/release window.** Scope includes temporary
+   access and dispatch exclusion, private backup, installation of only
+   `supabase/migrations/20261022000000_product_groups.sql`, publishing the reviewed
+   candidate, matching Vercel/API/scraper checks and restoration of prior access
+   and scheduler states. A normal scraper cycle can send genuine individual,
+   basket or group notices and write prices; include that effect explicitly if
+   authorizing an operational check. Creating a real group or sending a test
+   notification is a separate explicit choice. Scheduler credential rotation is
+   still a separate pending security task; do not print or copy its token.
+2. **Capture baseline and exclude writers.** Record actual serving deployment
+   ID/SHA, remote main, installed schema/functions, scheduler/workflow states,
+   pending/running runs and a private recoverable database backup. Confirm the
+   installed dependencies through `20261017000000_purchase_activation.sql`,
+   including `enter_purchase_operation` and the existing
+   `save_product_alert_state(uuid,timestamptz,jsonb,jsonb)`. Compare their actual
+   definitions to the reviewed migrations. Stop on drift or partial installation.
+   Use the existing release exclusion procedure above: block API access including
+   existing sessions and credential-bearing deployment URLs, disable scheduler
+   dispatch and Check prices, stop local writers, and drain active requests and
+   queued/running Actions. Reconcile interrupted delivery receipts before moving
+   on. Verify the barrier actually works. Preserve Healthchecks 3h/9h and record
+   the maintenance interval; do not revive historical commissioning experiments.
+3. **Install SQL before publishing code.** With exclusion held, execute the one
+   migration with stop-on-error. Its BEGIN/COMMIT is atomic; it is not idempotent
+   (tables and the function rename prevent safe blind replay). On an uncertain
+   result, inspect catalog definitions and commit outcome before retrying. Record
+   migration hash and installation evidence privately. Confirm four new tables,
+   RLS, SELECT-only service access on groups/members/events, no direct access to
+   delivery reservations, and EXECUTE grants limited to the intended service RPCs.
+   The renamed `save_ungrouped_alert_state` must not be callable by service_role,
+   anon or authenticated. Check PostgREST schema reload and a service-side
+   `read_product_groups` read returning an array, initially empty. Do not call
+   `claim_product_group_events` as a read-only probe: it advances alert state.
+4. **Verify environment and publish the exact candidate.** Inspect names and
+   presence without logging values: existing server-only Supabase/auth/GitHub
+   variables, notification secrets, `HEALTHCHECK_URL` and `PURCHASE_APP_ORIGIN`.
+   The last is already wired in Actions and must be the actual HTTPS app origin;
+   group processing validates it even when no groups exist. No new secret names,
+   dependencies or workflow changes are required. Publish only after SQL checks;
+   main publication starts Vercel and exposes the scraper to future dispatches.
+   Keep dispatch disabled until the serving deployment is READY and its source
+   matches the authorized functional candidate (documentation-only descendants
+   must preserve that code). Do not assume a local main promotion is publication.
+5. **Accept matching contracts before reopening.** Through the controlled access
+   path, verify anonymous `/api/product-groups` returns 401, authenticated GET
+   returns 200 with the validated group array, an absent UUID returns 404, and
+   invalid/cross-origin mutations are rejected without writes. Verify products,
+   baskets and histories against the captured baseline. Inspect installed RPC
+   signatures against API and Python persistence calls, including individual
+   begin/complete/finish reservations and group claim/finish. Reopen public access
+   only after API/web checks pass; then enable Check prices for an explicitly
+   authorized single normal cycle, with cron-job.org still disabled. Record the
+   run's actual head SHA, persistence, group stage outcome, notice receipts and
+   heartbeat. Reconcile failures/ambiguous sends without replaying claims. Empty
+   groups demonstrate contract compatibility, not real group-notice acceptance.
+   If that cycle was not authorized, retain operational acceptance as pending.
+   Restore scheduler/workflow to the captured states only after the corresponding
+   checks pass; preserve schedule/payload and Healthchecks settings.
+6. **Stop and recovery rules.** Any schema, grant, contract or deployment mismatch
+   keeps writers excluded; record the last successful step. Before SQL COMMIT,
+   rollback the transaction. After COMMIT there is no reviewed groups down
+   migration: prefer a reviewed forward fix. Do not drop tables or replay SQL.
+   Returning to old API/scraper with live group memberships is unsafe: old sends
+   lack the new reservation protocol. A database restore requires separate owner
+   approval, matching baseline code and reconciliation of every intervening write
+   and external receipt; sent notifications cannot be undone. Reopen only when
+   the complete database/API/scraper combination has been verified. Record final
+   deployment/SHA, migration, acceptance results and remaining limits in STATUS.
+
+### Groups rollout stopped after SQL installation (2026-10-22 Lima)
+
+The authorized window started at 12:47 Lima. Running CLI 63.1.2 directly renewed
+the local session and restored firewall access. All 59 installed function
+definitions matched the reviewed migrations. The quiescent backup restored in
+isolation with 34 tables and 445 rows, including the three internal schemas.
+Migration `20261022000000_product_groups.sql` committed once; existing data and
+fixed-time totals, four new tables' RLS/grants, 13 function permissions and the
+empty PostgREST group read passed. Remote main/develop were published at `570a75b`.
+
+Deployment `dpl_BYAdVHPHnLBTLjkWUucW9FgnoNhG` built successfully but Vercel rejected
+its 13 Functions with `exceeded_serverless_functions_per_deployment` (Hobby: 12).
+The production alias still points to `dpl_E5zsDmhNh7Z6VjR63ErXzXCsZb3m`/`0cf2305`;
+the project's production target metadata alone does not prove the serving alias.
+Execution stopped under the two-failure rule after an unnecessary repeat of the
+already-passed local comparison encountered existing roles and publication failed.
+The temporary `Maintenance groups 570a75b` API deny remains active, verified with
+a valid session on 15 hosts. Cron-job.org is disabled, Check prices is manually
+disabled and no Actions runs are active. Healthchecks retains 3h/9h. No real
+group, group event, delivery reservation or operational verification cycle was
+created; application acceptance and operation restoration remain pending.
+
+Resume with a reviewed packaging fix that preserves API routes within the free
+12-Function limit, then complete the authorized contract checks, ordinary cycle
+and restoration. Do not replay the committed migration or reopen old writers.
+Private evidence: `.scrappy/release-570a75b/`, especially `backup/`,
+`schema-comparison.json`, `migration.json`, `sql-verified.json`,
+`deployment-error-events.json`, `function-file-inventory.json` and
+`stopped-state.json`. Deployment/cycle authorization persists; database restore
+and scheduler credential rotation remain separate decisions.
+
+### Groups packaging deployed; operational acceptance stopped (2026-10-22 Lima)
+
+Commit `e88ba21` was committed on develop and published to develop/main under the
+existing release authorization. Login and logout now share `api/[auth].ts`, while
+unchanged security handlers live outside api/. The 12-function source inventory
+fits Hobby. The Python review step now receives the existing PURCHASE_APP_ORIGIN
+secret required by group processing; no secret values or dependencies changed.
+Deployment `dpl_DaWTF3pXQXjBUaAKxQyfUrUcc16g` is READY, with the production aliases
+pointing to this SHA. The previously committed SQL migration was not replayed.
+
+Fourteen auth tests, local HTTPS HTTP/1.1 and HTTP/2, build/typechecks and directed
+manual review passed. The first local HTTPS attempt failed connecting to a random
+localhost port; explicit IPv4 binding passed. Controlled production acceptance
+passed 27 API/web checks, five auth route checks, and conservation of all 34
+original tables, including product histories; groups remained empty. This does
+not claim real group-notice acceptance.
+
+The reopening verifier then expected anonymous API 401 on the secondary alias
+scrappy-srt0808s-projects.vercel.app but received 302 to Vercel SSO. This is a
+protected-access response; the public scrappy-silk.vercel.app contract had passed.
+Execution stopped under the two-failure rule. Global API exclusion was restored
+and verified as 403 with a valid session. Cron remains disabled, Check prices is
+manually disabled, and no runs are active. No ordinary cycle was dispatched;
+operational acceptance and restoration remain incomplete. Healthchecks remains
+3h/9h. Resume by using authenticated CLI access for protected aliases, then
+complete the already-authorized single ordinary cycle, reconciliation and
+restoration. Do not replay migrations or probe claims. Private evidence remains
+in `.scrappy/release-570a75b/`, especially `packaging-reviewed.json`,
+`contract-accepted.json`, `auth-deployed-accepted.json`,
+`secondary-reopen-response.json` and `packaging-stopped-state.json`.
