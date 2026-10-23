@@ -23,7 +23,6 @@ export function HomeScreen(props: Props) {
   const [linkedGroup] = useState(() => {const ids=new URLSearchParams(window.location.search).getAll('group');return ids.length===1&&uuidPattern.test(ids[0])?ids[0].toLowerCase():'';});
   const [groups,setGroups]=useState<ProductGroup[]>([]);
   const [selected,setSelected]=useState<string[]>([]);
-  const [selecting,setSelecting]=useState(false);
   const [groupBusy,setGroupBusy]=useState(false);
   const [offerGroup,setOfferGroup]=useState<ProductGroup|null>(null);
   const groupSaving=useRef(false);
@@ -72,7 +71,11 @@ export function HomeScreen(props: Props) {
     setProductsError('');
     setProducts([]);
     Promise.all([requestProducts('', controller.signal),groupRequest(undefined,undefined,controller.signal)]).then(([rows,groupRows]) => {
-      if (!controller.signal.aborted) {setProducts(rows);setGroups(groupRows);setSelected([]);}
+      if (!controller.signal.aborted) {
+        setProducts(rows);setGroups(groupRows);
+        const grouped = new Set(groupRows.flatMap(group => group.offers.map(offer => offer.id)));
+        setSelected(current => current.filter(id => rows.some(product => product.id === id && product.status !== 'pending_confirmation') && !grouped.has(id)));
+      }
     }).catch((failure: { status: number; message: string }) => {
       if (controller.signal.aborted) return;
       if (failure.status === 401) expired.current(failure.message);
@@ -139,7 +142,7 @@ export function HomeScreen(props: Props) {
     : view === 'settings' ? <SettingsScreen onExpired={props.onExpired} onBack={() => returnHome()} />
       : view === 'detail' ? <ProductDetailScreen group={offerGroup?.offers.some(p=>p.id===detailId)?offerGroup:undefined} onGroup={()=>{if(offerGroup){setDetailId(offerGroup.id);setView('group');}}} key={detailId} id={detailId} lists={lists} onExpired={props.onExpired} onBack={() => returnHome()} onDeleted={() => { setNotice('Producto e historial eliminados.'); returnHome(); }} />
         : view === 'add' ? <AddProduct lists={lists} onExpired={props.onExpired} onCloseLabel="Volver a Inicio" onClose={returnHome} onSaved={() => { setNotice('Producto guardado y activo.'); returnHome(); }} />
-          : <section aria-labelledby="home-title" className="mx-auto w-full min-w-0 self-start">
+          : <section aria-labelledby="home-title" className={`mx-auto w-full min-w-0 self-start ${selected.length > 0 ? 'pb-56 sm:pb-40 lg:pb-32' : ''}`}>
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
       <div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 ref={homeTitle} tabIndex={-1} id="home-title" className="text-3xl font-semibold tracking-tight outline-none">Productos</h1></div>
       {!mobileNavOpen && <Button className="lg:hidden" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('add')}>Añadir producto</Button>}
@@ -153,14 +156,17 @@ export function HomeScreen(props: Props) {
 
       </div></details>
       <Button className="mb-5" variant="outline" disabled={loading || props.sessionBusy} onClick={() => setRefresh(value => value + 1)}>Actualizar productos</Button>
-      <div className="mb-5 flex flex-wrap items-center gap-3"><Button variant="outline" disabled={loading||!!error} aria-pressed={selecting} onClick={()=>{setSelecting(!selecting);setSelected([]);}}>{selecting?'Cancelar selección':'Seleccionar para agrupar'}</Button>{selecting&&<><Button disabled={!compatible} onClick={()=>setView('group-create')}>Agrupar ({selected.length})</Button><p className="text-xs text-muted-foreground">Selecciona al menos dos ofertas idénticas en la misma moneda. También puedes arrastrar el control de una oferta sobre otra.</p></>}</div>
+      <p className="mb-4 text-sm text-muted-foreground">Toca las tarjetas que representan el mismo producto y comparten moneda.</p>
     </>}
     {loading ? <div aria-hidden="true" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{[0, 1, 2, 3].map(key => <div key={key} className="h-96 rounded-2xl border border-border bg-card motion-safe:animate-pulse" />)}</div>
       : error ? <Button variant="outline" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => setRefresh(value => value + 1)}>Reintentar consulta</Button>
         : visible.length+visibleGroups.length === 0 ? <div className="rounded-2xl border border-dashed border-border p-8 text-center"><h2 className="font-semibold">{products.length ? 'No hay productos con este estado' : 'Tu catálogo espera tu próximo producto'}</h2><p className="mt-3 text-sm text-muted-foreground">{products.length ? 'Prueba otro filtro para ver tus productos.' : 'Añade una URL para empezar a seguir su precio.'}</p></div>
             : <><p className="mb-4 text-sm text-muted-foreground">{visible.length+visibleGroups.length} productos · {visibleGroups.length} grupos</p><div className="grid min-w-0 grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{visibleGroups.map(group=><GroupCard key={group.id} group={group} onOpen={()=>{setDetailId(group.id);setView('group');}}/>)}{visible.map(product => <div key={product.id} className="min-w-0" onDragOver={e=>{if(product.status!=='pending_confirmation')e.preventDefault();}} onDrop={e=>{e.preventDefault();const from=e.dataTransfer.getData('application/x-scrappy-product');const source=products.find(p=>p.id===from);if(source&&source.id!==product.id&&!groupedIds.has(source.id)&&source.currency===product.currency&&source.target_type&&product.target_type){setSelected([source.id,product.id]);setView('group-create');}else setNotice('Selecciona dos ofertas confirmadas de la misma moneda.');}}>
-              {product.status!=='pending_confirmation'&&<div className="mb-2 flex items-center gap-3">{selecting&&<label className="flex min-w-0 items-center gap-2 text-sm"><input type="checkbox" checked={selected.includes(product.id)} onChange={e=>setSelected(e.target.checked?[...selected,product.id]:selected.filter(id=>id!==product.id))}/>Seleccionar {product.name||product.domain}</label>}<button type="button" draggable onDragStart={e=>e.dataTransfer.setData('application/x-scrappy-product',product.id)} className="ml-auto min-h-11 cursor-grab rounded-lg border border-border px-3 text-xs text-muted-foreground" aria-label={`Arrastrar para agrupar ${product.name||product.domain}`} onClick={()=>{setSelecting(true);setSelected(s=>s.includes(product.id)?s:[...s,product.id]);}}>⠿ Agrupar</button></div>}
-              <ProductCard product={product} onDetail={() => { setDetailId(product.id); setView('detail'); }} /></div>)}</div></>}
+              <ProductCard product={product} onDetail={() => { setDetailId(product.id); setView('detail'); }} selection={product.status==='pending_confirmation'?undefined:{selected:selected.includes(product.id),onToggle:()=>setSelected(s=>s.includes(product.id)?s.filter(id=>id!==product.id):[...s,product.id]),onDragStart:e=>e.dataTransfer.setData('application/x-scrappy-product',product.id)}} /></div>)}</div></>}
+    {selected.length>0&&view==='home'&&<div className="fixed inset-x-4 bottom-20 z-30 mx-auto grid max-w-xl grid-cols-2 items-center gap-2 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur sm:flex lg:bottom-6">
+      <div className="col-span-2 min-w-0 sm:flex-1"><p className="text-sm font-medium">{selected.length} {selected.length===1?'tarjeta seleccionada':'tarjetas seleccionadas'}</p><p className="hidden text-xs text-muted-foreground sm:block">Elige el mismo producto en la misma moneda.</p></div>
+      <Button className="w-full sm:w-auto" variant="outline" onClick={()=>setSelected([])}>Cancelar</Button><Button className="w-full sm:w-auto" disabled={!compatible||loading||!!error} onClick={()=>setView('group-create')}>Continuar <span aria-hidden="true" className="ml-1">→</span></Button>
+    </div>}
   </section>;
 
   const currentSection = view === 'lists' || view === 'basket-detail' ? 'lists' : view === 'settings' ? 'settings' : view === 'add' ? 'add' : 'home';

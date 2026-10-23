@@ -28,17 +28,24 @@ it('requires equivalence confirmation and preserves percentage or amount when re
  fireEvent.change(screen.getByLabelText('Referencia común (PEN)'),{target:{value:'75'}});
  expect(screen.getByText(/Meta común: S\/ 40.00/)).toBeInTheDocument();
 });
-it('creates through accessible selection, blocks navigation during save and masks member cards',async()=>{
+it('selects offer cards directly, blocks navigation during save and masks member cards',async()=>{
  const g=groupFixture();let created=false;let finish!:(value:Response)=>void;
  const fetch=vi.fn(async(url:string,options?:RequestInit)=>{
   if(url==='/api/lists')return json({lists:[]});
   if(url==='/api/products')return json({products:[productFixture(1),productFixture(2)]});
+  if(url.startsWith('/api/products/'))return json({detail:{product:{...productFixture(1),check_interval_hours:3},history:[],reviews:[],statistics:{count:0,min:null,max:null,average:null,discount_change:null}}});
   if(options?.method==='POST'){created=true;return new Promise<Response>(r=>{finish=r;});}
   return json({groups:created?[{...g,id:new URL(url,'http://local').searchParams.get('id')??g.id}]:[]});
  });vi.stubGlobal('fetch',fetch);home();
- await userEvent.click(await screen.findByRole('button',{name:'Seleccionar para agrupar'}));
- for(const box of screen.getAllByRole('checkbox'))await userEvent.click(box);
- await userEvent.click(screen.getByRole('button',{name:'Agrupar (2)'}));
+ await userEvent.click(await screen.findByRole('button',{name:'Seleccionar Limpiador 200 ml · tienda1.pe'}));
+ await userEvent.click(screen.getAllByRole('button',{name:'Ver detalle de Limpiador 200 ml'})[0]);
+ await screen.findByRole('heading',{name:'Limpiador 200 ml'});
+ await userEvent.click(screen.getByRole('button',{name:/Volver/}));
+ expect(await screen.findByRole('button',{name:'Quitar de la selección Limpiador 200 ml · tienda1.pe'})).toHaveAttribute('aria-pressed','true');
+ expect(screen.getByText('1 tarjeta seleccionada')).toBeInTheDocument();
+ await userEvent.click(screen.getByRole('button',{name:'Seleccionar Limpiador 200 ml · tienda2.pe'}));
+ expect(screen.getByText('2 tarjetas seleccionadas')).toBeInTheDocument();
+ await userEvent.click(screen.getByRole('button',{name:/Continuar/}));
  await userEvent.click(screen.getByRole('checkbox'));
  await userEvent.click(screen.getByRole('button',{name:'Crear grupo'}));
  expect(screen.getByRole('button',{name:'Ir a Canastas'})).toBeDisabled();
@@ -50,10 +57,26 @@ it('creates through accessible selection, blocks navigation during save and mask
  await screen.findByRole('button',{name:'Ver tiendas y gráfica'});
  expect(screen.queryByRole('button',{name:/Ver detalle de Limpiador/})).not.toBeInTheDocument();
 });
+it('drops selected offers that disappear or require confirmation after refresh',async()=>{
+ let refreshed=false;
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>{
+  if(url==='/api/lists')return json({lists:[]});
+  if(url==='/api/product-groups')return json({groups:[]});
+  return json({products:refreshed?[{...productFixture(2),status:'pending_confirmation'}]:[productFixture(1),productFixture(2)]});
+ }));home();
+ await userEvent.click(await screen.findByRole('button',{name:'Seleccionar Limpiador 200 ml · tienda1.pe'}));
+ await userEvent.click(screen.getByRole('button',{name:'Seleccionar Limpiador 200 ml · tienda2.pe'}));
+ expect(screen.getByText('2 tarjetas seleccionadas')).toBeInTheDocument();
+ refreshed=true;
+ await userEvent.click(screen.getByRole('button',{name:'Actualizar productos'}));
+ await screen.findByText('Por confirmar',{selector:'span'});
+ expect(screen.queryByText(/tarjetas? seleccionadas?/)).not.toBeInTheDocument();
+ expect(screen.queryByRole('button',{name:/Quitar de la selección/})).not.toBeInTheDocument();
+});
 it('dragging offers uses the same confirmation and cancellation makes no mutation',async()=>{
  const fetch=vi.fn(async(url:string,_options?:RequestInit)=>url==='/api/lists'?json({lists:[]}):url==='/api/product-groups'?json({groups:[]}):json({products:[productFixture(1),productFixture(2)]}));
  vi.stubGlobal('fetch',fetch);home();
- const controls=await screen.findAllByRole('button',{name:/Arrastrar para agrupar/});
+ const controls=await screen.findAllByRole('button',{name:/Seleccionar Limpiador 200 ml/});
  const dataTransfer={getData:()=>offerId(1),setData:vi.fn()};
  fireEvent.dragStart(controls[0],{dataTransfer});fireEvent.drop(controls[1].parentElement!.parentElement!,{dataTransfer});
  await screen.findByRole('form',{name:'Crear grupo'});
