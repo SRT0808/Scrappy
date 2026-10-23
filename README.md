@@ -2471,3 +2471,104 @@ success. No real group was created and real group-notice acceptance is not claim
 Private evidence: `.scrappy/release-570a75b/reopened.json`, `ordinary-dispatch.json`,
 `ordinary-current.json`, `ordinary-queue-audit.json` and
 `protected-alias-pending-state.json`. Scheduler credential rotation remains separate.
+
+Reconciliation refreshed on 2026-10-22 at 23:30 Lima: this same run remains
+`queued`, attempt 1, with zero jobs and no other active run. Since `ordinary-before`,
+there are no new database runs, price checks, notification receipts, group events,
+individual reservations or alternatives events/deliveries; existing price history
+is preserved. Two groups now exist relative to the empty baseline; they cannot be
+attributed to this unexecuted run. Healthchecks is `down`, still at 92 pings with
+the last heartbeat on October 22 at 10:02:56 Lima; period 3h/grace 9h are unchanged.
+Cron-job.org 8633587 remains disabled, with baseline schedule and payload preserved;
+the baseline requires enabled=true only after successful cycle reconciliation.
+No redispatch, cancellation, scheduler change or synthetic heartbeat was performed.
+Operational acceptance and restoration remain incomplete. The later UI release
+`3804793` does not change this run's `e88ba21` source. Current private evidence:
+`.scrappy/release-570a75b/reconciliation-39829398992-audit.json` and its seven
+provider/database snapshots. Continue with the exact pending run; real group-notice
+acceptance remains unclaimed and the closed §14.1 experiments remain closed.
+
+Queue diagnosis on 2026-10-23 at 09:47 Lima confirmed Actions enabled with all
+actions allowed, the workflow active, no pending deployment approvals and no
+other active repository run. The run and check suite remain queued with zero
+jobs, checks or error annotations. This public repository uses standard Ubuntu
+runners, whose execution is [free of private-repository minute quotas](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+[GitHub Status](https://www.githubstatus.com/) reports Actions operational; its
+resolved incidents do not establish the internal cause of this particular stall.
+The probable diagnosis is stalled workflow orchestration, not a demonstrated
+scraper failure. Main `3804793` preserves the API/scraper/workflow code of `e88ba21`.
+
+The concrete recovery proposal requires owner approval to supersede the original
+no-redispatch constraint: cancel `39829398992`, confirm terminal cancellation,
+zero jobs/no attributable effects and no other active runs, then submit exactly
+one replacement `all` on main `38047934dc28e365be3bdb445a7f1b25c639d14d`.
+That cycle may write prices and send genuine individual, basket or group notices.
+Keep cron disabled until successful reconciliation, then restore the authorized
+baseline. If cancellation cannot be confirmed, do not submit the replacement.
+No recovery mutation has been performed. Private evidence and the bounded proposal
+are recorded in `.scrappy/release-570a75b/queue-diagnosis-summary.json` alongside
+the API, incident and run-page captures.
+
+The owner authorized that bounded recovery on 2026-10-23. At 09:50 Lima,
+the normal cancellation endpoint rejected the request with HTTP 409:
+`Cannot cancel a workflow run that has not been queued yet.` A subsequent
+read still reports `queued`, attempt 1, with zero jobs. The replacement was
+not submitted. Execution stopped under the two-failure rule after the read-only
+preflight also encountered fetch failures for Healthchecks and Supabase.
+The cancellation/replacement authorization remains valid; do not request it again
+or blindly repeat the cancellation. Resolve the contradictory provider state,
+confirm terminal cancellation and the required no-effect checks, then perform
+the single authorized replacement and reconciliation before restoring cron.
+Private evidence: `.scrappy/release-570a75b/authorized-recovery-approval.json`,
+`authorized-recovery-cancel.json` and `authorized-recovery-cancel-stopped.json`.
+
+Review completed on 2026-10-23 for `66c8410` (SPEC §14): no blocking findings.
+The Inkafarma product selector wait uses Scrapling 0.4.15's per-operation timeout;
+it is not a single deadline for navigation and extraction together. Missing
+currency remains rejected without target-alert permission. All 54 affected
+validation/runner/probe and initial-reading consumer tests passed.
+Existing delayed/absent-product fixtures and the local CeraVe PEN 48.60
+reading support the candidate, without proving the original Actions HTML cause.
+The candidate is ready for the owner's promotion decision; this review did not
+promote, deploy, dispatch or send notices. The later recovery audit records the
+old run cancelled, the single replacement successful and ordinary operation
+restored; earlier queue/cancellation entries above are historical. Real group
+notice acceptance and scheduler credential rotation remain separate work, so
+global project completion is not claimed. Existing local development acceptance
+remains closed; historical experiments must not be restarted for this review.
+
+### Operational closure accepted (2026-10-23 Lima, SPEC §14)
+
+The owner authorized completing promotion, deployment and outstanding operational
+acceptance. Commit `66c8410` is published on main and develop; production deployment
+`dpl_8NBrndhECEkCAEEDUUR7y3zzAi8q` is READY and serves
+<https://scrappy-silk.vercel.app>. The 54 local affected tests and 12 production
+HTTP checks passed. Runtime error/fatal log inspection returned no matching entries.
+
+The single authorized acceptance run
+[40010981438](https://github.com/SRT0808/Scrappy/actions/runs/40010981438)
+completed successfully using the existing scheduler credential. Its targeted
+CeraVe Inkafarma reading was accepted at PEN 48.60, and the alternatives worker
+and heartbeat steps also succeeded. This was a controlled production group test:
+the cleanser group's name was temporarily labelled as operational verification
+and its target set to PEN 67.50. Exactly one group event was sent through both
+channels. One matching ntfy message and one matching Gmail message with the Inbox
+label were independently read and correlated by event UUID; no duplicate notice
+was found. The original group name, percentage target (35%, PEN 43.875), reference,
+image and memberships were restored through the authenticated API. The second
+group's settings and membership were preserved. The test event remains in history
+with its temporary target and version; it is not a naturally reached original goal.
+
+Cron-job.org 8633587 is enabled again at its original UTC three-hour schedule,
+with its original payload and credential. Check prices is active with no runs
+left in progress; Healthchecks is up at ping 94, period 3h/grace 9h. No migration,
+synthetic heartbeat or historical §14.1 commissioning experiment was repeated.
+The owner explicitly declined rotation of the previously exposed scheduler token
+and requested continued use of it. That is a retained credential by owner decision,
+not a completed rotation or an outstanding requested task.
+
+There are no remaining development or release tasks in the currently agreed
+scope. Future features and routine maintenance remain owner choices. This entry
+supersedes historical queue, recovery and unaccepted-group statements above.
+Private evidence: `.scrappy/release-66c8410/final-audit.json`, `acceptance.json`,
+`group-restored.json`, `channel-receipts.json` and `acceptance-run.log`.
