@@ -60,10 +60,17 @@ def fetch(url: str, mode: str, timeout: float):
                                 allow_redirects="safe", max_redirects=30,
                                 curl_options={CurlOpt.NOPROXY: ""})
             return ResponseFactory.from_http_request(response, {"adaptive": False})
+        readiness = {}
+        if urlsplit(url).hostname in {"inkafarma.pe", "www.inkafarma.pe"} and urlsplit(url).path.startswith("/producto/"):
+            # Product data arrives after navigation in this Angular storefront.
+            # The browser timeout bounds the wait; absent data stays invalid.
+            readiness["wait_selector"] = 'script[type="application/ld+json"][data-seo-structured-data]'
+            readiness["wait_selector_state"] = "attached"
         return fetcher.fetch(url, headless=True, timeout=int(timeout * 1000), retries=1, wait=1500,
                              cookies=preference_cookies(url, browser=True),
                              network_idle=False, disable_resources=True, locale="es-PE", selector_config={"adaptive": False},
-                             proxy=proxy, extra_flags=["--proxy-bypass-list=<-loopback>", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"])
+                             proxy=proxy, extra_flags=["--proxy-bypass-list=<-loopback>", "--force-webrtc-ip-handling-policy=disable_non_proxied_udp"],
+                             **readiness)
 
 
 def evaluate(url: str, store: RecipeStore, evidence: Path, timeout: float = 25, max_mode: str = "stealth", pause=None) -> dict:

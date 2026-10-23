@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from scrapling.engines.toolbelt.custom import Response
 
-from scrappy.probe import evaluate, ordered_urls, summary
+from scrappy.probe import evaluate, fetch, ordered_urls, summary
 from scrappy.recipes import RecipeStore
 
 
@@ -21,6 +21,22 @@ class ProbeTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name)
         self.store = RecipeStore(self.path / "state.json")
+
+    def test_inkafarma_browser_waits_for_structured_product_data_with_bounded_timeout(self):
+        for mode, transport in (("dynamic", "DynamicFetcher"), ("stealth", "StealthyFetcher")):
+            with self.subTest(mode=mode), patch("scrappy.probe.public_url"), patch("scrappy.probe.public_proxy") as proxy, patch("scrappy.probe." + transport + ".fetch") as browser:
+                fetch("https://inkafarma.pe/producto/cerave/029892", mode, 7)
+                options = browser.call_args.kwargs
+                self.assertEqual(options["wait_selector"], 'script[type="application/ld+json"][data-seo-structured-data]')
+                self.assertEqual(options["wait_selector_state"], "attached")
+                self.assertEqual(options["timeout"], 7000)
+                self.assertEqual(options["retries"], 1)
+
+    def test_product_readiness_does_not_apply_to_other_hosts_or_pages(self):
+        for url in ("https://inkafarma.pe/", "https://inkafarma.pe.evil.test/producto/x/1", "https://shop.pe/producto/x/1"):
+            with self.subTest(url=url), patch("scrappy.probe.public_url"), patch("scrappy.probe.public_proxy"), patch("scrappy.probe.DynamicFetcher.fetch") as browser:
+                fetch(url, "dynamic", 7)
+                self.assertNotIn("wait_selector", browser.call_args.kwargs)
 
     def test_block_escalates_and_success_is_remembered_in_fresh_store(self):
         pages = [response("<title>Access denied</title>", 403), response('<h1>Product</h1><span class="sale-price">S/ 99</span>')]

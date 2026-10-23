@@ -32,6 +32,8 @@ def is_unavailable(availability: str | None) -> bool:
 
 
 def _invalid_reason(reading: Extraction, currency: str) -> str | None:
+    if not reading.currency:
+        return "invalid_reading"
     if reading.currency != currency:
         return "currency_mismatch"
     price = reading.price

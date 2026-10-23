@@ -75,11 +75,14 @@ class ReviewTests(unittest.TestCase):
         self.assertTrue(all(not row["ok"] and row["error_code"] == "price_mismatch" for row in self.saved_checks()))
 
     def test_currency_mismatch_and_failed_reads_are_audited(self):
-        for reading in (replace(self.reading, currency="USD"), Extraction()):
+        for reading, code in ((replace(self.reading, currency="USD"), "currency_mismatch"),
+                              (Extraction(), "invalid_reading")):
             with self.subTest(reading=reading):
                 self.read.return_value = reading
                 self.assertFalse(self.review().accepted)
                 self.assertFalse(self.saved_checks()[0]["ok"])
+                self.assertEqual(self.saved_checks()[0]["error_code"], code)
+                self.assertFalse(self.database.save_review.call_args.args[2].alert_allowed)
 
     def test_confirmation_exception_is_a_second_failed_attempt(self):
         self.read.side_effect = [replace(self.reading, price=Decimal("40")), TimeoutError("private")]

@@ -80,12 +80,12 @@ class ReviewValidationTests(unittest.TestCase):
                 self.assertIs(result.confirmation, second)
 
     def test_currency_change_or_missing_currency_rejected_before_reread(self):
-        for currency in ("USD", None):
+        for currency, code in (("USD", "currency_mismatch"), (None, "invalid_reading"), ("", "invalid_reading")):
             with self.subTest(currency=currency):
                 result = self.validate(replace(self.reading, price=Decimal("900"), currency=currency))
                 self.assertFalse(result.accepted)
                 self.assertFalse(result.alert_allowed)
-                self.assertEqual(result.error_code, "currency_mismatch")
+                self.assertEqual(result.error_code, code)
         self.reread.assert_not_called()
         self.sleep.assert_not_called()
 
@@ -105,7 +105,7 @@ class ReviewValidationTests(unittest.TestCase):
         first = replace(self.reading, price=Decimal("900"))
         for second, code in (
             (replace(first, currency="USD"), "currency_mismatch"),
-            (replace(first, currency=None), "currency_mismatch"),
+            (replace(first, currency=None), "invalid_reading"),
             (replace(first, confidence=0.5), "invalid_reading"),
             (replace(first, price=None), "invalid_reading"),
         ):
