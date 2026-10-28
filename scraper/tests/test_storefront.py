@@ -2,6 +2,7 @@
 
 from contextlib import nullcontext
 from decimal import Decimal
+from pathlib import Path
 import json
 import unittest
 from unittest.mock import patch
@@ -27,6 +28,43 @@ def product_page(country=170, currency="USD", destination="PE", price="0.89"):
 
 
 class StorefrontTests(unittest.TestCase):
+    def test_current_failed_products_match_only_their_observed_presentation(self):
+        fixtures = json.loads((Path(__file__).parent / "fixtures/yesstyle_identity.json").read_text(encoding="utf-8"))
+        for fixture in fixtures:
+            url, product = fixture["url"], fixture["product"]
+            previous, current = fixture["confirmed"], product["name"]
+
+            def read(confirmed, title, option=None, sku=None, missing_option=False):
+                node = {**product, "name": title}
+                offer = {**product["offers"][0]}
+                if option is not None:
+                    offer["name"] = title + " (option: " + option + ")"
+                if missing_option:
+                    offer.pop("name")
+                if sku is not None:
+                    offer["sku"] = sku
+                node["offers"] = [offer]
+                html = product_page()
+                start = html.index('<script type="application/ld+json">') + len('<script type="application/ld+json">')
+                end = html.index('</script>', start)
+                html = (html[:start] + json.dumps(node) + html[end:]).replace(
+                    'US$ 0.89</span>', 'US$ ' + offer["price"] + '</span>')
+                recipe = {"adaptive_state": {"version": "0.4.15", "elements": {}, "confirmed_candidates": {
+                    url: {"name": confirmed, "currency": "USD"}}}}
+                return extract(html, url, recipe)
+
+            for old, new in ((previous, current), (current, previous)):
+                with self.subTest(url=url, old=old):
+                    self.assertTrue(read(old, new).ok)
+                    self.assertTrue(read(old, old).ok)
+                    for option in ("25ml", "50ml", "100ml", "50ml x 2 pcs", "100ml x 2 pcs", "60ml x 2 pcs"):
+                        if not product["offers"][0]["name"].endswith("(option: " + option + ")"):
+                            self.assertFalse(read(old, new, option=option).ok)
+                    self.assertFalse(read(old, new, sku=1).ok)
+                    self.assertFalse(read(old, new, missing_option=True).ok)
+                    self.assertFalse(read(old, new + " 3pcs Bundle Set").ok)
+                    self.assertFalse(read(old, old, option="25ml").ok)
+
     def identity_read(self, confirmed_name, name, sku=1124536886, currency="USD"):
         html = product_page().replace('"name": "APLB 25ml"',
                                      '"name": ' + json.dumps(name) +

@@ -39,3 +39,5 @@
 - 2026-10-17: Gate Actions alternatives runtime behind repository variable PURCHASE_WORKER_ENABLED=true (disabled by default); explicit status conditions recover after failed Python all/product reviews without masking failures, while existing success/failure heartbeat ownership remains unchanged. Operational enablement is stage 5 only (SPEC §14/15).
 - 2026-10-22: Share login/logout through one strictly dispatched dynamic API entrypoint, retaining unchanged security handlers outside api/, to fit the 12-Function Hobby limit without changing public routes; pass the existing app-origin secret to Python group processing (SPEC §12/14/15).
 - 2026-10-23: Owner explicitly declined rotation of the previously exposed dedicated scheduler token and requested continued use; retain the existing cron-job.org credential and record the decision without claiming rotation (SPEC §14).
+
+- 2026-10-28: YesStyle legacy title aliases that omit presentation words are restricted to observed PID/SKU and explicit offer volume/count; unknown titles/options require owner confirmation (SPEC §8).

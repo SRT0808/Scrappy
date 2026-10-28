@@ -16,6 +16,26 @@ from scrappy.storefront import context_warning, is_yesstyle, yesstyle_context
 THRESHOLD = 0.8
 EXCLUDED = re.compile(r"cuota|/mes|per month|installment|shipping|env[ií]o|impuesto|tax|related|relacionad|recommend|recomendad|cross.sell|upsell|old.price|original.price|list.price|regular.price|price.old|tachado", re.I)
 
+# Observed storefront renames, scoped to the PID and its explicit presentation.
+# In particular, the translated Jumbo bundle title no longer mentions Jumbo.
+YESSTYLE_PRESENTATIONS = {
+    "1137945361": ("50ml x 2 pcs", (
+        "PDRN Hyaluronic Acid Capsule 100 Serum Set Kpop Demon Hunters Collaboration 2pcs Bundle Set",
+        "Combo de Sérum PDRN Hyaluronic Acid Capsule 100 Kpop Demon Hunters 2uds")),
+    "1129356823": ("100ml", (
+        "Protector Solar Madagascar Centella Hyalu-Cica Water-Fit Sun Serum Jumbo",
+        "Sérum Solar Madagascar Centella Hyalu-Cica Water-Fit Jumbo")),
+    "1121503383": ("50ml x 2 pcs", (
+        "Protector Solar Madagascar Centella Hyalu-Cica Water-Fit Sun Serum Twin Pack",
+        "Sérum Solar Madagascar Centella Hyalu-Cica Water-Fit Pack Doble")),
+    "1137960612": ("60ml x 2 pcs", (
+        "PDRN Hyaluronic Acid 100 Moisturizing Cream 2pcs Bundle Set",
+        "Combo de Crema Facial PDRN Hyaluronic Acid 100 2uds")),
+    "1137960568": ("100ml x 2 pcs", (
+        "Madagascar Centella Hyalu-Cica Water-Fit Sun Serum Jumbo 2pcs Bundle Set",
+        "Combo de Sérum Solar Madagascar Centella Hyalu-Cica Water-Fit 2uds")),
+}
+
 
 @dataclass
 class Extraction:
@@ -70,6 +90,17 @@ def confirmed_identity_matches(candidate, confirmed, url, product, offer):
     skus = [str(item["sku"]) for item in (product, offer) if item.get("sku") is not None]
     if skus and (not pid or any(sku != pid[1] for sku in skus)):
         return False
+    presentation = YESSTYLE_PRESENTATIONS.get(pid[1]) if pid else None
+    if presentation:
+        expected_option, titles = presentation
+        option = re.search(r"\(option:\s*([^()]+)\)\s*$", str(offer.get("name", "")), re.I)
+        if not option or option[1].strip().casefold() != expected_option:
+            return False
+        aliases = {yesstyle_title_key(title) for title in titles}
+        if (skus and confirmed.get("name")
+                and yesstyle_title_key(candidate["name"]) in aliases
+                and yesstyle_title_key(confirmed["name"]) in aliases):
+            return True
     if exact:
         return True
     # Legacy confirmations contain only name/currency. A PID alone cannot prove
