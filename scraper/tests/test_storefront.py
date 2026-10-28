@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from scrappy.extract import extract
 from scrappy.probe import fetch
+from scrappy.run import review_product
 from scrappy.storefront import preference_cookies
 
 URL = "https://www.yesstyle.com/es/product/info.html/pid.1124536886"
@@ -26,6 +27,81 @@ def product_page(country=170, currency="USD", destination="PE", price="0.89"):
 
 
 class StorefrontTests(unittest.TestCase):
+    def identity_read(self, confirmed_name, name, sku=1124536886, currency="USD"):
+        html = product_page().replace('"name": "APLB 25ml"',
+                                     '"name": ' + json.dumps(name) +
+                                     (', "sku": ' + json.dumps(sku) if sku is not None else ''))
+        recipe = {"adaptive_state": {"version": "0.4.15", "elements": {}, "confirmed_candidates": {
+            URL: {"name": confirmed_name, "currency": currency}}}}
+        return extract(html, URL, recipe)
+
+    def test_translated_titles_require_matching_sku_and_preserve_presentation(self):
+        pairs = [
+            ("Mascarilla Facial Glutathione Niacinamide", "Glutathione Niacinamide Sheet Mask"),
+            ("Crema Facial PDRN Hyaluronic Acid 100", "PDRN Hyaluronic Acid 100 Moisturizing Cream"),
+            ("Sérum Solar Madagascar Centella Hyalu-Cica Water-Fit Sun Serum",
+             "Madagascar Centella Hyalu-Cica Water-Fit Sun Serum"),
+        ]
+        for spanish, english in pairs:
+            for old, new in ((spanish, english), (english, spanish)):
+                with self.subTest(old=old, new=new):
+                    self.assertTrue(self.identity_read(old, new).ok)
+                    for changed in (new + " Jumbo", new + " 2pcs Bundle Set", new + " 50ml", "Other Product"):
+                        self.assertFalse(self.identity_read(old, changed).ok)
+                    for sku in (None, 1137960568):
+                        rejected = self.identity_read(old, new, sku=sku)
+                        self.assertFalse(rejected.ok)
+                        self.assertIsNone(rejected.price)
+                    self.assertFalse(self.identity_read(old, new, currency="PEN").ok)
+
+    def test_same_title_cannot_hide_changed_sku_or_quantity(self):
+        self.assertFalse(self.identity_read("APLB 25ml", "APLB 25ml", sku=1137960568).ok)
+        self.assertTrue(self.identity_read("APLB 25ml", "APLB 25ml").ok)
+        self.assertFalse(self.identity_read("APLB 25ml", "APLB 50ml").ok)
+        self.assertFalse(self.identity_read("APLB 25ml", "APLB 25ml 2pcs Bundle Set").ok)
+        for old, new in (("1.5ml", "1/5ml"), ("SPF50+", "SPF50")):
+            self.assertFalse(self.identity_read("Mascarilla Facial APLB " + old,
+                                                "APLB " + new + " Sheet Mask").ok)
+
+    def test_translated_identity_stays_scoped_to_yesstyle_and_preserves_price_checks(self):
+        old, new = "Mascarilla Facial Glutathione Niacinamide", "Glutathione Niacinamide Sheet Mask"
+        reading = self.identity_read(old, new)
+        database, alerts = unittest.mock.Mock(), unittest.mock.Mock()
+        product = {"currency": "USD", "last_price": "0.89"}
+        accepted = review_product(database, product, {}, read=lambda *_: reading, alerts=alerts)
+        self.assertTrue(accepted.accepted)
+        rejected = review_product(database, product, {},
+                                  read=lambda *_: self.identity_read(old, new + " 2pcs Bundle Set"),
+                                  alerts=alerts)
+        self.assertFalse(rejected.accepted)
+        self.assertFalse(rejected.alert_allowed)
+        self.assertEqual(rejected.error_code, "invalid_reading")
+        self.assertIsNone(database.save_review.call_args.args[3][0]["price"])
+        for url in ("https://shop.pe/product", "https://www.yesstyle.com.evil.test/product"):
+            recipe = {"adaptive_state": {"version": "0.4.15", "elements": {}, "confirmed_candidates": {
+                url: {"name": old, "currency": "USD"}}}}
+            self.assertFalse(extract(product_page().replace('"APLB 25ml"', json.dumps(new)), url, recipe).ok)
+
+    def test_offer_sku_filters_cheaper_variant_and_conflicting_product_sku(self):
+        html = product_page()
+        start = html.index('<script type="application/ld+json">') + len('<script type="application/ld+json">')
+        end = html.index('</script>', start)
+        product = json.loads(html[start:end])
+        offer = product['offers']
+        product['offers'] = [{**offer, 'sku': 1137960568, 'price': '0.01'},
+                             {**offer, 'sku': 1124536886}]
+        recipe = {"adaptive_state": {"version": "0.4.15", "elements": {}, "confirmed_candidates": {
+            URL: {"name": "APLB 25ml", "currency": "USD"}}}}
+
+        def read():
+            return extract(html[:start] + json.dumps(product) + html[end:], URL, recipe)
+
+        result = read()
+        self.assertEqual(result.price, Decimal('0.89'))
+        self.assertTrue(result.ok)
+        product['sku'] = 1137960568
+        self.assertFalse(read().ok)
+
     def test_verified_peru_usd_price_and_audit_warning(self):
         result = extract(product_page(), URL)
         self.assertTrue(result.ok)

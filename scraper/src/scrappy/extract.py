@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 import json
 import re
+import unicodedata
 from urllib.parse import urljoin, urlsplit
 
 from scrapling import Selector
@@ -42,6 +43,39 @@ class Extraction:
 
 def text_of(node) -> str:
     return " ".join(node.itertext()).strip()
+
+
+def yesstyle_title_key(name):
+    """Normalize observed translations without discarding variant words or quantities."""
+    name = "".join(c for c in unicodedata.normalize("NFKD", name.casefold())
+                   if not unicodedata.combining(c))
+    # Keep decimal points, slashes and plus signs: they can describe a variant.
+    name = " ".join(name.split())
+    for prefix, suffix in (("mascarilla facial ", " sheet mask"),
+                           ("crema facial ", " moisturizing cream")):
+        if name.startswith(prefix):
+            return name[len(prefix):] + suffix
+    if name.startswith("serum solar ") and name.endswith("sun serum"):
+        return name[len("serum solar "):]
+    return name
+
+
+def confirmed_identity_matches(candidate, confirmed, url, product, offer):
+    if candidate["currency"] != confirmed.get("currency"):
+        return False
+    exact = candidate["name"] == confirmed.get("name")
+    if not is_yesstyle(url):
+        return exact
+    pid = re.search(r"/pid\.(\d+)(?:/|$)", urlsplit(url).path)
+    skus = [str(item["sku"]) for item in (product, offer) if item.get("sku") is not None]
+    if skus and (not pid or any(sku != pid[1] for sku in skus)):
+        return False
+    if exact:
+        return True
+    # Legacy confirmations contain only name/currency. A PID alone cannot prove
+    # that a renamed item is still the confirmed presentation.
+    return bool(pid and skus and confirmed.get("name")
+                and yesstyle_title_key(candidate["name"]) == yesstyle_title_key(confirmed["name"]))
 
 
 def walk(value):
@@ -222,10 +256,11 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
                 if price is not None and currency:
                     availability = offer.get("availability") or product.get("availability")
                     candidate = {"price": str(price), "currency": currency, "name": product.get("name") or name, "availability": availability, "context": "JSON-LD", "score": 0.98}
-                    valid.append((product, candidate))
+                    valid.append((product, candidate, offer))
                     break
     if valid:
-        selected = [pair for pair in valid if confirmed.get("name") and pair[1]["name"] == confirmed["name"] and pair[1]["currency"] == confirmed.get("currency")]
+        selected = [pair for pair in valid if confirmed.get("name")
+                    and confirmed_identity_matches(pair[1], confirmed, url, pair[0], pair[2])]
         if confirmed.get("name") and not confirmed.get("selector") and not selected:
             base.warnings.append("El producto confirmado cambió; requiere confirmación.")
             return base
@@ -233,16 +268,16 @@ def extract(html: str | bytes, url: str, recipe: dict | None = None) -> Extracti
             valid = selected
         available = [pair for pair in valid if str(pair[1]["availability"]).rsplit("/", 1)[-1].lower() not in ("outofstock", "soldout", "discontinued")]
         pool = available or valid
-        currencies = {c["currency"] for _, c in pool}
-        names = {c["name"] for _, c in pool}
+        currencies = {c["currency"] for _, c, _ in pool}
+        names = {c["name"] for _, c, _ in pool}
         ambiguous = len(currencies) > 1 or len(names) > 1
-        product, chosen = min(pool, key=lambda pair: Decimal(pair[1]["price"]))
+        product, chosen, _ = min(pool, key=lambda pair: Decimal(pair[1]["price"]))
         product_image = product.get("image")
         if isinstance(product_image, list):
             product_image = product_image[0] if product_image else None
         if isinstance(product_image, dict):
             product_image = product_image.get("url")
-        result = Extraction(name=chosen["name"], price=Decimal(chosen["price"]), currency=chosen["currency"], original_price=base.original_price, availability=chosen["availability"], image_url=urljoin(url, product_image) if isinstance(product_image, str) else base.image_url, method="json_ld", confidence=0.5 if ambiguous else 0.98, candidates=[c for _, c in pool][:5], warnings=base.warnings.copy())
+        result = Extraction(name=chosen["name"], price=Decimal(chosen["price"]), currency=chosen["currency"], original_price=base.original_price, availability=chosen["availability"], image_url=urljoin(url, product_image) if isinstance(product_image, str) else base.image_url, method="json_ld", confidence=0.5 if ambiguous else 0.98, candidates=[c for _, c, _ in pool][:5], warnings=base.warnings.copy())
         if ambiguous:
             result.warnings.append("Varios productos o monedas; requiere confirmación.")
             return result
