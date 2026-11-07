@@ -41,3 +41,4 @@
 - 2026-10-23: Owner explicitly declined rotation of the previously exposed dedicated scheduler token and requested continued use; retain the existing cron-job.org credential and record the decision without claiming rotation (SPEC §14).
 
 - 2026-10-28: YesStyle legacy title aliases that omit presentation words are restricted to observed PID/SKU and explicit offer volume/count; unknown titles/options require owner confirmation (SPEC §8).
+- 2026-11-06: Adopt DevFlow multi-agent workflow (T1-T4, AGY Flash/Claude Sonnet-Opus via Herdr IPC); prune legacy single-chat thread blocks from AGENTS.md, archive verbose STATUS history to docs/STATUS-history.md, and preserve all core engineering invariants (develop branch, free stack, local-first).

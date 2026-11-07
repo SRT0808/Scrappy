@@ -299,10 +299,10 @@ scrappy/
 
 **Workflow `check-prices.yml`:**
 
-- Disparadores: `schedule` con cron `0 */3 * * *` y `workflow_dispatch` con entradas `mode` (`all`, `product` o `test_notification`) y `product_id` opcional.
+- Disparadores: `workflow_dispatch` activado vía cron-job.org (cada 3 horas en producción) con entradas `mode` (`all`, `product`, `test_notification` o `reading`) y `product_id` opcional.
 - `concurrency` con un solo grupo y `cancel-in-progress: false`, para que las ejecuciones se encolen sin pisarse.
 - Pasos: checkout, Python con caché de pip, instalación de dependencias, caché de los navegadores de Playwright (instalar con `scrapling install` solo si falta), ejecutar `python -m scrappy.run --mode ...`, ping de latido (y a la URL de fallo si hay error). `timeout-minutes: 20`.
-- **Presupuesto:** un repositorio privado dispone de un número limitado de minutos gratuitos al mes (verificar la cifra vigente). Con 8 ejecuciones al día, mantener cada ejecución corta y **medir y reportar** el consumo real.
+- **Presupuesto:** Mantener cada ejecución corta (con cachés y tiempos de espera controlados) y monitorear el consumo de minutos de Actions.
 
 ## 14. Fases y criterios de aceptación
 
