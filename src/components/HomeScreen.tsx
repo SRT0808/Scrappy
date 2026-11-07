@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from './ui/button';
 import { AddProduct } from './AddProduct';
 import { ListsScreen } from './ListsScreen';
-import { ProductCard } from './ProductCard';
+import { ProductCard, staleReading } from './ProductCard';
 import { ProductDetailScreen } from './ProductDetailScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { PurchaseBasketScreen } from './PurchaseBasketScreen';
@@ -15,24 +15,49 @@ import { GroupEditor } from './GroupEditor';
 import { GroupDetailScreen } from './GroupDetailScreen';
 
 type Props = { onExpired: (message: string) => void; onLogout: () => void; sessionBusy: boolean; sessionError: string };
-type Filter = 'all' | ProductSummary['status'] | 'reached';
+type Filter = 'all' | ProductSummary['status'] | 'reached' | 'stale';
 type Sort = 'recent' | 'name' | 'discount';
+type View = 'home' | 'lists' | 'add' | 'detail' | 'settings' | 'basket-detail' | 'group' | 'group-create';
+type Section = 'home' | 'lists' | 'settings' | 'add';
+type Route = { view: View; id: string; event?: string };
+const home: Route = { view: 'home', id: '' };
+const routeKeys = ['view', 'product', 'basket', 'group', 'group_event'];
+const pageViews: View[] = ['lists', 'settings', 'add', 'group-create'];
+
+// The URL is the source of truth for the current view, so browser history and reloads restore it.
+function readRoute(): Route {
+  const params = new URLSearchParams(window.location.search);
+  const single = (key: string) => { const values = params.getAll(key); return values.length === 1 ? values[0] : ''; };
+  const id = (key: string) => { const value = single(key); return uuidPattern.test(value) ? value.toLowerCase() : ''; };
+  const group = id('group'), basket = id('basket'), product = id('product');
+  if (group) { const event = single('group_event'); return event ? { view: 'group', id: group, event } : { view: 'group', id: group }; }
+  if (basket) return { view: 'basket-detail', id: basket };
+  if (product) return { view: 'detail', id: product };
+  const view = pageViews.find(name => name === single('view'));
+  return view ? { view, id: '' } : home;
+}
+function routeUrl(route: Route) {
+  const url = new URL(window.location.href);
+  routeKeys.forEach(key => url.searchParams.delete(key));
+  if (route.view === 'detail') url.searchParams.set('product', route.id);
+  else if (route.view === 'basket-detail') url.searchParams.set('basket', route.id);
+  else if (route.view === 'group') { url.searchParams.set('group', route.id); if (route.event) url.searchParams.set('group_event', route.event); }
+  else if (route.view !== 'home') url.searchParams.set('view', route.view);
+  return url.pathname + url.search + url.hash;
+}
+const currentUrl = () => window.location.pathname + window.location.search + window.location.hash;
 const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring';
 
 export function HomeScreen(props: Props) {
-  const [linkedGroup] = useState(() => {const ids=new URLSearchParams(window.location.search).getAll('group');return ids.length===1&&uuidPattern.test(ids[0])?ids[0].toLowerCase():'';});
   const [groups,setGroups]=useState<ProductGroup[]>([]);
   const [selected,setSelected]=useState<string[]>([]);
   const [groupBusy,setGroupBusy]=useState(false);
   const [offerGroup,setOfferGroup]=useState<ProductGroup|null>(null);
   const groupSaving=useRef(false);
   const creationId=useRef<string|null>(null);
-  const [linkedBasket] = useState(() => {
-    const ids = new URLSearchParams(window.location.search).getAll('basket');
-    return ids.length === 1 && uuidPattern.test(ids[0]) ? ids[0].toLowerCase() : '';
-  });
-  const [view, setView] = useState<'home' | 'lists' | 'add' | 'detail' | 'settings' | 'basket-detail' | 'group' | 'group-create'>(linkedGroup ? 'group' : linkedBasket ? 'basket-detail' : 'home');
-  const [detailId, setDetailId] = useState(linkedGroup || linkedBasket);
+  // A group draft depends on the in-memory selection, so it cannot be restored from a reload.
+  const [route, setRoute] = useState<Route>(() => { const initial = readRoute(); return initial.view === 'group-create' ? home : initial; });
+  const { view, id: detailId } = route;
   const [lists, setLists] = useState<List[]>([]);
   const [products, setProducts] = useState<ProductSummary[]>([]);
   const [productsBusy, setProductsBusy] = useState(true);
@@ -45,7 +70,7 @@ export function HomeScreen(props: Props) {
   const [basketName, setBasketName] = useState('');
   const [basketBusy, setBasketBusy] = useState(false);
   const [basketDirty, setBasketDirty] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<'home' | 'lists' | 'settings' | 'add' | 'logout' | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<Route | 'logout' | null>(null);
   const homeTitle = useRef<HTMLHeadingElement>(null);
   const expired = useRef(props.onExpired);
   expired.current = props.onExpired;
@@ -84,38 +109,58 @@ export function HomeScreen(props: Props) {
     return () => controller.abort();
   }, [view, refresh]);
 
-  function returnHome() {
+  useEffect(() => {
+    // Only the initial URL needs normalising; later routes are written by go().
+    const url = routeUrl(route);
+    if (url !== currentUrl()) window.history.replaceState(window.history.state, '', url);
+  }, []);
+
+  useEffect(() => {
+    function onPopState() {
+      let next = readRoute();
+      if (next.view === 'group-create' && !compatible) { next = home; window.history.replaceState(window.history.state, '', routeUrl(home)); }
+      if (basketBusy || groupBusy || basketDirty) {
+        // History cannot be cancelled: restore the current entry and, with unsaved edits, ask before leaving.
+        window.history.pushState(null, '', routeUrl(route));
+        if (basketDirty && !basketBusy && !groupBusy) setPendingNavigation(next);
+        return;
+      }
+      if (next.view !== 'detail' && next.view !== 'group') setOfferGroup(null);
+      creationId.current = null;
+      setMobileNavOpen(false);
+      setRoute(next);
+      if (next.view === 'home') setTimeout(() => homeTitle.current?.focus(), 0);
+    }
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  });
+
+  function go(next: Route, replace = false) {
+    const url = routeUrl(next);
+    if (url !== currentUrl()) window.history[replace ? 'replaceState' : 'pushState'](null, '', url);
+    setRoute(next);
+  }
+  function returnHome(replace = false) {
     if (basketBusy || groupBusy) return;
-    if (basketDirty) { setPendingNavigation('home'); return; }
-    clearBasketLink();
-    setView('home');
-    setMobileNavOpen(false);
+    if (basketDirty) { setPendingNavigation(home); return; }
+    completeNavigation(home, replace);
     setTimeout(() => homeTitle.current?.focus(), 0);
   }
-  function navigate(next: 'home' | 'lists' | 'settings' | 'add') {
+  function navigate(next: Section) {
     if (basketBusy || groupBusy) return;
-    if (basketDirty) { setPendingNavigation(next); return; }
-    completeNavigation(next);
+    if (basketDirty) { setPendingNavigation({ view: next, id: '' }); return; }
+    completeNavigation({ view: next, id: '' });
   }
-  function completeNavigation(next: 'home' | 'lists' | 'settings' | 'add') {
-    clearBasketLink();
-    setMobileNavOpen(false);
-    if (next === 'home') { setView('home'); return; }
-    if (next === 'add') setNotice('');
-    setView(next);
-  }
-  function clearBasketLink() {
+  function completeNavigation(next: Route, replace = false) {
     setOfferGroup(null);
     creationId.current = null;
-    const url = new URL(window.location.href);
-    url.searchParams.delete('basket');
-    url.searchParams.delete('group');
-    url.searchParams.delete('group_event');
-    window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    setMobileNavOpen(false);
+    if (next.view === 'add') setNotice('');
+    go(next, replace);
   }
 
   const groupedIds=new Set(groups.flatMap(g=>g.offers.map(p=>p.id)));
-  const visible = products.filter(product => !groupedIds.has(product.id) && (filter === 'all' || (filter === 'reached' ? productMetrics(product).reached : product.status === filter)))
+  const visible = products.filter(product => !groupedIds.has(product.id) && (filter === 'all' || (filter === 'reached' ? productMetrics(product).reached : filter === 'stale' ? staleReading(product) !== null : product.status === filter)))
     .sort((a, b) => sort === 'name' ? (a.name || a.domain).localeCompare(b.name || b.domain, 'es')
       : sort === 'discount' ? (productMetrics(a).variation ?? Infinity) - (productMetrics(b).variation ?? Infinity)
         : Date.parse(b.created_at) - Date.parse(a.created_at));
@@ -131,17 +176,17 @@ export function HomeScreen(props: Props) {
   async function createGroup(edit:GroupEdit) {
     if(groupSaving.current||!compatible)return;groupSaving.current=true;setGroupBusy(true);setProductsError('');
     const id=creationId.current ??= crypto.randomUUID();
-    try{await groupRequest(id,{action:'create',data:{...edit,same_product:true,product_ids:selectedOffers.map(p=>p.id)}});setDetailId(id);setView('group');setNotice('Grupo creado.');creationId.current=null;}
-    catch(e){const p=e as {status:number;message:string};if(p.status===401)props.onExpired(p.message);else {setProductsError(p.message);if(p.status===0||p.status>=500||p.status===409){setDetailId(id);setView('group');}}}
+    try{await groupRequest(id,{action:'create',data:{...edit,same_product:true,product_ids:selectedOffers.map(p=>p.id)}});go({view:'group',id},true);setNotice('Grupo creado.');creationId.current=null;}
+    catch(e){const p=e as {status:number;message:string};if(p.status===401)props.onExpired(p.message);else {setProductsError(p.message);if(p.status===0||p.status>=500||p.status===409)go({view:'group',id},true);}}
     finally{groupSaving.current=false;setGroupBusy(false);}
   }
-  const page = view === 'lists' ? <ListsScreen {...props} onDetail={(id, name) => { setDetailId(id); setBasketName(name ?? ''); setView('basket-detail'); }} showLogout={false} onHome={() => returnHome()} />
-    : view==='group'?<GroupDetailScreen key={detailId} id={detailId} eventId={new URLSearchParams(window.location.search).get('group_event')??undefined} onBusyChange={setBasketBusy} onExpired={props.onExpired} onBack={returnHome} onOffer={(id,group)=>{clearBasketLink();setOfferGroup(group);setDetailId(id);setView('detail');}}/>
-    : view==='group-create'&&compatible?<GroupEditor creating offers={selectedOffers.map(p=>({id:p.id,name:p.name||p.domain,currency:p.currency!,image_url:p.image_url,reference_price:p.reference_price!,target_type:p.target_type!,target_value:(p.target_type==='percent'?p.target_percent:p.target_price)??0,price:p.last_price,excluded:p.status==='active'&&p.last_success_at===p.last_checked_at?null:'Sin precio válido'}))} busy={groupBusy} error={groupEditorError} onCancel={returnHome} onSave={edit=>void createGroup(edit)}/>
+  const page = view === 'lists' ? <ListsScreen {...props} onDetail={(id, name) => { setBasketName(name ?? ''); go({ view: 'basket-detail', id }); }} showLogout={false} onHome={() => returnHome()} />
+    : view==='group'?<GroupDetailScreen key={detailId} id={detailId} eventId={route.event} onBusyChange={setBasketBusy} onExpired={props.onExpired} onBack={()=>returnHome()} onOffer={(id,group)=>{creationId.current=null;setOfferGroup(group);go({view:'detail',id});}}/>
+    : view==='group-create'&&compatible?<GroupEditor creating offers={selectedOffers.map(p=>({id:p.id,name:p.name||p.domain,currency:p.currency!,image_url:p.image_url,reference_price:p.reference_price!,target_type:p.target_type!,target_value:(p.target_type==='percent'?p.target_percent:p.target_price)??0,price:p.last_price,excluded:p.status==='active'&&!staleReading(p)?null:'Sin precio válido'}))} busy={groupBusy} error={groupEditorError} onCancel={()=>returnHome()} onSave={edit=>void createGroup(edit)}/>
     : view === 'basket-detail' ? <PurchaseBasketScreen key={detailId} id={detailId} name={basketName || lists.find(l => l.id === detailId)?.name || 'Tu canasta'} onDirtyChange={setBasketDirty} onBusyChange={setBasketBusy} onExpired={props.onExpired} onBack={() => navigate('lists')} />
     : view === 'settings' ? <SettingsScreen onExpired={props.onExpired} onBack={() => returnHome()} />
-      : view === 'detail' ? <ProductDetailScreen group={offerGroup?.offers.some(p=>p.id===detailId)?offerGroup:undefined} onGroup={()=>{if(offerGroup){setDetailId(offerGroup.id);setView('group');}}} key={detailId} id={detailId} lists={lists} onExpired={props.onExpired} onBack={() => returnHome()} onDeleted={() => { setNotice('Producto e historial eliminados.'); returnHome(); }} />
-        : view === 'add' ? <AddProduct lists={lists} onExpired={props.onExpired} onCloseLabel="Volver a Inicio" onClose={returnHome} onSaved={() => { setNotice('Producto guardado y activo.'); returnHome(); }} />
+      : view === 'detail' ? <ProductDetailScreen group={offerGroup?.offers.some(p=>p.id===detailId)?offerGroup:undefined} onGroup={()=>{if(offerGroup)go({view:'group',id:offerGroup.id});}} key={detailId} id={detailId} lists={lists} onExpired={props.onExpired} onBack={() => returnHome()} onDeleted={() => { setNotice('Producto e historial eliminados.'); returnHome(true); }} />
+        : view === 'add' ? <AddProduct lists={lists} onExpired={props.onExpired} onCloseLabel="Volver a Inicio" onClose={() => returnHome()} onSaved={() => { setNotice('Producto guardado y activo.'); returnHome(true); }} />
           : <section aria-labelledby="home-title" className={`mx-auto w-full min-w-0 self-start ${selected.length > 0 ? 'pb-56 sm:pb-40 lg:pb-32' : ''}`}>
     <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
       <div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 ref={homeTitle} tabIndex={-1} id="home-title" className="text-3xl font-semibold tracking-tight outline-none">Productos</h1></div>
@@ -152,7 +197,7 @@ export function HomeScreen(props: Props) {
     <p role="status" className="mb-4 text-sm text-primary">{loading ? 'Cargando tus productos…' : notice}</p>
     {<>
       <details className="mb-3 rounded-xl border border-border p-3"><summary className="cursor-pointer py-2 text-sm font-medium">Filtrar y ordenar{filter !== 'all' ? ' · filtro activo' : ''}</summary><div className="mt-3 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <label className="min-w-0 text-sm text-muted-foreground" htmlFor="product-filter">Estado<select id="product-filter" className={selectClass} value={filter} onChange={event => setFilter(event.target.value as Filter)}><option value="all">Todos</option><option value="active">Activos</option><option value="paused">Pausados</option><option value="error">Con error</option><option value="pending_confirmation">Por confirmar</option><option value="reached">Meta alcanzada</option></select></label>
+        <label className="min-w-0 text-sm text-muted-foreground" htmlFor="product-filter">Estado<select id="product-filter" className={selectClass} value={filter} onChange={event => setFilter(event.target.value as Filter)}><option value="all">Todos</option><option value="active">Activos</option><option value="paused">Pausados</option><option value="error">Con error</option><option value="pending_confirmation">Por confirmar</option><option value="stale">Precio desactualizado</option><option value="reached">Meta alcanzada</option></select></label>
         <label className="min-w-0 text-sm text-muted-foreground" htmlFor="product-sort">Orden<select id="product-sort" className={selectClass} value={sort} onChange={event => setSort(event.target.value as Sort)}><option value="recent">Más recientes</option><option value="name">Nombre: A–Z</option><option value="discount">Mayor bajada frente a referencia</option></select></label>
 
       </div></details>
@@ -162,11 +207,11 @@ export function HomeScreen(props: Props) {
     {loading ? <div aria-hidden="true" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{[0, 1, 2, 3].map(key => <div key={key} className="h-96 rounded-2xl border border-border bg-card motion-safe:animate-pulse" />)}</div>
       : productsError ? <Button variant="outline" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => setRefresh(value => value + 1)}>Reintentar consulta</Button>
         : visible.length+visibleGroups.length === 0 ? <div className="rounded-2xl border border-dashed border-border p-8 text-center"><h2 className="font-semibold">{products.length ? 'No hay productos con este estado' : 'Tu catálogo espera tu próximo producto'}</h2><p className="mt-3 text-sm text-muted-foreground">{products.length ? 'Prueba otro filtro para ver tus productos.' : 'Añade una URL para empezar a seguir su precio.'}</p></div>
-            : <><p className="mb-4 text-sm text-muted-foreground">{visible.length+visibleGroups.length} productos · {visibleGroups.length} grupos</p><div className="grid min-w-0 grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{visibleGroups.map(group=><GroupCard key={group.id} group={group} onOpen={()=>{setDetailId(group.id);setView('group');}}/>)}{visible.map(product => <div key={product.id} className="min-w-0" onDragOver={e=>{if(product.status!=='pending_confirmation')e.preventDefault();}} onDrop={e=>{e.preventDefault();const from=e.dataTransfer.getData('application/x-scrappy-product');const source=products.find(p=>p.id===from);if(source&&source.id!==product.id&&!groupedIds.has(source.id)&&source.currency===product.currency&&source.target_type&&product.target_type){setSelected([source.id,product.id]);setView('group-create');}else setNotice('Selecciona dos ofertas confirmadas de la misma moneda.');}}>
-              <ProductCard product={product} onDetail={() => { setDetailId(product.id); setView('detail'); }} selection={product.status==='pending_confirmation'?undefined:{selected:selected.includes(product.id),onToggle:()=>setSelected(s=>s.includes(product.id)?s.filter(id=>id!==product.id):[...s,product.id]),onDragStart:e=>e.dataTransfer.setData('application/x-scrappy-product',product.id)}} /></div>)}</div></>}
+            : <><p className="mb-4 text-sm text-muted-foreground">{visible.length+visibleGroups.length} productos · {visibleGroups.length} grupos</p><div className="grid min-w-0 grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{visibleGroups.map(group=><GroupCard key={group.id} group={group} onOpen={()=>go({view:'group',id:group.id})}/>)}{visible.map(product => <div key={product.id} className="min-w-0" onDragOver={e=>{if(product.status!=='pending_confirmation')e.preventDefault();}} onDrop={e=>{e.preventDefault();const from=e.dataTransfer.getData('application/x-scrappy-product');const source=products.find(p=>p.id===from);if(source&&source.id!==product.id&&!groupedIds.has(source.id)&&source.currency===product.currency&&source.target_type&&product.target_type){setSelected([source.id,product.id]);go({view:'group-create',id:''});}else setNotice('Selecciona dos ofertas confirmadas de la misma moneda.');}}>
+              <ProductCard product={product} onDetail={() => go({ view: 'detail', id: product.id })} selection={product.status==='pending_confirmation'?undefined:{selected:selected.includes(product.id),onToggle:()=>setSelected(s=>s.includes(product.id)?s.filter(id=>id!==product.id):[...s,product.id]),onDragStart:e=>e.dataTransfer.setData('application/x-scrappy-product',product.id)}} /></div>)}</div></>}
     {selected.length>0&&view==='home'&&<div className="fixed inset-x-4 bottom-20 z-30 mx-auto grid max-w-xl grid-cols-2 items-center gap-2 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur sm:flex lg:bottom-6">
       <div className="col-span-2 min-w-0 sm:flex-1"><p className="text-sm font-medium">{selected.length} {selected.length===1?'tarjeta seleccionada':'tarjetas seleccionadas'}</p><p className="hidden text-xs text-muted-foreground sm:block">Elige el mismo producto en la misma moneda.</p></div>
-      <Button className="w-full sm:w-auto" variant="outline" onClick={()=>setSelected([])}>Cancelar</Button><Button className="w-full sm:w-auto" disabled={!compatible||loading||!!productsError} onClick={()=>setView('group-create')}>Continuar <span aria-hidden="true" className="ml-1">→</span></Button>
+      <Button className="w-full sm:w-auto" variant="outline" onClick={()=>setSelected([])}>Cancelar</Button><Button className="w-full sm:w-auto" disabled={!compatible||loading||!!productsError} onClick={()=>go({view:'group-create',id:''})}>Continuar <span aria-hidden="true" className="ml-1">→</span></Button>
     </div>}
   </section>;
 

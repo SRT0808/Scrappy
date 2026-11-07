@@ -1,9 +1,10 @@
 import { StrictMode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { HomeScreen } from '../../src/components/HomeScreen';
 import { ProductCard } from '../../src/components/ProductCard';
+import { PwaInstallProvider } from '../../src/components/PwaInstallProvider';
 import { productMetrics, requestProducts, type ProductSummary } from '../../src/lib/products';
 import { purchaseFixture, purchaseId } from '../fixtures/purchase-ui';
 
@@ -18,7 +19,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 function mount(strict = false, sessionError = '') {
   const onExpired = vi.fn();
   const element = <HomeScreen onExpired={onExpired} onLogout={vi.fn()} sessionBusy={false} sessionError={sessionError} />;
-  render(strict ? <StrictMode>{element}</StrictMode> : element);
+  render(strict ? <StrictMode><PwaInstallProvider>{element}</PwaInstallProvider></StrictMode> : <PwaInstallProvider>{element}</PwaInstallProvider>);
   return onExpired;
 }
 function mock(products: ProductSummary[] = [product], lists = [first, second]) {
@@ -26,6 +27,7 @@ function mock(products: ProductSummary[] = [product], lists = [first, second]) {
   vi.stubGlobal('fetch', fetch);
   return fetch;
 }
+afterEach(() => window.history.replaceState(null, '', '/'));
 describe('independent catalog', () => {
   it('opens a notice basket directly and removes its destination when leaving the breakdown', async () => {
     const previous = window.location.href;
@@ -41,7 +43,7 @@ describe('independent catalog', () => {
       expect(document.title).toBe('Scrappy · Detalle de canasta');
       await userEvent.click(screen.getByRole('button', { name: '← Volver a Canastas' }));
       await screen.findByRole('heading', { name: 'Tus canastas' });
-      expect(window.location.search).toBe('?source=notice');
+      expect(window.location.search).toBe('?source=notice&view=lists');
       expect(window.location.hash).toBe('#details');
     } finally { window.history.replaceState(null, '', previous); }
   });
@@ -122,7 +124,106 @@ describe('independent catalog', () => {
     const expired=mount(true); await waitFor(() => expect(expired).toHaveBeenCalledWith(expect.stringContaining('sesión')));
   });
 });
+describe('history navigation', () => {
+  const back = async () => { window.history.back(); await new Promise(resolve => setTimeout(resolve, 20)); };
+  it('pushes each view to the URL and follows the browser back and forward buttons', async () => {
+    window.history.replaceState(null, '', '/?source=pwa');
+    mock(); mount(); await screen.findByRole('heading', { name: 'Monitor' });
+    const start = window.history.length;
+    await userEvent.click(screen.getAllByRole('button', { name: 'Ajustes' })[0]);
+    expect(await screen.findByRole('heading', { name: 'Ajustes', level: 1 })).toBeInTheDocument();
+    expect(window.location.search).toBe('?source=pwa&view=settings');
+    await userEvent.click(screen.getByRole('button', { name: 'Gestionar canastas' }));
+    expect(await screen.findByRole('heading', { name: 'Tus canastas' })).toBeInTheDocument();
+    expect(window.location.search).toBe('?source=pwa&view=lists');
+    expect(window.history.length).toBe(start + 2);
+    await back();
+    expect(await screen.findByRole('heading', { name: 'Ajustes', level: 1 })).toBeInTheDocument();
+    expect(document.title).toBe('Scrappy · Ajustes');
+    await back();
+    expect(await screen.findByRole('heading', { name: 'Monitor' })).toBeInTheDocument();
+    expect(window.location.search).toBe('?source=pwa');
+    window.history.forward(); await new Promise(resolve => setTimeout(resolve, 20));
+    expect(await screen.findByRole('heading', { name: 'Ajustes', level: 1 })).toBeInTheDocument();
+  });
+  it('pushes a product detail and returns to the catalog with the back button', async () => {
+    const fetch = mock(); mount(); await screen.findByRole('heading', { name: 'Monitor' });
+    await userEvent.click(screen.getByRole('button', { name: 'Ver detalle de Monitor' }));
+    expect(window.location.search).toBe(`?product=${product.id}`);
+    expect(document.title).toBe('Scrappy · Detalle de producto');
+    await waitFor(() => expect(fetch.mock.calls.some(([url]) => url.startsWith(`/api/products/${product.id}`))).toBe(true));
+    await back();
+    expect(await screen.findByRole('heading', { name: 'Productos' })).toBeInTheDocument();
+    expect(document.title).toBe('Scrappy · Productos');
+    expect(window.location.search).toBe('');
+  });
+  it.each([
+    ['product', 'Scrappy · Detalle de producto', `/api/products/${product.id}?range=30`],
+    ['group', 'Scrappy · Detalle de grupo', `/api/product-groups?id=${product.id}`],
+  ])('restores ?%s=<id> when the app is opened or reloaded', async (key, title, endpoint) => {
+    window.history.replaceState(null, '', `/?${key}=${product.id.toUpperCase()}`);
+    const fetch = mock(); mount();
+    await waitFor(() => expect(fetch.mock.calls.some(([url]) => url === endpoint)).toBe(true));
+    expect(document.title).toBe(title);
+    expect(fetch.mock.calls.some(([url]) => url === '/api/products')).toBe(false);
+  });
+  it.each([['settings', 'Ajustes'], ['lists', 'Tus canastas'], ['add', 'Añadir producto']])('restores ?view=%s on reload', async (view, heading) => {
+    window.history.replaceState(null, '', `/?view=${view}`);
+    mock(); mount();
+    expect(await screen.findByRole('heading', { name: heading, level: 1 })).toBeInTheDocument();
+  });
+  it('asks before the back button discards unsaved basket edits', async () => {
+    window.history.pushState(null, '', `/?basket=${purchaseId}`);
+    const detail = (await import('../fixtures/basket-experience')).basketDetail;
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/products' ? json({ products: [product] })
+      : url === '/api/lists' ? json({ lists: [{ ...first, id: purchaseId }] }) : url.includes('/purchases') ? json(purchaseFixture()) : json({ detail: { ...detail, id: purchaseId } })));
+    mount();
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar mi compra' }));
+    fireEvent.change(screen.getByLabelText('Nombre de necesidad 1'), { target: { value: 'Borrador' } });
+    await back();
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+    expect(window.location.search).toBe(`?basket=${purchaseId}`);
+    await userEvent.click(screen.getByRole('button', { name: 'Seguir editando' }));
+    expect(screen.getByLabelText('Nombre de necesidad 1')).toHaveValue('Borrador');
+    await back();
+    await userEvent.click(await screen.findByRole('button', { name: 'Salir sin guardar' }));
+    expect(await screen.findByRole('heading', { name: 'Productos' })).toBeInTheDocument();
+    expect(window.location.search).toBe('');
+  });
+  it('ignores ambiguous or unknown destinations and opens the catalog', async () => {
+    window.history.replaceState(null, '', `/?product=${product.id}&product=${second.id}&view=unknown`);
+    mock(); mount();
+    expect(await screen.findByRole('heading', { name: 'Monitor' })).toBeInTheDocument();
+    expect(document.title).toBe('Scrappy · Productos');
+  });
+});
 describe('product card and calculations', () => {
+  it.each([
+    ['2026-10-09T08:00:00Z', 'Precio desactualizado', /La última revisión no obtuvo un precio válido; se muestra la lectura anterior/],
+    [null, 'Revisión pendiente', /La última revisión no obtuvo un precio válido; se reintentará en la próxima revisión/],
+  ])('warns when an active reading is stale (last success %s)', (lastSuccess, badge, explanation) => {
+    render(<ProductCard product={{ ...product, last_success_at: lastSuccess, last_checked_at: '2026-10-09T12:00:00Z' }} />);
+    expect(screen.getByText(badge)).toBeInTheDocument();
+    expect(screen.getByText('Activo')).toBeInTheDocument();
+    expect(screen.getByText(explanation)).toBeInTheDocument();
+  });
+  it('omits the stale warning for fresh, paused or error readings', () => {
+    const { rerender } = render(<ProductCard product={product} />);
+    expect(screen.queryByText(/desactualizado|Revisión pendiente/)).not.toBeInTheDocument();
+    rerender(<ProductCard product={{ ...product, status: 'paused', last_success_at: '2026-10-09T08:00:00Z' }} />);
+    expect(screen.queryByText(/desactualizado|Revisión pendiente/)).not.toBeInTheDocument();
+    rerender(<ProductCard product={{ ...product, status: 'error', last_success_at: '2026-10-09T08:00:00Z' }} />);
+    expect(screen.queryByText(/desactualizado|Revisión pendiente/)).not.toBeInTheDocument();
+  });
+  it('filters the catalog down to stale readings', async () => {
+    mock([product, { ...product, id: second.id, name: 'Auriculares', last_success_at: '2026-10-09T08:00:00Z' }], []);
+    mount(); await screen.findByRole('heading', { name: 'Monitor' });
+    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'stale');
+    expect(screen.queryByRole('heading', { name: 'Monitor' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Auriculares' })).toBeInTheDocument();
+    expect(within(screen.getByRole('article')).getByText('Precio desactualizado')).toBeInTheDocument();
+  });
+
   it('keeps paused/error badges alongside reached goals and falls back after a broken image', () => {
     const { rerender } = render(<ProductCard product={{ ...product, status: 'error', last_price: 0, image_url: 'https://shop.pe/image.png' }} />);
     expect(screen.getByText('Error')).toBeInTheDocument(); expect(screen.getByText('Meta alcanzada')).toBeInTheDocument();

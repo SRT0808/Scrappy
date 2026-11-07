@@ -9,10 +9,21 @@ export function formatPrice(value: number | null, currency: string | null) {
   return `${currency === 'PEN' ? 'S/' : currency} ${new Intl.NumberFormat('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)}`;
 }
 
+// An active product whose latest check did not produce a valid reading still shows its previous price.
+export function staleReading(product: Pick<ProductSummary, 'status' | 'last_checked_at' | 'last_success_at'>) {
+  if (product.status !== 'active' || product.last_checked_at === product.last_success_at) return null;
+  return product.last_success_at ? 'stale' : 'pending';
+}
+const staleCopy = {
+  stale: { badge: 'Precio desactualizado', text: ' La última revisión no obtuvo un precio válido; se muestra la lectura anterior.' },
+  pending: { badge: 'Revisión pendiente', text: ' La última revisión no obtuvo un precio válido; se reintentará en la próxima revisión.' },
+};
+
 export function ProductCard({ product, onDetail, selection }: { product: ProductSummary; onDetail?: () => void; selection?: { selected: boolean; onToggle: () => void; onDragStart?: (event: DragEvent<HTMLButtonElement>) => void } }) {
   const [imageFailed, setImageFailed] = useState(false);
   const { target, reached, progress, variation } = productMetrics(product);
   const title = product.name || product.domain;
+  const stale = staleReading(product);
   const updated = product.last_success_at ? new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(product.last_success_at)) : null;
   return <article aria-labelledby={`product-${product.id}`} className={`relative isolate min-w-0 overflow-hidden rounded-2xl border bg-card transition-colors motion-safe:duration-150 ${selection?.selected ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}>
     {selection && <button type="button" draggable onDragStart={selection.onDragStart} onClick={selection.onToggle} aria-pressed={selection.selected} aria-label={`${selection.selected ? 'Quitar de la selección' : 'Seleccionar'} ${title} · ${product.domain}`} title="Seleccionar esta tarjeta" className="absolute inset-0 z-0 w-full cursor-pointer rounded-2xl focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
@@ -27,6 +38,7 @@ export function ProductCard({ product, onDetail, selection }: { product: Product
       <div>
         <div className="mb-3 flex flex-wrap gap-2 text-xs">
           <span className={`rounded-full border px-2.5 py-1 ${product.status === 'error' ? 'border-destructive/40 text-destructive' : 'border-border text-muted-foreground'}`}>{statuses[product.status]}</span>
+          {stale && <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-amber-200">{staleCopy[stale].badge}</span>}
           {reached && <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">Meta alcanzada</span>}
         </div>
         <h2 id={`product-${product.id}`} className="text-lg leading-snug font-medium [overflow-wrap:anywhere]">{title}</h2>
@@ -51,7 +63,7 @@ export function ProductCard({ product, onDetail, selection }: { product: Product
           <Suspense fallback={<div className="h-full rounded bg-muted motion-safe:animate-pulse" />}><ProductSparkline history={product.history} /></Suspense>
         </div> : <p className="mt-2 text-xs text-muted-foreground">{product.history.length ? 'La tendencia aparecerá tras otra lectura.' : 'Todavía no hay historial.'}</p>}
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">{updated ? <>Precio leído el <time dateTime={product.last_success_at!}>{updated}</time>.</> : 'Aún no hay una lectura válida.'}{product.status === 'error' && ' La última revisión falló.'}{product.status === 'paused' && ' Las revisiones están pausadas.'}</p>
+      <p className="text-xs leading-relaxed text-muted-foreground">{updated ? <>Precio leído el <time dateTime={product.last_success_at!}>{updated}</time>.</> : 'Aún no hay una lectura válida.'}{product.status === 'error' && ' La última revisión falló.'}{product.status === 'paused' && ' Las revisiones están pausadas.'}{stale && staleCopy[stale].text}</p>
       {onDetail && <div className="pointer-events-auto"><Button className="w-full" variant="outline" onClick={onDetail} aria-label={`Ver detalle de ${title}`}>Ver detalle</Button></div>}
       <a href={product.url} target="_blank" rel="noopener noreferrer" className="pointer-events-auto flex min-h-11 items-center justify-center rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring" aria-label={`Abrir tienda de ${title}`}>Abrir tienda <span aria-hidden="true" className="ml-2">↗</span></a>
     </div>
