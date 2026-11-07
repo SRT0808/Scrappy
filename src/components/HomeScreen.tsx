@@ -120,7 +120,7 @@ export function HomeScreen(props: Props) {
       : sort === 'discount' ? (productMetrics(a).variation ?? Infinity) - (productMetrics(b).variation ?? Infinity)
         : Date.parse(b.created_at) - Date.parse(a.created_at));
   const loading = productsBusy;
-  const error = productsError || props.sessionError;
+  const groupEditorError = productsError || props.sessionError;
   const visibleGroups=groups.filter(g=>filter==='all'||filter==='reached'&&!!bestGroupOffer(g)&&bestGroupOffer(g)!.price!<=g.target
     ||filter==='paused'&&g.paused||filter==='active'&&!g.paused&&!!bestGroupOffer(g)||filter==='error'&&!bestGroupOffer(g))
     .sort((a,b)=>sort==='name'?a.name.localeCompare(b.name,'es'):sort==='discount'
@@ -137,7 +137,7 @@ export function HomeScreen(props: Props) {
   }
   const page = view === 'lists' ? <ListsScreen {...props} onDetail={(id, name) => { setDetailId(id); setBasketName(name ?? ''); setView('basket-detail'); }} showLogout={false} onHome={() => returnHome()} />
     : view==='group'?<GroupDetailScreen key={detailId} id={detailId} eventId={new URLSearchParams(window.location.search).get('group_event')??undefined} onBusyChange={setBasketBusy} onExpired={props.onExpired} onBack={returnHome} onOffer={(id,group)=>{clearBasketLink();setOfferGroup(group);setDetailId(id);setView('detail');}}/>
-    : view==='group-create'&&compatible?<GroupEditor creating offers={selectedOffers.map(p=>({id:p.id,name:p.name||p.domain,currency:p.currency!,image_url:p.image_url,reference_price:p.reference_price!,target_type:p.target_type!,target_value:(p.target_type==='percent'?p.target_percent:p.target_price)??0,price:p.last_price,excluded:p.status==='active'&&p.last_success_at===p.last_checked_at?null:'Sin precio válido'}))} busy={groupBusy} error={error} onCancel={returnHome} onSave={edit=>void createGroup(edit)}/>
+    : view==='group-create'&&compatible?<GroupEditor creating offers={selectedOffers.map(p=>({id:p.id,name:p.name||p.domain,currency:p.currency!,image_url:p.image_url,reference_price:p.reference_price!,target_type:p.target_type!,target_value:(p.target_type==='percent'?p.target_percent:p.target_price)??0,price:p.last_price,excluded:p.status==='active'&&p.last_success_at===p.last_checked_at?null:'Sin precio válido'}))} busy={groupBusy} error={groupEditorError} onCancel={returnHome} onSave={edit=>void createGroup(edit)}/>
     : view === 'basket-detail' ? <PurchaseBasketScreen key={detailId} id={detailId} name={basketName || lists.find(l => l.id === detailId)?.name || 'Tu canasta'} onDirtyChange={setBasketDirty} onBusyChange={setBasketBusy} onExpired={props.onExpired} onBack={() => navigate('lists')} />
     : view === 'settings' ? <SettingsScreen onExpired={props.onExpired} onBack={() => returnHome()} />
       : view === 'detail' ? <ProductDetailScreen group={offerGroup?.offers.some(p=>p.id===detailId)?offerGroup:undefined} onGroup={()=>{if(offerGroup){setDetailId(offerGroup.id);setView('group');}}} key={detailId} id={detailId} lists={lists} onExpired={props.onExpired} onBack={() => returnHome()} onDeleted={() => { setNotice('Producto e historial eliminados.'); returnHome(); }} />
@@ -147,7 +147,8 @@ export function HomeScreen(props: Props) {
       <div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 ref={homeTitle} tabIndex={-1} id="home-title" className="text-3xl font-semibold tracking-tight outline-none">Productos</h1></div>
       {!mobileNavOpen && <Button className="lg:hidden" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('add')}>Añadir producto</Button>}
     </div>
-    {error && <p role="alert" className="mb-4 text-sm leading-relaxed text-destructive">{error}</p>}
+    {productsError && <p role="alert" className="mb-4 text-sm leading-relaxed text-destructive">{productsError}</p>}
+    {props.sessionError && props.sessionError !== productsError && <p role="alert" className="mb-4 text-sm leading-relaxed text-destructive">{props.sessionError}</p>}
     <p role="status" className="mb-4 text-sm text-primary">{loading ? 'Cargando tus productos…' : notice}</p>
     {<>
       <details className="mb-3 rounded-xl border border-border p-3"><summary className="cursor-pointer py-2 text-sm font-medium">Filtrar y ordenar{filter !== 'all' ? ' · filtro activo' : ''}</summary><div className="mt-3 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -159,13 +160,13 @@ export function HomeScreen(props: Props) {
       <p className="mb-4 text-sm text-muted-foreground">Toca las tarjetas que representan el mismo producto y comparten moneda.</p>
     </>}
     {loading ? <div aria-hidden="true" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{[0, 1, 2, 3].map(key => <div key={key} className="h-96 rounded-2xl border border-border bg-card motion-safe:animate-pulse" />)}</div>
-      : error ? <Button variant="outline" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => setRefresh(value => value + 1)}>Reintentar consulta</Button>
+      : productsError ? <Button variant="outline" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => setRefresh(value => value + 1)}>Reintentar consulta</Button>
         : visible.length+visibleGroups.length === 0 ? <div className="rounded-2xl border border-dashed border-border p-8 text-center"><h2 className="font-semibold">{products.length ? 'No hay productos con este estado' : 'Tu catálogo espera tu próximo producto'}</h2><p className="mt-3 text-sm text-muted-foreground">{products.length ? 'Prueba otro filtro para ver tus productos.' : 'Añade una URL para empezar a seguir su precio.'}</p></div>
             : <><p className="mb-4 text-sm text-muted-foreground">{visible.length+visibleGroups.length} productos · {visibleGroups.length} grupos</p><div className="grid min-w-0 grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{visibleGroups.map(group=><GroupCard key={group.id} group={group} onOpen={()=>{setDetailId(group.id);setView('group');}}/>)}{visible.map(product => <div key={product.id} className="min-w-0" onDragOver={e=>{if(product.status!=='pending_confirmation')e.preventDefault();}} onDrop={e=>{e.preventDefault();const from=e.dataTransfer.getData('application/x-scrappy-product');const source=products.find(p=>p.id===from);if(source&&source.id!==product.id&&!groupedIds.has(source.id)&&source.currency===product.currency&&source.target_type&&product.target_type){setSelected([source.id,product.id]);setView('group-create');}else setNotice('Selecciona dos ofertas confirmadas de la misma moneda.');}}>
               <ProductCard product={product} onDetail={() => { setDetailId(product.id); setView('detail'); }} selection={product.status==='pending_confirmation'?undefined:{selected:selected.includes(product.id),onToggle:()=>setSelected(s=>s.includes(product.id)?s.filter(id=>id!==product.id):[...s,product.id]),onDragStart:e=>e.dataTransfer.setData('application/x-scrappy-product',product.id)}} /></div>)}</div></>}
     {selected.length>0&&view==='home'&&<div className="fixed inset-x-4 bottom-20 z-30 mx-auto grid max-w-xl grid-cols-2 items-center gap-2 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur sm:flex lg:bottom-6">
       <div className="col-span-2 min-w-0 sm:flex-1"><p className="text-sm font-medium">{selected.length} {selected.length===1?'tarjeta seleccionada':'tarjetas seleccionadas'}</p><p className="hidden text-xs text-muted-foreground sm:block">Elige el mismo producto en la misma moneda.</p></div>
-      <Button className="w-full sm:w-auto" variant="outline" onClick={()=>setSelected([])}>Cancelar</Button><Button className="w-full sm:w-auto" disabled={!compatible||loading||!!error} onClick={()=>setView('group-create')}>Continuar <span aria-hidden="true" className="ml-1">→</span></Button>
+      <Button className="w-full sm:w-auto" variant="outline" onClick={()=>setSelected([])}>Cancelar</Button><Button className="w-full sm:w-auto" disabled={!compatible||loading||!!productsError} onClick={()=>setView('group-create')}>Continuar <span aria-hidden="true" className="ml-1">→</span></Button>
     </div>}
   </section>;
 

@@ -15,9 +15,9 @@ const product: ProductSummary = { id: '33333333-3333-4333-8333-333333333333', li
   status: 'active', created_at: '2026-10-09T00:00:00Z', last_checked_at: '2026-10-09T12:00:00Z', last_success_at: '2026-10-09T12:00:00Z', history: [],
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
-function mount(strict = false) {
+function mount(strict = false, sessionError = '') {
   const onExpired = vi.fn();
-  const element = <HomeScreen onExpired={onExpired} onLogout={vi.fn()} sessionBusy={false} sessionError="" />;
+  const element = <HomeScreen onExpired={onExpired} onLogout={vi.fn()} sessionBusy={false} sessionError={sessionError} />;
   render(strict ? <StrictMode>{element}</StrictMode> : element);
   return onExpired;
 }
@@ -91,6 +91,31 @@ describe('independent catalog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Ver canasta' }));
     await screen.findByRole('heading', { name: first.name });
     expect(document.title).toBe('Scrappy · Detalle de canasta');
+  });
+  it('shows a logout failure as an alert without hiding loaded products or blocking grouping', async () => {
+    const fetch = mock([product, { ...product, id: second.id, domain: 'otra.pe' }], []);
+    mount(false, 'No se pudo cerrar la sesión.');
+    expect(await screen.findAllByRole('article')).toHaveLength(2);
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo cerrar la sesión.');
+    expect(screen.queryByRole('button', { name: 'Reintentar consulta' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Seleccionar Monitor · shop.pe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Seleccionar Monitor · otra.pe' }));
+    expect(screen.getByRole('button', { name: /Continuar/ })).toBeEnabled();
+    expect(fetch.mock.calls.filter(([url]) => url === '/api/products')).toHaveLength(1);
+  });
+  it('offers a retry only when loading products actually fails', async () => {
+    let failed = true;
+    vi.stubGlobal('fetch', vi.fn((url: string) => Promise.resolve(url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/lists' ? json({ lists: [] })
+      : failed ? json({}, 503) : json({ products: [product] }))));
+    mount(false, 'No se pudo cerrar la sesión.');
+    await screen.findByRole('button', { name: 'Reintentar consulta' });
+    expect(screen.getAllByRole('alert')).toHaveLength(2);
+    expect(screen.getAllByRole('alert').map(alert => alert.textContent)).toContain('No se pudo cerrar la sesión.');
+    failed = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar consulta' }));
+    expect(await screen.findAllByRole('article')).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Reintentar consulta' })).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('No se pudo cerrar la sesión.');
   });
   it('expires product sessions and survives StrictMode', async () => {
     const fetch=mock(); fetch.mockImplementation((url: string) => Promise.resolve(url === '/api/product-groups' ? json({ groups: [] }) : url === '/api/lists' ? json({ lists: [] }) : json({},401)));
