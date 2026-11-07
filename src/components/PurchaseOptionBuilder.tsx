@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { Configuration } from '../lib/purchases';
 import type { ProductSummary } from '../lib/products';
 import { ProductThumbnail } from './ProductThumbnail';
@@ -79,7 +79,7 @@ export function PurchaseOptionBuilder({ configuration: c, products, onChange, in
     </div>
     {!c.needs.length && <p className="text-sm text-muted-foreground">Añade primero lo que necesitas en «Qué necesitas».</p>}
 
-    <dialog ref={dialog} aria-labelledby="compare-product-title" onCancel={e => { e.preventDefault(); close(); }} onClose={onComparisonDone}
+    <dialog ref={dialog} aria-labelledby="compare-product-title" onKeyDown={isolateEnter} onCancel={e => { e.preventDefault(); close(); }} onClose={onComparisonDone}
       className="m-auto max-h-[88dvh] w-[min(94vw,42rem)] max-w-none overflow-y-auto rounded-2xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/70">
       <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-card p-5">
         <div><p className="text-xs font-medium uppercase tracking-wide text-primary">Nueva opción</p><h2 id="compare-product-title" className="mt-1 text-xl font-semibold">Elige con qué comparar</h2></div>
@@ -123,6 +123,10 @@ export function PurchaseOptionBuilder({ configuration: c, products, onChange, in
   </section>;
 }
 
+// The dialog is rendered inside the purchase editor form, so Enter in its inputs would trigger implicit form submission.
+function isolateEnter(event: KeyboardEvent<HTMLDialogElement>) {
+  if (event.key === 'Enter' && event.target instanceof HTMLInputElement) event.preventDefault();
+}
 function productPrice(product: ProductSummary | undefined) {
   if (!product) return 'Sin precio';
   const status = ({ active: 'seguimiento activo', paused: 'seguimiento en pausa', pending_confirmation: 'lectura pendiente', error: 'última revisión con error' } as const)[product.status];

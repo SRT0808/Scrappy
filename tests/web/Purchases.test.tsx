@@ -289,6 +289,25 @@ describe('purchase UI', () => {
     expect(screen.getByLabelText('Aceptar extra Nuevo extra')).not.toBeChecked();
     expect(fetch.mock.calls.every(([, o]) => o?.method !== 'PUT')).toBe(true);
   });
+  it('keeps Enter inside the compare dialog from submitting or saving the purchase form', async () => {
+    const product = { ...catalogProduct, id: uid(60), name: 'Agua de comparación' };
+    const fetch = vi.fn(async (url: string, options?: RequestInit) => url === '/api/products' ? json({ products: [product] })
+      : options?.method === 'PUT' ? json({ schema_version: 2, configuration: purchaseFixture().configuration }) : json(purchaseFixture()));
+    vi.stubGlobal('fetch', fetch);
+    render(<PurchaseBasketScreen id={purchaseId} onBack={vi.fn()} onExpired={vi.fn()} />);
+    await screen.findByLabelText('Nombre de necesidad 1');
+    await userEvent.click(screen.getByRole('button', { name: 'Editar mi compra' }));
+    await userEvent.click(screen.getByRole('button', { name: /^2\. / }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Comparar producto' }));
+    const search = await screen.findByLabelText('Buscar en tus productos');
+    await userEvent.type(search, 'Agua{Enter}');
+    await userEvent.click(await screen.findByRole('button', { name: /Agua de comparación/ }));
+    for (const label of ['Contenido por envase', 'Unidades a comprar']) await userEvent.type(screen.getByLabelText(new RegExp(label)), '{Enter}');
+    await act(async () => { await Promise.resolve(); });
+    expect(fetch.mock.calls.every(([, o]) => o?.method !== 'PUT')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Añadir al carrito' })).toBeInTheDocument();
+    expect(screen.queryByText(/Cambios guardados/)).not.toBeInTheDocument();
+  });
   it('keeps invalid pin and pending needs explicit without inventing a total or percentage', () => {
     const d = purchaseFixture(); const r = d.latest_evaluation!.snapshot.result;
     r.effective = { ...r.effective, invalidPin: true, coverageComplete: false, comparisonComplete: false, searchComplete: false, total: null, pendingNeedIds: [uid(1)] };
