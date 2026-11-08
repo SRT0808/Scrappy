@@ -4,9 +4,10 @@ import { Input } from './ui/input';
 import { loadDefaultInterval } from '../lib/settings';
 import { ListsError, requestLists, type List } from '../lib/lists';
 import { money, percentageTarget, productUrl, ProductsError, requestReading, validConfirmation, type Reading, type Confirmation } from '../lib/products';
+import { selectClass as baseSelectClass } from './ui/select';
 
 type Props = { repair?: { id: string; name: string; currency: string | null }; lists: List[]; onClose: () => void; onCloseLabel?: string; onSaved: (id: string, listId: string) => void; onExpired: (message: string) => void };
-const selectClass = 'h-12 w-full min-w-0 rounded-lg border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50';
+const selectClass = baseSelectClass;
 const currencies = ['PEN', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'CLP', 'COP', 'MXN', 'ARS', 'BRL', 'JPY', 'CHF'];
 
 export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volver a listas', onSaved, onExpired, repair }: Props) {
@@ -176,9 +177,9 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
 
   const locked = busy || waiting;
   return <section aria-labelledby="add-title" className="mx-auto w-full max-w-2xl self-start">
-    <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><p className="mb-2 text-xs tracking-[0.16em] text-primary uppercase">Tu próxima oferta</p><h1 id="add-title" className="text-3xl font-semibold">{repair ? 'Reparar enlace' : 'Añadir producto'}</h1></div><Button variant="outline" disabled={busy || pending || (uncertain && !missing)} onClick={onClose}>{onCloseLabel}</Button></div>
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-3"><div><p className="mb-1.5 font-mono text-xs text-subtle-foreground">Tu próxima oferta</p><h1 id="add-title" className="text-[28px] leading-tight font-semibold tracking-tight">{repair ? 'Reparar enlace' : 'Añadir producto'}</h1></div><Button variant="outline" disabled={busy || pending || (uncertain && !missing)} onClick={onClose}>{onCloseLabel}</Button></div>
     <p className="mb-6 text-sm text-muted-foreground">1. Leer la tienda · 2. Confirmar el precio · 3. Definir tu meta</p>
-    <form onSubmit={event => start(event)} className="space-y-3 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <form onSubmit={event => start(event)} className="space-y-3 rounded-xl border border-border bg-card p-5 sm:p-6">
       <label htmlFor="product-url" className="text-sm font-medium">URL del producto</label>
       <Input ref={input} id="product-url" type="url" inputMode="url" required value={url} disabled={locked || !!requestId} onChange={event => setUrl(event.target.value)} placeholder="https://tienda.com/producto" />
       {!requestId && <Button type="submit" disabled={locked} className="w-full sm:w-auto">Leer producto</Button>}
@@ -187,37 +188,37 @@ export function AddProduct({ lists: initialLists, onClose, onCloseLabel = 'Volve
         {missing && lastRequest.current && <Button type="button" variant="outline" disabled={locked} onClick={() => void run(lastRequest.current!)}>Reintentar lectura</Button>}
       </div>}
     </form>
-    {error && <p role="alert" className="mt-4 text-sm leading-relaxed text-destructive">{error}</p>}
-    {(locked || pending) && <div role="status" className="mt-5 rounded-2xl border border-border bg-card p-5 space-y-3">
-      <p className="text-sm text-primary">{pending ? reading.status === 'queued' ? 'En cola o preparando el lector…' : 'Leyendo la tienda…' : 'Procesando tu solicitud…'}</p>
+    {error && <p role="alert" className="mt-4 rounded-xl border border-destructive/30 bg-destructive/8 px-3.5 py-3 text-sm leading-relaxed text-foreground empty:sr-only">{error}</p>}
+    {(locked || pending) && <div role="status" className="mt-5 rounded-xl border border-border bg-card p-5 space-y-3">
+      <p className="text-sm text-info">{pending ? reading.status === 'queued' ? 'En cola o preparando el lector…' : 'Leyendo la tienda…' : 'Procesando tu solicitud…'}</p>
       {pending && <>
         <p className="text-sm text-muted-foreground">{reading.status === 'queued' ? 'El lector todavía no ha empezado con esta tienda. La cola y la preparación del navegador pueden tardar varios minutos.' : 'El lector ya empezó con esta tienda. Esperamos el resultado para que puedas confirmar el precio.'}</p>
         <p className="text-sm tabular-nums">Tiempo transcurrido: {Math.floor(elapsed / 60)} min {elapsed % 60} s.</p>
         <p className="text-sm text-muted-foreground">{uncertain ? 'Se interrumpió la consulta. Usa Consultar lectura para recuperar el estado de esta misma solicitud.' : waiting ? 'Consultamos automáticamente hasta 20 minutos. Esta espera no crea otra lectura.' : 'La consulta automática está pausada; esto no cancela la lectura ni confirma un fallo. Usa Consultar lectura para retomar esta misma solicitud.'}</p>
       </>}
-      {locked && <div aria-hidden="true" className="h-20 rounded-lg bg-muted motion-safe:animate-pulse" />}
+      {locked && <div aria-hidden="true" className="h-20 rounded-lg bg-elevated motion-safe:animate-pulse" />}
     </div>}
     {result && <div className="mt-6 space-y-5">
-      <section aria-labelledby="reading-title" className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <h2 id="reading-title" ref={resultTitle} tabIndex={-1} className="mb-4 text-lg font-semibold">Confirma lo que encontramos</h2>
+      <section aria-labelledby="reading-title" className="rounded-xl border border-border bg-card p-5 sm:p-6">
+        <h2 id="reading-title" ref={resultTitle} tabIndex={-1} className="mb-4 text-[17px] font-semibold">Confirma lo que encontramos</h2>
         <div className="flex min-w-0 gap-4">{result.image_url && /^https?:\/\//i.test(result.image_url) && <img src={result.image_url} alt="" referrerPolicy="no-referrer" className="size-20 shrink-0 rounded-lg bg-muted object-contain" onError={event => { event.currentTarget.hidden = true; }} />}
-          <div className="min-w-0"><p className="break-words font-medium">{result.name || 'Producto sin nombre'}</p><p className="mt-2 text-xl font-semibold text-primary tabular-nums">{chosenPrice ? `${chosenPrice} ${currency || 'Moneda por confirmar'}` : 'Precio sin leer'}</p><details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer py-2">Detalles de la lectura</summary><p>Método: {({ json_ld: 'Datos estructurados', meta_microdata: 'Metadatos', heuristic: 'Precio visible', recipe: 'Selector CSS', adaptive: 'Selector recuperado', none: 'Sin resultado' } as Record<string, string>)[result.method] ?? result.method} · Confianza: {Math.round(result.confidence * 100)} %</p></details></div>
+          <div className="min-w-0"><p className="break-words font-medium">{result.name || 'Producto sin nombre'}</p><p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums">{chosenPrice ? `${chosenPrice} ${currency || 'Moneda por confirmar'}` : 'Precio sin leer'}</p><details className="mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer py-2">Detalles de la lectura</summary><p>Método: {({ json_ld: 'Datos estructurados', meta_microdata: 'Metadatos', heuristic: 'Precio visible', recipe: 'Selector CSS', adaptive: 'Selector recuperado', none: 'Sin resultado' } as Record<string, string>)[result.method] ?? result.method} · Confianza: {Math.round(result.confidence * 100)} %</p></details></div>
         </div>
         {result.warnings.length > 0 && <ul className="mt-4 space-y-1 text-sm text-muted-foreground">{result.warnings.map((warning, index) => <li key={index} className="break-words">{warning}</li>)}</ul>}
         {result.candidates.length > 0 && <fieldset className="mt-5 min-w-0 space-y-2"><legend className="mb-3 text-sm font-medium">{ambiguous ? 'Elige el precio correcto para continuar' : 'Otros precios detectados'}</legend>{result.candidates.map((choice, index) => <label key={index} className="flex min-w-0 cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm"><input type="radio" name="candidate" checked={candidate === index} disabled={locked || uncertain} onChange={() => choose(index)} className="mt-1 shrink-0 accent-emerald-500" /><span className="min-w-0 break-words"><span className="font-medium tabular-nums">{choice.price} {choice.currency || 'Moneda por confirmar'}</span><span className="mt-1 block text-muted-foreground">{choice.context}</span></span></label>)}</fieldset>}
       </section>
-      <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer py-2 text-sm font-medium">¿El precio no es correcto? Opciones avanzadas</summary><form onSubmit={event => start(event, true)} className="space-y-3 rounded-2xl border border-border bg-card p-5">
+      <details className="rounded-xl border border-border p-4"><summary className="cursor-pointer py-2 text-sm font-medium">¿El precio no es correcto? Opciones avanzadas</summary><form onSubmit={event => start(event, true)} className="space-y-3 rounded-xl border border-border bg-card p-5">
         <label htmlFor="price-selector" className="text-sm font-medium">Enseñar un selector CSS</label><p className="text-xs text-muted-foreground">Si el precio falta o es incorrecto, indica el selector y vuelve a leer la tienda.</p><Input id="price-selector" value={selector} disabled={locked} onChange={event => setSelector(event.target.value)} placeholder=".precio-final" maxLength={500} /><Button type="submit" variant="outline" disabled={locked || uncertain}>Leer con selector</Button>
       </form></details>
-      {reading?.status === 'ready' && <form onSubmit={save} className="space-y-5 rounded-2xl border border-border bg-card p-5 sm:p-6">
-        <h2 className="text-lg font-semibold">{repair ? `Confirmar reparación de ${repair.name}` : 'Define tu meta'}</h2>
+      {reading?.status === 'ready' && <form onSubmit={save} className="space-y-5 rounded-xl border border-border bg-card p-5 sm:p-6">
+        <h2 className="text-[17px] font-semibold">{repair ? `Confirmar reparación de ${repair.name}` : 'Define tu meta'}</h2>
         <fieldset disabled={locked || uncertain} className="space-y-5">
           {!repair && <> <div className="space-y-2"><label htmlFor="product-name" className="text-sm font-medium">Nombre del producto</label><Input id="product-name" value={name} onChange={event => setName(event.target.value)} required /></div>
           <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><label htmlFor="product-currency" className="text-sm font-medium">Moneda</label><select id="product-currency" className={selectClass} value={currency} disabled={!!chosen?.currency} onChange={event => { setCurrency(event.target.value); setConfirmed(false); }} required><option value="">Elige la moneda</option>{[...new Set([...currencies, ...(currency ? [currency] : [])])].map(code => <option key={code}>{code}</option>)}</select></div>
           <div className="space-y-2"><label htmlFor="reference-price" className="text-sm font-medium">Precio de referencia</label><Input id="reference-price" inputMode="decimal" value={reference} onChange={event => setReference(event.target.value)} required /><p className="text-xs text-muted-foreground">Precio sin descuento; puedes editarlo.</p></div></div>
           <div className="space-y-2"><label htmlFor="product-list" className="text-sm font-medium">Canasta opcional</label><select id="product-list" className={selectClass} value={listId} onChange={event => setListId(event.target.value)}><option value="">Sin canasta</option>{lists.map(list => <option key={list.id} value={list.id}>{list.name}</option>)}</select>{lists.length === 0 && <p className="text-sm text-muted-foreground">Puedes guardar el producto sin canasta.</p>}<Button type="button" variant="outline" onClick={() => void refreshLists()}>Actualizar listas disponibles</Button></div>
           <div className="grid gap-4 sm:grid-cols-2"><div className="space-y-2"><label htmlFor="target-type" className="text-sm font-medium">Condición</label><select id="target-type" className={selectClass} value={targetType} onChange={event => { setTargetType(event.target.value as 'price' | 'percent'); setTarget(''); }}><option value="price">Precio objetivo</option><option value="percent">Porcentaje de descuento</option></select></div><div className="space-y-2"><label htmlFor="target-value" className="text-sm font-medium">{targetType === 'price' ? 'Precio objetivo' : 'Descuento (%)'}</label><Input id="target-value" inputMode="decimal" value={target} onChange={event => setTarget(event.target.value)} required /></div></div>
-          <p aria-live="polite" className="text-sm text-primary tabular-nums">Equivalente: {equivalent}</p>
+          <p aria-live="polite" className="text-sm text-muted-foreground tabular-nums">Equivalente: {equivalent}</p>
           <div className="space-y-2"><label htmlFor="check-interval" className="text-sm font-medium">Intervalo de revisión</label><select id="check-interval" className={selectClass} value={interval} onChange={event => setInterval(Number(event.target.value))}>{[3, 6, 12, 24].map(hours => <option key={hours} value={hours}>Cada {hours} horas</option>)}</select></div>
           </>}
           {repair && <p className="text-sm text-muted-foreground">Artículo leído: {chosen?.name || 'Sin nombre'} · {chosen?.currency || 'Sin moneda'}. Original: {repair.name} · {repair.currency}. Se conservan ID, metas, historial y membresías. Si es otro artículo, añádelo como producto nuevo.</p>}

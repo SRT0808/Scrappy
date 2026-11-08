@@ -4,6 +4,7 @@ import { Input } from './ui/input';
 import { ListsError, requestLists, type List, type ListAction, type ListBody } from '../lib/lists';
 import { parseBudget } from '../lib/baskets';
 import { PurchaseSummary } from './PurchaseSummary';
+import { Skeleton } from './ui/skeleton';
 
 type Props = { onExpired: (message: string) => void; onLogout: () => void; sessionBusy: boolean; sessionError: string; onHome?: () => void; showLogout?: boolean; onDetail?: (id: string, name?: string) => void };
 
@@ -84,11 +85,11 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, on
 
   return <section aria-labelledby="lists-title" aria-busy={locked} className="mx-auto w-full min-w-0 max-w-7xl self-start">
     <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-      <div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 id="lists-title" className="text-3xl font-semibold tracking-tight">Tus canastas</h1><p className="mt-3 text-sm text-muted-foreground">Organiza tus compras y compara opciones.</p></div>
+      <div><p className="mb-2 font-mono text-xs text-subtle-foreground">Tu radar de precios</p><h1 id="lists-title" className="text-[28px] leading-tight font-semibold tracking-tight">Tus canastas</h1><p className="mt-3 text-sm text-muted-foreground">Organiza tus compras y compara opciones.</p></div>
       {showLogout && <Button variant="outline" disabled={locked} onClick={onLogout}>{sessionBusy ? 'Cerrando sesión…' : 'Cerrar sesión'}</Button>}
     </div>
     {onHome && <div className="mb-6"><Button variant="outline" disabled={locked} onClick={onHome}>Volver a Inicio</Button></div>}
-    <details open={editing !== null || (loaded && lists.length === 0)} className="mb-6 max-w-3xl rounded-2xl border border-border bg-card p-4"><summary className="cursor-pointer py-2 font-medium">{editing ? 'Renombrar canasta' : lists.length ? 'Crear otra canasta' : 'Crear mi primera canasta'}</summary><form onSubmit={save} className="mb-6 rounded-2xl border border-border bg-card p-5 sm:p-6">
+    <details open={editing !== null || (loaded && lists.length === 0)} className="mb-6 max-w-3xl rounded-xl border border-border bg-card p-4"><summary className="cursor-pointer py-2 font-medium">{editing ? 'Renombrar canasta' : lists.length ? 'Crear otra canasta' : 'Crear mi primera canasta'}</summary><form onSubmit={save} className="mb-6 rounded-xl border border-border bg-card p-5 sm:p-6">
       <label htmlFor="list-name" className="text-sm font-medium">{editing ? 'Nuevo nombre' : 'Nombre de la nueva canasta'}</label>
       <div className="mt-3 flex flex-col gap-3 sm:flex-row">
         <Input ref={field} id="list-name" value={name} disabled={mutationLocked || !loaded} onChange={event => setName(event.target.value)} placeholder="Por ejemplo, Tecnología" aria-describedby="list-name-help" />
@@ -97,13 +98,13 @@ export function ListsScreen({ onExpired, onLogout, sessionBusy, sessionError, on
       </div>
       <p id="list-name-help" className="mt-3 text-xs text-muted-foreground">Entre 1 y 100 caracteres.</p>
     </form></details>
-    {(error || sessionError) && <p role="alert" className="mb-4 text-sm leading-relaxed text-destructive">{error || sessionError}</p>}
-    <p role="status" className="mb-4 text-sm text-primary">{busy ? 'Guardando o cargando canastas…' : notice}</p>
+    {(error || sessionError) && <p role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/8 px-3.5 py-3 text-sm leading-relaxed text-foreground empty:sr-only">{error || sessionError}</p>}
+    <p role="status" className="mb-4 text-sm text-muted-foreground empty:sr-only">{busy ? 'Guardando o cargando canastas…' : notice}</p>
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{loaded ? `${lists.length} ${lists.length === 1 ? 'canasta' : 'canastas'}` : 'Tus colecciones'}</p><Button variant="outline" disabled={locked} onClick={() => void run('read')}>Actualizar canastas</Button></div>
-    {!loaded && busy ? <div aria-hidden="true" className="space-y-3">{[0, 1, 2].map(key => <div key={key} className="h-28 rounded-2xl border border-border bg-card motion-safe:animate-pulse" />)}</div>
-      : loaded && lists.length === 0 ? <div className="rounded-2xl border border-dashed border-border p-8 text-center"><h2 className="font-semibold">Tu primera canasta empieza aquí</h2><p className="mt-2 text-sm text-muted-foreground">Crea una canasta y agrega productos de tu catálogo.</p></div>
-      : <ol className="grid items-start gap-4 xl:grid-cols-2">{lists.map((list, index) => <li key={list.id} className="min-w-0 rounded-2xl border border-border bg-card p-5">
-        <h2 className="mb-4 break-words text-lg font-medium">{list.emoji && <span aria-hidden="true">{list.emoji} </span>}{list.name}</h2>
+    {!loaded && busy ? <div aria-hidden="true" className="space-y-3">{[0, 1, 2].map(key => <div key={key} className="space-y-3 rounded-xl border border-border bg-card p-4"><Skeleton className="h-4 w-1/3" /><Skeleton className="h-3 w-2/3" /><Skeleton className="h-9 w-40" /></div>)}</div>
+      : loaded && lists.length === 0 ? <div className="rounded-xl border border-dashed border-border p-8 text-center"><h2 className="font-semibold">Tu primera canasta empieza aquí</h2><p className="mt-2 text-sm text-muted-foreground">Crea una canasta y agrega productos de tu catálogo.</p></div>
+      : <ol className="grid items-start gap-4 xl:grid-cols-2">{lists.map((list, index) => <li key={list.id} className="min-w-0 rounded-xl border border-border bg-card p-5">
+        <h2 className="mb-4 break-words text-[17px] font-semibold">{list.emoji && <span aria-hidden="true">{list.emoji} </span>}{list.name}</h2>
         {list.basket && <PurchaseSummary id={list.id} basket={list.basket} onExpired={onExpired} />}
         <div className="flex flex-wrap gap-2">
           {onDetail && <Button disabled={mutationLocked} onClick={() => onDetail(list.id, list.name)}>Ver canasta</Button>}

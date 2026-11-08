@@ -5,8 +5,11 @@ import { BasketSummary } from './BasketSummary';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { formatPrice } from './ProductCard';
+import { selectClass as baseSelectClass } from './ui/select';
+import { cn } from '../lib/utils';
+import { Skeleton } from './ui/skeleton';
 const BasketHistory = lazy(() => import('./BasketHistory'));
-const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm';
+const selectClass = cn('mt-1.5', baseSelectClass);
 const date = (value: string | null) => value ? new Date(value).toLocaleString('es-PE') : 'Sin lectura válida';
 
 export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired, children }: { id: string; historyOnly?: boolean; onBack: () => void; onExpired: (message: string) => void; children?: ReactNode }) {
@@ -54,16 +57,17 @@ export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired,
   const available=products.filter(p => !detail?.basket.lines?.some(l => l.product_id===p.id));
   const Heading = historyOnly ? 'h2' : 'h1';
   return <section className="mx-auto w-full min-w-0 max-w-7xl" aria-busy={loading || busy}>
-    <Button variant="outline" disabled={busy} onClick={onBack}>{historyOnly ? 'Volver al resumen' : '← Volver a Canastas'}</Button>
-    <Heading className="mt-6 mb-4 break-words text-3xl font-semibold">{historyOnly ? 'Historial de la canasta' : detail?.name ?? 'Detalle de canasta'}</Heading>
+    <Button variant="ghost" size="sm" className="-ml-3" disabled={busy} onClick={onBack}>{historyOnly ? 'Volver al resumen' : '← Volver a Canastas'}</Button>
+    <Heading className="mt-4 mb-4 break-words text-[28px] leading-tight font-semibold tracking-tight">{historyOnly ? 'Historial de la canasta' : detail?.name ?? 'Detalle de canasta'}</Heading>
     {!historyOnly && detail && children}
-    {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
-    <p role="status" className="mb-4 text-sm text-primary">{loading ? 'Cargando canasta…' : busy ? 'Guardando…' : ''}</p>
-    <Button variant="outline" disabled={loading || busy} onClick={() => setRefresh(n => n+1)}>Actualizar canasta</Button>
+    {error && <p role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/8 px-3.5 py-3 text-sm leading-relaxed text-foreground empty:sr-only">{error}</p>}
+    <p role="status" className="mb-4 text-sm text-muted-foreground empty:sr-only">{loading ? 'Cargando canasta…' : busy ? 'Guardando…' : ''}</p>
+    <Button variant="outline" size="sm" disabled={loading || busy} onClick={() => setRefresh(n => n+1)}>Actualizar canasta</Button>
+    {loading && !detail && <div aria-hidden="true" className="mt-5 space-y-3"><Skeleton className="h-36 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>}
     {detail && <>
       {!historyOnly && <><div className="mt-5"><BasketSummary basket={detail.basket} /></div>
-      <section className="rounded-2xl border border-border bg-card p-4 sm:p-6">
-        <h2 className="text-lg font-medium">Productos y frescura</h2>
+      <section className="rounded-xl border border-border bg-card p-4 sm:p-6">
+        <h2 className="text-[17px] font-semibold">Productos y frescura</h2>
         <ol className="mt-4 grid gap-x-6 xl:grid-cols-2">{detail.basket.lines!.map(l => {
           const p=products.find(p => p.id===l.product_id);
           return <li key={l.product_id} className="min-w-0 border-t border-border py-4 [overflow-wrap:anywhere]">
@@ -75,7 +79,7 @@ export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired,
               <label className="min-w-0 text-sm">Cantidad<Input className="mt-2 w-24" inputMode="numeric" value={quantities[l.product_id] ?? ''} disabled={busy || uncertain} onChange={e => setQuantities(q => ({ ...q,[l.product_id]:e.target.value }))} /></label>
               <Button type="submit" variant="outline" disabled={busy || uncertain}>Guardar cantidad</Button>
               <Button type="button" variant="outline" disabled={busy || uncertain} onClick={() => void mutate(l.product_id,null)}>Quitar</Button>
-              {p && <a className="py-3 text-sm text-primary underline" href={p.url} target="_blank" rel="noopener noreferrer">Abrir tienda ↗</a>}
+              {p && <a className="py-3 text-sm text-foreground underline decoration-border-strong underline-offset-4 hover:decoration-foreground" href={p.url} target="_blank" rel="noopener noreferrer">Abrir tienda ↗</a>}
             </form>
           </li>;
         })}</ol>
@@ -87,17 +91,17 @@ export function BasketDetailScreen({ id, historyOnly = false, onBack, onExpired,
       </section>
       </>}
       <div className="mt-6 grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <section className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
-        <h2 className="text-lg font-medium">Historial por composición</h2>
+      <section className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6">
+        <h2 className="text-[17px] font-semibold">Historial por composición</h2>
         <p className="mt-2 text-xs text-muted-foreground">Cada versión conserva sus cantidades y moneda. Las series nunca se mezclan.</p>
         <label className="mt-4 block max-w-sm text-sm">Composición<select className={selectClass} value={version ?? ''} disabled={busy || loading} onChange={e => setVersion(Number(e.target.value))}>{detail.versions.map(v => <option key={v} value={v}>Versión {v}{v===detail.basket.composition_version ? ' · actual' : ''}</option>)}</select></label>
         <div className="mt-4 flex flex-wrap gap-2">{['7','14','30','90','all'].map(r => <Button key={r} variant={range===r ? 'default' : 'outline'} aria-pressed={range===r} disabled={busy || loading} onClick={() => setRange(r)}>{r==='all' ? 'Todo' : `${r} días`}</Button>)}</div>
-        {points.length ? <div role="img" aria-label="Gráfico de referencia, total completo y estimado" className="mt-5 h-64 min-w-0"><Suspense fallback={<p>Cargando gráfico…</p>}><BasketHistory points={points} budget={version===detail.basket.composition_version ? detail.basket.budget : null} /></Suspense></div> : <p className="my-8 text-sm text-muted-foreground">Sin snapshots en esta composición y rango.</p>}
+        {points.length ? <div role="img" aria-label="Gráfico de referencia, total completo y estimado" className="mt-5 h-64 min-w-0"><Suspense fallback={<><Skeleton className="h-full" /><p className="sr-only">Cargando gráfico…</p></>}><BasketHistory points={points} budget={version===detail.basket.composition_version ? detail.basket.budget : null} /></Suspense></div> : <p className="my-8 text-sm text-muted-foreground">Sin snapshots en esta composición y rango.</p>}
         <p className="mt-3 text-xs text-muted-foreground">Verde: total completo · ámbar: estimado · gris: referencia · discontinua verde: meta actual.</p>
         <ol className="mt-4 max-h-48 overflow-y-auto text-xs text-muted-foreground">{points.map(p => <li key={p.id} className="flex flex-wrap justify-between gap-2 py-2"><span>{date(p.calculated_at)} · {p.complete ? 'Completo' : 'Estimado / incompleto'}</span><span>{formatPrice(p.current_total,p.currency)} · ahorro {formatPrice(p.savings,p.currency)} ({p.savings_percent ?? '—'} %)</span></li>)}</ol>
       </section>
-      <section className="min-w-0 rounded-2xl border border-border bg-card p-5 [overflow-wrap:anywhere]">
-        <h2 className="text-lg font-medium">Estadísticas descriptivas</h2>
+      <section className="min-w-0 rounded-xl border border-border bg-card p-5 [overflow-wrap:anywhere]">
+        <h2 className="text-[17px] font-semibold">Estadísticas descriptivas</h2>
         <p className="mt-2 text-xs text-muted-foreground">Solo snapshots completos de la composición y rango seleccionados. {stats.count} snapshots · {Math.floor(stats.days)} días observados.</p>
         {!stats.eligible ? <p className="mt-4 text-sm text-muted-foreground">Se necesitan al menos 14 días y 10 snapshots completos. Prueba un rango mayor.</p> : <>
           <p className="mt-3 text-xs text-muted-foreground">{date(stats.first)} — {date(stats.last)}</p>

@@ -3,6 +3,8 @@ import { activationRequest, publication, type ActivationPreview, type Configurat
 import { Button } from './ui/button';
 import { PurchaseEditor } from './PurchaseEditor';
 import { requestProducts, type ProductSummary } from '../lib/products';
+import { selectClass } from './ui/select';
+import { cn } from '../lib/utils';
 
 export function PurchaseActivation({ id, onActivated, onExpired, onDirtyChange, onBusyChange }: {
   id: string; onActivated: () => void; onExpired: (message: string) => void;
@@ -73,10 +75,10 @@ export function PurchaseActivation({ id, onActivated, onExpired, onDirtyChange, 
       sessionStorage.removeItem(key); onActivated();
     });
   }
-  return <section aria-label="Activación de alternativas" aria-busy={busy} className="mx-auto my-5 w-full min-w-0 max-w-3xl space-y-4 rounded-2xl border border-border bg-card p-4 [overflow-wrap:anywhere] sm:p-6">
-    <h2 className="text-xl font-semibold">Activar necesidades y alternativas</h2>
+  return <section aria-label="Activación de alternativas" aria-busy={busy} className="mx-auto my-5 w-full min-w-0 max-w-3xl space-y-4 rounded-xl border border-border bg-card p-4 [overflow-wrap:anywhere] sm:p-6">
+    <h2 className="text-[17px] font-semibold">Activar necesidades y alternativas</h2>
     <p className="text-sm text-muted-foreground">La conversión conserva productos, cantidades, referencias e historial. Se aplicará solo a esta canasta. La recuperación conserva sus versiones; no vuelve al modo anterior.</p>
-    {message && <p role="status" className="text-sm text-primary">{message}</p>}
+    {message && <p role="status" className="text-sm text-muted-foreground empty:sr-only">{message}</p>}
     {pending ? <><p>Hay una solicitud sin conciliar. Consulta su recibo antes de continuar.</p><Button disabled={busy} onClick={() => void consult()}>Consultar recibo de activación</Button></>
       : <Button variant="outline" disabled={busy} onClick={() => void prepare()}>Preparar conversión</Button>}
     {preview && draft && !pending && <form className="space-y-4" onSubmit={e => { e.preventDefault(); void activate(); }}>
@@ -86,7 +88,7 @@ export function PurchaseActivation({ id, onActivated, onExpired, onDirtyChange, 
       <p className="text-sm text-muted-foreground">El primer cálculo que cumpla el presupuesto puede enviar avisos. El primer ganador establece la base sin aviso de cambio. El umbral de cambio es {draft.minimum_savings} {draft.currency}.</p>
       <fieldset disabled={busy} className="space-y-3">
         <legend className="mb-2 font-medium">Elige los avisos expresamente</legend>
-        {([['Avisar presupuesto', budget, setBudget], ['Avisar cambio de ganador', winner, setWinner]] as const).map(([label, value, change]) => <label key={label} className="block text-sm">{label}<select className="mt-2 h-12 w-full rounded-lg border border-input bg-card px-3" value={value} onChange={e => { change(e.target.value); setConfirmed(false); }}><option value="">Elige una opción</option><option value="no">Desactivado</option><option value="yes">Activado</option></select></label>)}
+        {([['Avisar presupuesto', budget, setBudget], ['Avisar cambio de ganador', winner, setWinner]] as const).map(([label, value, change]) => <label key={label} className="block text-sm">{label}<select className={cn('mt-1.5', selectClass)} value={value} onChange={e => { change(e.target.value); setConfirmed(false); }}><option value="">Elige una opción</option><option value="no">Desactivado</option><option value="yes">Activado</option></select></label>)}
         <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />Confirmo esta conversión y los avisos seleccionados</label>
       </fieldset>
       <Button disabled={busy || !confirmed || !budget || !winner}>Confirmar activación de esta canasta</Button>

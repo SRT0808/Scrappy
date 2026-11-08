@@ -8,9 +8,12 @@ import { historyRanges, validProductEdit } from '../../lib/detail-contract';
 import { intervals } from '../../lib/product-contract';
 import type { ProductGroup } from '../lib/groups';
 import type { List } from '../lib/lists';
+import { selectClass as baseSelectClass } from './ui/select';
+import { cn } from '../lib/utils';
+import { Skeleton } from './ui/skeleton';
 
 const ProductHistory = lazy(() => import('./ProductHistory'));
-const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring';
+const selectClass = cn('mt-1.5', baseSelectClass);
 const statuses = { active: 'Activo', paused: 'Pausado', error: 'Error', pending_confirmation: 'Por confirmar' };
 type Props = { group?: ProductGroup; onGroup?: () => void; id: string; lists: List[]; onBack: () => void; onDeleted: () => void; onExpired: (message: string) => void };
 
@@ -89,18 +92,18 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired, g
   return <section aria-labelledby="detail-title" aria-busy={loading || busy} className="mx-auto w-full min-w-0 max-w-7xl self-start">
     <Button variant="outline" onClick={onBack} disabled={busy}>← Volver a Inicio</Button>
     <div className="mt-7 mb-6 min-w-0">
-      <p className="mb-2 text-xs tracking-[0.16em] text-primary uppercase">Detalle de producto</p>
-      <h1 ref={title} tabIndex={-1} id="detail-title" className="text-3xl font-semibold tracking-tight outline-none [overflow-wrap:anywhere]">{p?.name || p?.domain || 'Tu producto'}</h1>
+      <p className="mb-1.5 font-mono text-xs text-subtle-foreground">Detalle de producto</p>
+      <h1 ref={title} tabIndex={-1} id="detail-title" className="text-[28px] leading-tight font-semibold tracking-tight outline-none [overflow-wrap:anywhere]">{p?.name || p?.domain || 'Tu producto'}</h1>
       {p && <p className="mt-3 text-sm text-muted-foreground [overflow-wrap:anywhere]">{p.domain} · {statuses[p.status]} · cada {p.check_interval_hours} h</p>}
     </div>
-    {error && <p role="alert" className="mb-4 text-sm text-destructive">{error}</p>}
-    <p role="status" className="mb-4 text-sm text-primary">{loading ? 'Cargando detalle…' : notice}</p>
+    {error && <p role="alert" className="mb-4 rounded-xl border border-destructive/30 bg-destructive/8 px-3.5 py-3 text-sm leading-relaxed text-foreground empty:sr-only">{error}</p>}
+    <p role="status" className="mb-4 text-sm text-muted-foreground empty:sr-only">{loading ? 'Cargando detalle…' : notice}</p>
     <Button variant="outline" disabled={loading || busy} onClick={() => setRefresh(value => value + 1)}>Actualizar detalle</Button>
-    {!detail && loading && <div aria-hidden="true" className="mt-6 h-96 rounded-2xl border border-border bg-card motion-safe:animate-pulse" />}
+    {!detail && loading && <div aria-hidden="true" className="mt-6 space-y-4"><Skeleton className="h-10 w-2/3" /><Skeleton className="h-72 rounded-xl" /><div className="grid grid-cols-3 gap-3"><Skeleton className="h-16" /><Skeleton className="h-16" /><Skeleton className="h-16" /></div></div>}
     {detail && p && stats && <>
-      {group&&<aside className="mt-5 space-y-3 rounded-xl border border-primary/40 p-4 text-sm"><p>La meta y referencia se gestionan en {group.name}. La meta individual anterior queda guardada. Para eliminar esta oferta, retírala primero del grupo; las reglas de canastas se conservan.</p><Button variant="outline" onClick={onGroup}>Volver a la meta común</Button></aside>}
-      <div className="mt-6 grid min-w-0 gap-4 rounded-2xl border border-border bg-card p-5 sm:grid-cols-3">
-        <div><p className="text-xs text-muted-foreground">Último precio conocido</p><p className="mt-2 text-3xl font-semibold tabular-nums [overflow-wrap:anywhere]">{formatPrice(p.last_price, p.currency)}</p></div>
+      {group&&<aside className="mt-5 space-y-3 rounded-xl border border-border-strong bg-elevated p-4 text-sm"><p>La meta y referencia se gestionan en {group.name}. La meta individual anterior queda guardada. Para eliminar esta oferta, retírala primero del grupo; las reglas de canastas se conservan.</p><Button variant="outline" onClick={onGroup}>Volver a la meta común</Button></aside>}
+      <div className="mt-6 grid min-w-0 gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-3">
+        <div><p className="text-xs text-muted-foreground">Último precio conocido</p><p className="mt-2 text-[28px] leading-tight font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere]">{formatPrice(p.last_price, p.currency)}</p></div>
         <div><p className="text-xs text-muted-foreground">{group?'Meta común del grupo':'Tu meta'}{(group?p.last_price!==null&&p.last_price<=group.target:metrics?.reached) ? ' · alcanzada' : ''}</p><p className="mt-2 text-lg tabular-nums [overflow-wrap:anywhere]">{formatPrice(group?.target ?? metrics?.target ?? null, p.currency)}</p></div>
         <div><p className="text-xs text-muted-foreground">Referencia</p><p className="mt-2 text-lg tabular-nums [overflow-wrap:anywhere]">{formatPrice(group?.reference_price ?? p.reference_price, p.currency)}</p></div>
       </div>
@@ -113,30 +116,30 @@ export function ProductDetailScreen({ id, lists, onBack, onDeleted, onExpired, g
         <Button variant="outline" asChild><a href={p.url} target="_blank" rel="noopener noreferrer">Abrir tienda ↗</a></Button>
       </div>
       <div className="mt-6 grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-      <div className="min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-6">
-        <h2 className="text-lg font-medium">Historial de precios</h2>
+      <div className="min-w-0 rounded-xl border border-border bg-card p-4 sm:p-6">
+        <h2 className="text-[17px] font-semibold">Historial de precios</h2>
         <div aria-label="Rango del historial" className="mt-4 flex flex-wrap gap-2">{historyRanges.map(value => <Button key={value} variant={range === value ? 'default' : 'outline'} aria-pressed={range === value} disabled={busy || loading} onClick={() => setRange(value)}>{value === 'all' ? 'Todo' : `${value} días`}</Button>)}</div>
-        {detail.history.length ? <div role="img" aria-label={`Historial con ${detail.history.length} precios válidos, meta y referencia`} className="mt-5 h-64 min-w-0"><Suspense fallback={<p className="text-sm text-muted-foreground">Cargando gráfico…</p>}><ProductHistory detail={group?{...detail,product:{...p,reference_price:group.reference_price,target_type:'price',target_price:group.target}}:detail} /></Suspense></div>
+        {detail.history.length ? <div role="img" aria-label={`Historial con ${detail.history.length} precios válidos, meta y referencia`} className="mt-5 h-64 min-w-0"><Suspense fallback={<><Skeleton className="h-full" /><p className="sr-only">Cargando gráfico…</p></>}><ProductHistory detail={group?{...detail,product:{...p,reference_price:group.reference_price,target_type:'price',target_price:group.target}}:detail} /></Suspense></div>
           : <p className="py-10 text-sm text-muted-foreground">No hay precios válidos en este rango. Prueba «Todo» o solicita una revisión.</p>}
         <p className="mt-3 text-xs text-muted-foreground">Línea verde: precio · discontinua verde: meta · discontinua gris: referencia.</p>
       </div>
-      <div className="min-w-0 rounded-2xl border border-border bg-card p-5">
-        <h2 className="text-lg font-medium">Estadísticas históricas</h2><p className="mt-2 text-xs text-muted-foreground">{stats.count} lecturas válidas de {p.currency || 'moneda sin confirmar'} · todo el historial</p>
-        <dl className="mt-5 grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3 xl:grid-cols-1">{([['Mínimo', stats.min], ['Máximo', stats.max], ['Promedio', stats.average]] as const).map(([label, value]) => <div key={label}><dt className="text-sm text-muted-foreground">{label}</dt><dd className="mt-1 text-xl tabular-nums [overflow-wrap:anywhere]">{value === null ? 'Sin datos' : formatPrice(value, p.currency)}</dd></div>)}</dl>
+      <div className="min-w-0 rounded-xl border border-border bg-card p-5">
+        <h2 className="text-[17px] font-semibold">Estadísticas históricas</h2><p className="mt-2 text-xs text-muted-foreground">{stats.count} lecturas válidas de {p.currency || 'moneda sin confirmar'} · todo el historial</p>
+        <dl className="mt-5 grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-3 xl:grid-cols-1">{([['Mínimo', stats.min], ['Máximo', stats.max], ['Promedio', stats.average]] as const).map(([label, value]) => <div key={label}><dt className="text-xs text-subtle-foreground">{label}</dt><dd className="mt-1 text-[17px] font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere]">{value === null ? <><span aria-hidden="true" className="text-subtle-foreground">—</span><span className="sr-only">Sin datos</span></> : formatPrice(value, p.currency)}</dd></div>)}</dl>
         <p className="mt-5 text-sm text-muted-foreground">Tendencia del descuento: {stats.discount_change === null ? 'se necesitan dos lecturas y una referencia positiva.' : `${stats.discount_change > 0 ? '+' : ''}${new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 }).format(stats.discount_change)} puntos porcentuales desde la primera lectura.`}</p>
       </div>
       </div>
-      {reviewQueued !== undefined && <p className="mt-3 text-xs text-muted-foreground">Revisión pendiente de resultado. Si falla, actualiza el historial antes de reintentar. <button className="underline" disabled={busy || loading} onClick={() => setReviewQueued(undefined)}>Permitir otro intento</button></p>}
+      {reviewQueued !== undefined && <p className="mt-3 text-xs text-muted-foreground">Revisión pendiente de resultado. Si falla, actualiza el historial antes de reintentar. <button type="button" className="rounded-sm text-foreground underline decoration-border-strong underline-offset-4 outline-none hover:decoration-foreground focus-visible:focus-ring disabled:opacity-50" disabled={busy || loading} onClick={() => setReviewQueued(undefined)}>Permitir otro intento</button></p>}
       {deleting && <div role="group" aria-label="Confirmar eliminación" className="mt-5 rounded-xl border border-destructive/40 p-5"><p className="text-sm">Se eliminarán el producto y todo su historial de precios.</p><div className="mt-4 flex flex-wrap gap-3"><Button disabled={busy} onClick={() => void act('delete')}>Eliminar definitivamente</Button><Button variant="outline" disabled={busy} onClick={() => setDeleting(false)}>Cancelar</Button></div></div>}
-      {edit && <form onSubmit={save} aria-label="Editar producto" className="mt-5 grid min-w-0 max-w-4xl gap-5 rounded-2xl border border-border bg-card p-5 sm:grid-cols-2">
+      {edit && <form onSubmit={save} aria-label="Editar producto" className="mt-5 grid min-w-0 max-w-4xl gap-5 rounded-xl border border-border bg-card p-5 sm:grid-cols-2">
         <label className="min-w-0 text-sm">Nombre<Input className="mt-2" value={edit.name} disabled={busy} required maxLength={300} onChange={e => setEdit({ ...edit, name: e.target.value })} /></label>
         <label className="min-w-0 text-sm">Precio de referencia ({p.currency})<Input className="mt-2" inputMode="decimal" value={edit.reference_price} disabled={busy||!!group} required onChange={e => setEdit({ ...edit, reference_price: e.target.value.replace(',', '.') })} /></label>
         <label className="min-w-0 text-sm">Tipo de meta<select className={selectClass} value={edit.target_type} disabled={busy||!!group} onChange={e => setEdit({ ...edit, target_type: e.target.value as ProductEdit['target_type'], target_value: '' })}><option value="price">Precio máximo</option><option value="percent">Descuento porcentual</option></select></label>
-        <label className="min-w-0 text-sm">{edit.target_type === 'percent' ? 'Descuento (%)' : `Precio meta (${p.currency})`}<Input className="mt-2" inputMode="decimal" value={edit.target_value} disabled={busy||!!group} required onChange={e => setEdit({ ...edit, target_value: e.target.value.replace(',', '.') })} />{equivalent && <span className="mt-2 block text-xs text-primary">Equivale a {formatPrice(Number(equivalent), p.currency)}</span>}</label>
+        <label className="min-w-0 text-sm">{edit.target_type === 'percent' ? 'Descuento (%)' : `Precio meta (${p.currency})`}<Input className="mt-2" inputMode="decimal" value={edit.target_value} disabled={busy||!!group} required onChange={e => setEdit({ ...edit, target_value: e.target.value.replace(',', '.') })} />{equivalent && <span className="mt-1.5 block text-xs text-muted-foreground tabular-nums">Equivale a {formatPrice(Number(equivalent), p.currency)}</span>}</label>
         <label className="min-w-0 text-sm">Intervalo<select className={selectClass} value={edit.check_interval_hours} disabled={busy} onChange={e => setEdit({ ...edit, check_interval_hours: Number(e.target.value) })}>{intervals.map(hours => <option key={hours} value={hours}>Cada {hours} horas</option>)}</select></label>
         <div className="flex flex-wrap gap-3 sm:col-span-2"><Button type="submit" disabled={busy}>Guardar cambios</Button><Button type="button" variant="outline" disabled={busy} onClick={() => setEdit(null)}>Cancelar edición</Button></div>
       </form>}
-      <div className="mt-8"><h2 className="text-lg font-medium">Últimas revisiones</h2><p className="mt-2 text-xs text-muted-foreground">Los intentos fallidos y lecturas de otras monedas no cuentan en las estadísticas.</p>
+      <div className="mt-8"><h2 className="text-[17px] font-semibold">Últimas revisiones</h2><p className="mt-2 text-xs text-muted-foreground">Los intentos fallidos y lecturas de otras monedas no cuentan en las estadísticas.</p>
         {detail.reviews.length ? <ol className="mt-5 divide-y divide-border">{detail.reviews.map(review => <li key={review.id} className="flex min-w-0 flex-wrap justify-between gap-2 py-4 text-sm"><div className="min-w-0"><time dateTime={review.checked_at} className="text-muted-foreground">{new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(review.checked_at))}</time><p className="mt-1 [overflow-wrap:anywhere]">{review.ok ? 'Lectura válida' : `Lectura fallida${review.error_code ? ` · ${review.error_code}` : ''}`}{review.method ? ` · ${review.method}` : ''}</p></div><span className="tabular-nums [overflow-wrap:anywhere]">{formatPrice(review.price, review.currency)}</span></li>)}</ol> : <p className="mt-4 text-sm text-muted-foreground">Todavía no hay revisiones.</p>}
       </div>
     </>}

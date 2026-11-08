@@ -4,8 +4,10 @@ import type { ProductSummary } from '../lib/products';
 import { ProductThumbnail } from './ProductThumbnail';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { selectClass as baseSelectClass } from './ui/select';
+import { cn } from '../lib/utils';
 
-const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3';
+const selectClass = cn('mt-1.5', baseSelectClass);
 
 export function PurchaseOptionBuilder({ configuration: c, products, onChange, initialNeedIds = [], onComparisonDone, onAddProduct }: {
   configuration: Configuration;
@@ -80,16 +82,16 @@ export function PurchaseOptionBuilder({ configuration: c, products, onChange, in
     {!c.needs.length && <p className="text-sm text-muted-foreground">Añade primero lo que necesitas en «Qué necesitas».</p>}
 
     <dialog ref={dialog} aria-labelledby="compare-product-title" onKeyDown={isolateEnter} onCancel={e => { e.preventDefault(); close(); }} onClose={onComparisonDone}
-      className="m-auto max-h-[88dvh] w-[min(94vw,42rem)] max-w-none overflow-y-auto rounded-2xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/70">
+      className="m-auto max-h-[88dvh] w-[min(94vw,42rem)] max-w-none overflow-y-auto rounded-xl border border-border bg-card p-0 text-foreground shadow-2xl backdrop:bg-black/70">
       <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-card p-5">
-        <div><p className="text-xs font-medium uppercase tracking-wide text-primary">Nueva opción</p><h2 id="compare-product-title" className="mt-1 text-xl font-semibold">Elige con qué comparar</h2></div>
-        <button type="button" onClick={close} aria-label="Cerrar" className="min-h-11 min-w-11 rounded-lg border border-border text-xl hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring">×</button>
+        <div><p className="font-mono text-xs text-subtle-foreground">Nueva opción</p><h2 id="compare-product-title" className="mt-1 text-[17px] font-semibold">Elige con qué comparar</h2></div>
+        <button type="button" onClick={close} aria-label="Cerrar" className="inline-flex size-11 items-center justify-center rounded-lg border border-border-strong text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground outline-none focus-visible:focus-ring">×</button>
       </div>
       <div className="space-y-5 p-5">
         {!c.needs.length ? <p className="text-sm">Primero añade una necesidad en el paso «Qué necesitas».</p> : <>
           {c.needs.length > 1 && <label className="block text-sm">Comparar para<select className={selectClass} value={need?.id ?? ''} onChange={e => { setNeedId(e.target.value); setProductId(''); setError(''); }}>{c.needs.map(n => <option key={n.id} value={n.id}>{n.name} · {formatQuantity(n.required_quantity)} {displayUnit(n.unit)}</option>)}</select></label>}
           {productId ? <>
-            <div className="flex items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 p-3">
+            <div className="flex items-center gap-3 rounded-xl border border-border-strong bg-elevated p-3">
               <ProductThumbnail src={selectedProduct?.image_url ?? null} alt="" className="size-16" />
               <div className="min-w-0 flex-1"><p className="font-medium [overflow-wrap:anywhere]">{selectedProduct?.name || selectedProduct?.domain}</p><p className="text-sm text-muted-foreground">{selectedProduct?.domain} · {productPrice(selectedProduct)}</p></div>
               <Button type="button" variant="outline" onClick={() => { setProductId(''); setError(''); }}>Cambiar</Button>
@@ -100,17 +102,17 @@ export function PurchaseOptionBuilder({ configuration: c, products, onChange, in
             </div>
             <p className="text-xs text-muted-foreground">La cantidad sirve para cubrir {need?.name}: {formatQuantity(need?.required_quantity ?? '1')} {displayUnit(need?.unit ?? 'unit')}. Scrappy compara el total de la compra con precios válidos de las tiendas.</p>
             <label className="flex min-h-11 items-center gap-3 text-sm"><input type="checkbox" checked={reference} onChange={e => setReference(e.target.checked)} />Tomar esta opción como mi compra de referencia</label>
-            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+            {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/8 px-3.5 py-3 text-sm leading-relaxed text-foreground empty:sr-only">{error}</p>}
             <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="outline" onClick={close}>Cancelar</Button><Button type="button" disabled={c.offers.length >= 64 || c.alternatives.length >= 128} onClick={add}>Añadir al carrito</Button></div>
           </> : <>
             <label className="block text-sm">Buscar en tus productos<Input className="mt-2" type="search" placeholder="Nombre o tienda" value={search} onChange={e => setSearch(e.target.value)} /></label>
             <ul className="max-h-[42dvh] space-y-2 overflow-y-auto pr-1" aria-label="Productos disponibles para comparar">
               {visibleProducts.map(p => {
                 const exists = c.offers.some(o => o.product_id === p.id);
-                return <li key={p.id}><button type="button" disabled={exists} onClick={() => { setProductId(p.id); setError(''); }} className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border p-3 text-left transition-colors hover:border-primary/60 hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-60">
+                return <li key={p.id}><button type="button" disabled={exists} onClick={() => { setProductId(p.id); setError(''); }} className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-border p-3 text-left transition-colors hover:border-border-strong hover:bg-elevated outline-none focus-visible:focus-ring disabled:cursor-not-allowed disabled:opacity-60">
                   <ProductThumbnail src={p.image_url} alt="" className="size-16" />
                   <span className="min-w-0 flex-1"><span className="block font-medium [overflow-wrap:anywhere]">{p.name || p.domain}</span><span className="mt-1 block text-sm text-muted-foreground">{p.domain} · {productPrice(p)}</span></span>
-                  <span className="shrink-0 text-xs text-primary">{exists ? 'Ya añadido' : 'Elegir →'}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{exists ? 'Ya añadido' : 'Elegir →'}</span>
                 </button></li>;
               })}
               {!visibleProducts.length && <li className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">No hay productos que coincidan con la búsqueda.</li>}

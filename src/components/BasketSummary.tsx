@@ -6,7 +6,7 @@ export function BasketSummary({ basket }: { basket: Basket }) {
   return <section aria-label="Resumen de canasta" className="mb-5 min-w-0 rounded-xl border border-border bg-card p-4 [overflow-wrap:anywhere]">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h2 className="text-sm font-medium">Canasta · {basket.currency}</h2><p className="mt-2 text-2xl font-semibold tabular-nums">{money(basket.total)}</p><p className="mt-1 text-xs text-muted-foreground">{basket.complete ? 'Total actual' : 'Total estimado / subtotal conocido'} · gasto máximo {money(basket.budget)}</p></div>
-      <span className={reached ? 'text-sm text-primary' : 'text-sm text-muted-foreground'}>{!basket.complete ? 'Canasta incompleta' : reached ? 'Gasto objetivo alcanzado' : basket.budget === null ? 'Sin meta agregada' : 'Sobre el gasto máximo'}</span>
+      <span className={reached ? 'text-sm font-medium text-good' : 'text-sm text-muted-foreground'}>{!basket.complete ? 'Canasta incompleta' : reached ? 'Gasto objetivo alcanzado' : basket.budget === null ? 'Sin meta agregada' : 'Sobre el gasto máximo'}</span>
     </div>
     <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{basket.valid_count} de {basket.product_count} precios válidos en {basket.currency}. Cantidades de cada línea, incluidos los pausados. {!basket.complete && 'Sin aviso hasta completar precios y conversión vigentes.'}</p>
     {basket.reference_total !== undefined && <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">

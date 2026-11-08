@@ -96,7 +96,7 @@ export function PurchaseBasketScreen({ id, name = 'Tu canasta', onDirtyChange, o
     void loadProducts(controller.signal).then(() => { if (!controller.signal.aborted) { setAddingProduct(false); setNotice('Producto añadido. Ya puedes elegirlo en las opciones de compra; tu borrador se conserva.'); } }).catch(e => { if (!controller.signal.aborted) { setAddingProduct(false); failure(e); } }).finally(() => { if (operation.current === controller) { operation.current = null; setBusy(false); } });
   }} /> : null;
   if (data?.mode === 'legacy') return <BasketDetailScreen id={id} onBack={onBack} onExpired={onExpired}>
-    <section className="mb-5 rounded-xl border border-primary/30 bg-primary/5 p-5" aria-label="Configurar comparación de compra">
+    <section className="mb-5 rounded-xl border border-border-strong bg-elevated p-4 sm:p-5" aria-label="Configurar comparación de compra">
       <h2 className="font-medium">¿Quieres comparar formas de cubrir tu compra?</h2>
       <p className="mt-2 mb-4 text-sm text-muted-foreground">Configura necesidades, productos o combos para esta canasta. Revisar la preparación no activa nada; se aplicará solo al confirmar.</p>
       <Button variant="outline" disabled={activationDirty || activationBusy} onClick={() => setShowActivation(v => !v)} aria-expanded={showActivation} aria-controls="purchase-activation">{showActivation ? 'Cerrar configuración' : 'Configurar comparación'}</Button>
@@ -104,21 +104,21 @@ export function PurchaseBasketScreen({ id, name = 'Tu canasta', onDirtyChange, o
     </section>
   </BasketDetailScreen>;
   return <>{addProductForm}<section hidden={addingProduct} aria-busy={busy} className="mx-auto w-full min-w-0 max-w-7xl space-y-5">
-    <Button variant="outline" disabled={busy} onClick={onBack}>← Volver a Canastas</Button>
-    <div><h1 className="text-3xl font-semibold">{name}</h1><p className="mt-2 text-sm text-muted-foreground">Tu compra y las opciones para cubrirla.</p></div>
-    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    <p role="status" className="text-sm text-primary">{busy ? 'Consultando o guardando…' : notice}</p>
+    <Button variant="ghost" size="sm" className="-ml-3" disabled={busy} onClick={onBack}>← Volver a Canastas</Button>
+    <div><h1 className="text-[28px] leading-tight font-semibold tracking-tight">{name}</h1><p className="mt-2 text-sm text-muted-foreground">Tu compra y las opciones para cubrirla.</p></div>
+    {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/8 px-3.5 py-3 text-sm leading-relaxed text-foreground empty:sr-only">{error}</p>}
+    <p role="status" className="text-sm text-muted-foreground empty:sr-only">{busy ? 'Consultando o guardando…' : notice}</p>
     <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={busy} onClick={() => void consult()}>Actualizar resultado</Button>{locked && data?.configuration && <Button variant="outline" disabled={busy || needsConsult} onClick={() => { setDraft(publication(data.configuration!)); setBase(data.version); setLocked(false); setNotice('Versión guardada cargada; borrador anterior descartado.'); }}>Descartar borrador y cargar versión guardada</Button>}</div>
     {data && <PurchaseResults data={data} products={products} onCompare={needIds => { setComparisonNeedIds(needIds); setEditing(true); }} />}
     {draft && <div className="flex flex-wrap gap-2"><Button disabled={busy} onClick={() => setEditing(v => !v)} aria-expanded={editing} aria-controls="purchase-editor">{editing ? 'Cerrar editor' : 'Editar mi compra'}</Button><Button variant="outline" disabled={busy} onClick={() => setShowHistory(v => !v)} aria-expanded={showHistory}>{showHistory ? 'Cerrar historial' : 'Ver historial de la canasta'}</Button></div>}
-    {dirty && <p role="status" className="text-sm text-primary">Tienes cambios sin guardar. El resultado corresponde a la última configuración guardada.</p>}
+    {dirty && <p role="status" className="text-sm text-muted-foreground empty:sr-only">Tienes cambios sin guardar. El resultado corresponde a la última configuración guardada.</p>}
     {showHistory && <BasketDetailScreen id={id} historyOnly onBack={() => setShowHistory(false)} onExpired={onExpired} />}
-    {draft && <form id="purchase-editor" hidden={!editing} className="max-w-4xl space-y-5 rounded-2xl border border-border bg-card p-4 sm:p-6" onSubmit={e => { e.preventDefault(); void save(); }}>
+    {draft && <form id="purchase-editor" hidden={!editing} className="max-w-4xl space-y-5 rounded-xl border border-border bg-card p-4 sm:p-6" onSubmit={e => { e.preventDefault(); void save(); }}>
       <PurchaseEditor value={draft} products={products} onChange={setDraft} disabled={busy || locked} onAddProduct={() => setAddingProduct(true)} comparisonNeedIds={comparisonNeedIds} onComparisonDone={() => setComparisonNeedIds([])} />
       {locked && <p className="text-sm text-destructive">Guardado bloqueado. Consulta el estado antes de continuar.</p>}
       <Button type="submit" disabled={busy || locked}>Guardar cambios</Button>
     </form>}
-    {data && <details className="space-y-3 rounded-2xl border border-border p-4 [overflow-wrap:anywhere]"><summary className="cursor-pointer py-2 text-lg font-medium">Actividad y avisos</summary><div className="space-y-3"><h2 className="text-base font-medium">Avisos y recibos por canal</h2><p className="text-xs text-muted-foreground">Historial de entregas; consultar no reenvía avisos. Un resultado ambiguo no confirma recepción.</p>{!data.events.length && <p className="text-sm">Sin avisos registrados.</p>}
+    {data && <details className="space-y-3 rounded-xl border border-border p-4 [overflow-wrap:anywhere]"><summary className="cursor-pointer py-2 text-lg font-medium">Actividad y avisos</summary><div className="space-y-3"><h2 className="text-base font-medium">Avisos y recibos por canal</h2><p className="text-xs text-muted-foreground">Historial de entregas; consultar no reenvía avisos. Un resultado ambiguo no confirma recepción.</p>{!data.events.length && <p className="text-sm">Sin avisos registrados.</p>}
       {data.events.map(e => <article key={e.id} className="space-y-2 border-t border-border pt-3"><h3 className="text-sm">Versión {e.version} · {e.reasons === 'budget' ? 'Presupuesto' : e.reasons === 'winner' ? 'Cambio de ganador' : 'Presupuesto y cambio de ganador'} · {deliveryStatus(e.status)}</h3>{e.deliveries.map(d => <div key={d.channel} className="text-sm"><p>{d.channel === 'email' ? 'Correo' : d.channel}: {deliveryStatus(d.status)}</p><details><summary className="cursor-pointer py-3">Ver recibo de {d.channel}</summary><pre className="whitespace-pre-wrap break-all text-xs">{d.receipt === null ? 'Sin recibo' : JSON.stringify(d.receipt, null, 2)}</pre></details></div>)}</article>)}
       {data.has_more && <Button variant="outline" disabled={busy} onClick={() => void consult(true)}>Cargar más recibos</Button>}
     </div></details>}

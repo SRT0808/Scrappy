@@ -38,7 +38,7 @@ export function PwaControls() {
           <Button onClick={update} disabled={busy || !online}>Actualizar</Button>
           <Button variant="outline" onClick={() => setNeedRefresh(false)} disabled={busy}>Más tarde</Button>
         </div>}
-        {error && <p role="alert" className="text-destructive">{error}</p>}
+        {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/8 px-3.5 py-3 text-sm leading-relaxed text-foreground empty:sr-only">{error}</p>}
       </div>
     </aside>
   );
