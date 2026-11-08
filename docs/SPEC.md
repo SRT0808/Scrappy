@@ -227,7 +227,7 @@ Si GitHub Actions deja de ejecutar el cron, nadie avisaría. Por eso, al final d
 
 **Estilo (Decidido): oscuro y minimalista, con cuidado en el detalle.**
 
-- Solo tema oscuro en la v1. Fondo casi negro, superficies con bordes sutiles, un único color de acento (sugerido: verde esmeralda, asociado a «oferta»), tipografía Inter o Geist, números tabulares para precios, mucho espacio en blanco.
+- Solo tema oscuro en la v1. Fondo casi negro con grises neutros y bordes sutiles; marca monocroma (acción principal clara sobre oscuro). El color se reserva para señales: verde = en meta o bajó de precio, ámbar = desactualizado o estimado, rojo = fallo, azul = en proceso (revisión de diseño del 2026-11-08, ver `docs/decisions.md`). Tipografía Geist, con Geist Mono para datos de máquina (dominio, hora, método); números tabulares para precios, mucho espacio en blanco.
 - Animaciones breves (200 ms o menos) con Motion; respetar `prefers-reduced-motion`.
 - **Mobile-first**, responsive, instalable como PWA. Estados de carga con skeletons, estados vacíos con mensaje útil, errores comprensibles.
 
