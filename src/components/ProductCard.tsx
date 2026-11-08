@@ -1,6 +1,9 @@
 import { lazy, Suspense, useState, type DragEvent } from 'react';
 import { productMetrics, type ProductSummary } from '../lib/products';
+import { ArrowDown, ArrowUp, Check, Clock3, ExternalLink, ImageOff, Pause, TriangleAlert } from 'lucide-react';
 import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { cn } from '../lib/utils';
 
 const statuses = { active: 'Activo', paused: 'Pausado', error: 'Error', pending_confirmation: 'Por confirmar' };
 const ProductSparkline = lazy(() => import('./ProductSparkline'));
@@ -25,47 +28,53 @@ export function ProductCard({ product, onDetail, selection }: { product: Product
   const title = product.name || product.domain;
   const stale = staleReading(product);
   const updated = product.last_success_at ? new Intl.DateTimeFormat('es-PE', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(product.last_success_at)) : null;
-  return <article aria-labelledby={`product-${product.id}`} className={`relative isolate min-w-0 overflow-hidden rounded-2xl border bg-card transition-colors motion-safe:duration-150 ${selection?.selected ? 'border-primary ring-2 ring-primary/40' : 'border-border hover:border-primary/50'}`}>
-    {selection && <button type="button" draggable onDragStart={selection.onDragStart} onClick={selection.onToggle} aria-pressed={selection.selected} aria-label={`${selection.selected ? 'Quitar de la selección' : 'Seleccionar'} ${title} · ${product.domain}`} title="Seleccionar esta tarjeta" className="absolute inset-0 z-0 w-full cursor-pointer rounded-2xl focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring">
-      <span aria-hidden="true" className={`absolute top-3 right-3 flex size-6 items-center justify-center rounded-full border text-xs shadow-sm ${selection.selected ? 'border-primary bg-primary text-primary-foreground' : 'border-muted-foreground/50 bg-background/80 text-transparent'}`}>{selection.selected ? '✓' : '✓'}</span>
+  const remaining = !reached && target !== null && product.last_price !== null && product.last_price > target ? product.last_price - target : null;
+  const dimmed = product.status === 'paused' || product.status === 'error' || !!stale;
+  return <article aria-labelledby={`product-${product.id}`} className={cn('relative isolate min-w-0 rounded-xl border bg-card transition-colors motion-safe:duration-150', selection?.selected ? 'border-foreground ring-1 ring-foreground' : 'border-border hover:border-border-strong')}>
+    {selection && <button type="button" draggable onDragStart={selection.onDragStart} onClick={selection.onToggle} aria-pressed={selection.selected} aria-label={`${selection.selected ? 'Quitar de la selección' : 'Seleccionar'} ${title} · ${product.domain}`} title="Seleccionar esta tarjeta" className="absolute inset-0 z-0 w-full cursor-pointer rounded-xl outline-none focus-visible:focus-ring">
+      <span aria-hidden="true" className={cn('absolute top-3 right-3 flex size-5 items-center justify-center rounded-md border', selection.selected ? 'border-foreground bg-foreground text-background' : 'border-border-strong bg-background/80 text-transparent')}><Check className="size-3.5" strokeWidth={3} /></span>
     </button>}
-    <div className={`flex ${product.image_url && !imageFailed ? 'h-40' : 'h-24'} items-center justify-center border-b border-border bg-muted/40 p-5`}>
-      {product.image_url && !imageFailed ? <img src={product.image_url} alt={title} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-contain" onError={() => setImageFailed(true)} />
-        : <div className="flex flex-col items-center gap-2 text-muted-foreground"><svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"><rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8" cy="8" r="1.5" /><path d="m3 17 5-5 4 4 4-6 5 7" /></svg><span className="text-xs">Sin imagen</span></div>}
-    </div>
-    <div className="pointer-events-none relative z-10 space-y-5 p-5">
-
-      <div>
-        <div className="mb-3 flex flex-wrap gap-2 text-xs">
-          <span className={`rounded-full border px-2.5 py-1 ${product.status === 'error' ? 'border-destructive/40 text-destructive' : 'border-border text-muted-foreground'}`}>{statuses[product.status]}</span>
-          {stale && <span className="rounded-full border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-amber-200">{staleCopy[stale].badge}</span>}
-          {reached && <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-primary">Meta alcanzada</span>}
+    <div className="pointer-events-none relative z-10 flex flex-col gap-3 p-3.5 sm:p-4">
+      <div className={cn('flex items-start gap-3', selection && 'pr-7')}>
+        <div className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
+          {product.image_url && !imageFailed ? <img src={product.image_url} alt={title} loading="lazy" referrerPolicy="no-referrer" className="h-full w-full object-contain" onError={() => setImageFailed(true)} />
+            : <span className="text-subtle-foreground"><ImageOff aria-hidden="true" className="size-5" strokeWidth={1.5} /><span className="sr-only">Sin imagen</span></span>}
         </div>
-        <h2 id={`product-${product.id}`} className="text-lg leading-snug font-medium [overflow-wrap:anywhere]">{title}</h2>
-        <p className="mt-2 text-xs text-muted-foreground [overflow-wrap:anywhere]">{product.domain}</p>
+        <div className="min-w-0 flex-1 space-y-1">
+          <h2 id={`product-${product.id}`} className="line-clamp-2 text-[15px] leading-snug font-medium [overflow-wrap:anywhere]">{title}</h2>
+          <p className="truncate font-mono text-xs text-subtle-foreground">{product.domain}</p>
+        </div>
+        <div className="shrink-0 space-y-1 text-right">
+          <p className={cn('text-[17px] font-semibold tracking-tight tabular-nums', dimmed ? 'text-muted-foreground' : reached ? 'text-good' : 'text-foreground')}>{formatPrice(product.last_price, product.currency)}</p>
+          {variation === null ? <p className="text-xs text-subtle-foreground">Sin referencia</p>
+            : <p className={cn('inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums', variation < 0 ? 'text-good' : 'text-muted-foreground')}>
+              {variation < 0 ? <ArrowDown aria-hidden="true" className="size-3" strokeWidth={3} /> : variation > 0 ? <ArrowUp aria-hidden="true" className="size-3" strokeWidth={3} /> : null}
+              {`${new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 }).format(Math.abs(variation))} %`}<span className="sr-only">{variation < 0 ? ' por debajo de la referencia' : variation > 0 ? ' por encima de la referencia' : ' igual a la referencia'}</span>
+            </p>}
+        </div>
       </div>
-      <div>
-        <p className="text-xs text-muted-foreground">Último precio conocido</p>
-        <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums [overflow-wrap:anywhere]">{formatPrice(product.last_price, product.currency)}</p>
-        <p className={`mt-2 text-sm tabular-nums ${variation !== null && variation < 0 ? 'text-primary' : 'text-muted-foreground'}`}>
-          {variation === null ? 'Sin referencia comparable' : `${variation > 0 ? '+' : ''}${new Intl.NumberFormat('es-PE', { maximumFractionDigits: 1 }).format(variation)} % frente a referencia`}
-        </p>
-        {product.reference_price !== null && <p className="mt-1 text-xs text-muted-foreground tabular-nums">Referencia: {formatPrice(product.reference_price, product.currency)}</p>}
+      <div className="flex flex-wrap items-center gap-1.5 empty:hidden">
+        {product.status === 'active' ? <span className="sr-only">{statuses.active}</span>
+          : <Badge tone={product.status === 'error' ? 'destructive' : product.status === 'pending_confirmation' ? 'info' : 'neutral'}>{product.status === 'error' ? <TriangleAlert aria-hidden="true" /> : product.status === 'paused' ? <Pause aria-hidden="true" /> : null}{statuses[product.status]}</Badge>}
+        {stale && <Badge tone="warn"><Clock3 aria-hidden="true" />{staleCopy[stale].badge}</Badge>}
+        {reached && <Badge tone="good"><Check aria-hidden="true" strokeWidth={3} />Meta alcanzada</Badge>}
       </div>
-      <div>
-        <div className="flex flex-wrap justify-between gap-2 text-sm tabular-nums"><span className="text-muted-foreground">Tu meta</span><span>{target === null ? 'Sin meta' : formatPrice(target, product.currency)}{product.target_type === 'percent' && product.target_percent !== null ? ` (−${product.target_percent} %)` : ''}</span></div>
-        {progress !== null ? <><div role="progressbar" aria-label={`Progreso hacia la meta de ${title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${progress}%` }} /></div><details className="pointer-events-auto mt-2 text-xs text-muted-foreground"><summary className="cursor-pointer py-2">Cómo se calcula el progreso</summary><p>{Math.round(progress)} % del recorrido desde la referencia</p></details></>
-          : <p className="mt-3 text-xs text-muted-foreground">Sin datos para calcular el progreso.</p>}
+      <div className="flex items-end gap-3">
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <p className="flex flex-wrap justify-between gap-x-2 text-xs tabular-nums"><span className="text-muted-foreground">Tu meta</span><span>{target === null ? 'Sin meta' : formatPrice(target, product.currency)}{product.target_type === 'percent' && product.target_percent !== null ? ` (−${product.target_percent} %)` : ''}</span></p>
+          {progress !== null ? <div role="progressbar" aria-label={`Progreso hacia la meta de ${title}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)} className="h-1 overflow-hidden rounded-full bg-muted"><div className={cn('h-full rounded-full', reached ? 'bg-good' : 'bg-foreground')} style={{ width: `${progress}%` }} /></div>
+            : <p className="text-xs text-subtle-foreground">Sin datos para calcular el progreso.</p>}
+          {remaining !== null && <p className="text-xs text-muted-foreground tabular-nums">Faltan {formatPrice(remaining, product.currency)} para tu meta</p>}
+        </div>
+        {product.history.length > 1 ? <div role="img" aria-label={`Evolución del precio de ${title}: de ${formatPrice(product.history[0].price, product.currency)} a ${formatPrice(product.history[product.history.length - 1].price, product.currency)}`} className="h-8 w-20 shrink-0">
+          <Suspense fallback={<div className="h-full rounded bg-elevated motion-safe:animate-pulse" />}><ProductSparkline history={product.history} /></Suspense>
+        </div> : <p className="w-24 shrink-0 text-right text-[11px] leading-tight text-subtle-foreground">{product.history.length ? 'La tendencia aparecerá tras otra lectura.' : 'Todavía no hay historial.'}</p>}
       </div>
-      <div>
-        <p className="text-xs text-muted-foreground">Últimas {product.history.length} lecturas válidas</p>
-        {product.history.length > 1 ? <div role="img" aria-label={`Evolución del precio de ${title}: de ${formatPrice(product.history[0].price, product.currency)} a ${formatPrice(product.history[product.history.length - 1].price, product.currency)}`} className="mt-2 h-12 min-w-0">
-          <Suspense fallback={<div className="h-full rounded bg-muted motion-safe:animate-pulse" />}><ProductSparkline history={product.history} /></Suspense>
-        </div> : <p className="mt-2 text-xs text-muted-foreground">{product.history.length ? 'La tendencia aparecerá tras otra lectura.' : 'Todavía no hay historial.'}</p>}
+      <p className={cn('text-xs leading-relaxed', stale ? 'text-warn' : 'text-subtle-foreground')}>{updated ? <>Precio leído el <time dateTime={product.last_success_at!}>{updated}</time>.</> : 'Aún no hay una lectura válida.'}{product.status === 'error' && ' La última revisión falló.'}{product.status === 'paused' && ' Las revisiones están pausadas.'}{stale && staleCopy[stale].text}</p>
+      <div className="pointer-events-auto grid grid-cols-2 gap-2">
+        {onDetail && <Button size="sm" variant="outline" onClick={onDetail} aria-label={`Ver detalle de ${title}`}>Ver detalle</Button>}
+        <a href={product.url} target="_blank" rel="noopener noreferrer" className={cn('inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-[13px] font-medium text-muted-foreground transition-colors outline-none hover:bg-elevated hover:text-foreground focus-visible:focus-ring', !onDetail && 'col-span-2')} aria-label={`Abrir tienda de ${title}`}>Abrir tienda <ExternalLink aria-hidden="true" className="size-3.5" /></a>
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground">{updated ? <>Precio leído el <time dateTime={product.last_success_at!}>{updated}</time>.</> : 'Aún no hay una lectura válida.'}{product.status === 'error' && ' La última revisión falló.'}{product.status === 'paused' && ' Las revisiones están pausadas.'}{stale && staleCopy[stale].text}</p>
-      {onDetail && <div className="pointer-events-auto"><Button className="w-full" variant="outline" onClick={onDetail} aria-label={`Ver detalle de ${title}`}>Ver detalle</Button></div>}
-      <a href={product.url} target="_blank" rel="noopener noreferrer" className="pointer-events-auto flex min-h-11 items-center justify-center rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring" aria-label={`Abrir tienda de ${title}`}>Abrir tienda <span aria-hidden="true" className="ml-2">↗</span></a>
     </div>
   </article>;
 }

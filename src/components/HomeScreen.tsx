@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check, Package, Plus, RefreshCw, Settings, ShoppingBasket, SlidersHorizontal } from 'lucide-react';
 import { Button } from './ui/button';
+import { EmptyState } from './ui/empty-state';
+import { Logo } from './ui/logo';
+import { Notice } from './ui/notice';
+import { selectClass as baseSelectClass } from './ui/select';
+import { Skeleton } from './ui/skeleton';
+import { cn } from '../lib/utils';
 import { AddProduct } from './AddProduct';
 import { ListsScreen } from './ListsScreen';
 import { ProductCard, staleReading } from './ProductCard';
@@ -46,7 +53,7 @@ function routeUrl(route: Route) {
   return url.pathname + url.search + url.hash;
 }
 const currentUrl = () => window.location.pathname + window.location.search + window.location.hash;
-const selectClass = 'mt-2 h-12 w-full min-w-0 rounded-lg border border-input bg-card px-3 text-sm focus-visible:outline-2 focus-visible:outline-ring';
+const selectClass = cn('mt-1.5', baseSelectClass);
 
 export function HomeScreen(props: Props) {
   const [groups,setGroups]=useState<ProductGroup[]>([]);
@@ -165,6 +172,11 @@ export function HomeScreen(props: Props) {
       : sort === 'discount' ? (productMetrics(a).variation ?? Infinity) - (productMetrics(b).variation ?? Infinity)
         : Date.parse(b.created_at) - Date.parse(a.created_at));
   const loading = productsBusy;
+  const signals = [
+    { filter: 'reached' as const, label: 'En meta', dot: 'bg-good', count: products.filter(p => !groupedIds.has(p.id) && productMetrics(p).reached).length },
+    { filter: 'stale' as const, label: 'Desactualizados', dot: 'bg-warn', count: products.filter(p => !groupedIds.has(p.id) && staleReading(p) !== null).length },
+    { filter: 'error' as const, label: 'Con error', dot: 'bg-destructive', count: products.filter(p => !groupedIds.has(p.id) && p.status === 'error').length },
+  ].filter(signal => signal.count > 0);
   const groupEditorError = productsError || props.sessionError;
   const visibleGroups=groups.filter(g=>filter==='all'||filter==='reached'&&!!bestGroupOffer(g)&&bestGroupOffer(g)!.price!<=g.target
     ||filter==='paused'&&g.paused||filter==='active'&&!g.paused&&!!bestGroupOffer(g)||filter==='error'&&!bestGroupOffer(g))
@@ -187,80 +199,76 @@ export function HomeScreen(props: Props) {
     : view === 'settings' ? <SettingsScreen onExpired={props.onExpired} onBack={() => returnHome()} />
       : view === 'detail' ? <ProductDetailScreen group={offerGroup?.offers.some(p=>p.id===detailId)?offerGroup:undefined} onGroup={()=>{if(offerGroup)go({view:'group',id:offerGroup.id});}} key={detailId} id={detailId} lists={lists} onExpired={props.onExpired} onBack={() => returnHome()} onDeleted={() => { setNotice('Producto e historial eliminados.'); returnHome(true); }} />
         : view === 'add' ? <AddProduct lists={lists} onExpired={props.onExpired} onCloseLabel="Volver a Inicio" onClose={() => returnHome()} onSaved={() => { setNotice('Producto guardado y activo.'); returnHome(true); }} />
-          : <section aria-labelledby="home-title" className={`mx-auto w-full min-w-0 self-start ${selected.length > 0 ? 'pb-56 sm:pb-40 lg:pb-32' : ''}`}>
-    <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
-      <div><p className="mb-2 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p><h1 ref={homeTitle} tabIndex={-1} id="home-title" className="text-3xl font-semibold tracking-tight outline-none">Productos</h1></div>
-      {!mobileNavOpen && <Button className="lg:hidden" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('add')}>Añadir producto</Button>}
+          : <section aria-labelledby="home-title" className={cn('mx-auto w-full max-w-7xl min-w-0 self-start', selected.length > 0 && 'pb-56 sm:pb-40 lg:pb-32')}>
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+      <div className="space-y-1"><h1 ref={homeTitle} tabIndex={-1} id="home-title" className="text-[28px] leading-tight font-semibold tracking-tight outline-none">Productos</h1><p className="font-mono text-xs text-subtle-foreground">Tu radar de precios</p></div>
+      <Button variant="outline" size="sm" disabled={loading || props.sessionBusy} onClick={() => setRefresh(value => value + 1)}><RefreshCw aria-hidden="true" />Actualizar productos</Button>
     </div>
-    {productsError && <p role="alert" className="mb-4 text-sm leading-relaxed text-destructive">{productsError}</p>}
-    {props.sessionError && props.sessionError !== productsError && <p role="alert" className="mb-4 text-sm leading-relaxed text-destructive">{props.sessionError}</p>}
-    <p role="status" className="mb-4 text-sm text-primary">{loading ? 'Cargando tus productos…' : notice}</p>
+    {productsError && <Notice role="alert" className="mb-4">{productsError}</Notice>}
+    {props.sessionError && props.sessionError !== productsError && <Notice role="alert" className="mb-4">{props.sessionError}</Notice>}
+    <p role="status" className={loading || !notice ? 'sr-only' : 'mb-4 flex items-center gap-2 rounded-xl border border-border-strong bg-elevated px-3.5 py-3 text-sm'}>{!loading && notice && <Check aria-hidden="true" className="size-4 shrink-0 text-good" strokeWidth={2.5} />}{loading ? 'Cargando tus productos…' : notice}</p>
     {<>
-      <details className="mb-3 rounded-xl border border-border p-3"><summary className="cursor-pointer py-2 text-sm font-medium">Filtrar y ordenar{filter !== 'all' ? ' · filtro activo' : ''}</summary><div className="mt-3 grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <label className="min-w-0 text-sm text-muted-foreground" htmlFor="product-filter">Estado<select id="product-filter" className={selectClass} value={filter} onChange={event => setFilter(event.target.value as Filter)}><option value="all">Todos</option><option value="active">Activos</option><option value="paused">Pausados</option><option value="error">Con error</option><option value="pending_confirmation">Por confirmar</option><option value="stale">Precio desactualizado</option><option value="reached">Meta alcanzada</option></select></label>
-        <label className="min-w-0 text-sm text-muted-foreground" htmlFor="product-sort">Orden<select id="product-sort" className={selectClass} value={sort} onChange={event => setSort(event.target.value as Sort)}><option value="recent">Más recientes</option><option value="name">Nombre: A–Z</option><option value="discount">Mayor bajada frente a referencia</option></select></label>
+      {signals.length > 0 && <div role="group" aria-label="Filtros rápidos" className="mb-3 flex flex-wrap gap-2">
+        {signals.map(signal => <Button key={signal.filter} size="sm" variant="outline" aria-pressed={filter === signal.filter} className="aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background" onClick={() => setFilter(filter === signal.filter ? 'all' : signal.filter)}>
+          <span aria-hidden="true" className={cn('size-1.5 rounded-full', signal.dot)} />{signal.label}<span className="font-mono text-xs tabular-nums opacity-70">{signal.count}</span>
+        </Button>)}
+      </div>}
+      <details className="group mb-4 rounded-xl border border-border bg-card px-3.5"><summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden"><SlidersHorizontal aria-hidden="true" className="size-4 text-muted-foreground" />Filtrar y ordenar{filter !== 'all' ? <span className="text-warn"> · filtro activo</span> : ''}</summary><div className="grid min-w-0 grid-cols-1 gap-4 pt-1 pb-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <label className="min-w-0 text-[13px] font-medium" htmlFor="product-filter">Estado<select id="product-filter" className={selectClass} value={filter} onChange={event => setFilter(event.target.value as Filter)}><option value="all">Todos</option><option value="active">Activos</option><option value="paused">Pausados</option><option value="error">Con error</option><option value="pending_confirmation">Por confirmar</option><option value="stale">Precio desactualizado</option><option value="reached">Meta alcanzada</option></select></label>
+        <label className="min-w-0 text-[13px] font-medium" htmlFor="product-sort">Orden<select id="product-sort" className={selectClass} value={sort} onChange={event => setSort(event.target.value as Sort)}><option value="recent">Más recientes</option><option value="name">Nombre: A–Z</option><option value="discount">Mayor bajada frente a referencia</option></select></label>
 
       </div></details>
-      <Button className="mb-5" variant="outline" disabled={loading || props.sessionBusy} onClick={() => setRefresh(value => value + 1)}>Actualizar productos</Button>
-      <p className="mb-4 text-sm text-muted-foreground">Toca las tarjetas que representan el mismo producto y comparten moneda.</p>
+      <p className="mb-3 text-xs text-subtle-foreground">Toca las tarjetas que representan el mismo producto y comparten moneda.</p>
     </>}
-    {loading ? <div aria-hidden="true" className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{[0, 1, 2, 3].map(key => <div key={key} className="h-96 rounded-2xl border border-border bg-card motion-safe:animate-pulse" />)}</div>
+    {loading ? <div aria-hidden="true" className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">{[0, 1, 2, 3].map(key => <div key={key} className="space-y-3 rounded-xl border border-border bg-card p-4"><div className="flex gap-3"><Skeleton className="size-14" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/3" /></div><Skeleton className="h-5 w-16" /></div><Skeleton className="h-1 w-full" /><div className="grid grid-cols-2 gap-2"><Skeleton className="h-9" /><Skeleton className="h-9" /></div></div>)}</div>
       : productsError ? <Button variant="outline" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => setRefresh(value => value + 1)}>Reintentar consulta</Button>
-        : visible.length+visibleGroups.length === 0 ? <div className="rounded-2xl border border-dashed border-border p-8 text-center"><h2 className="font-semibold">{products.length ? 'No hay productos con este estado' : 'Tu catálogo espera tu próximo producto'}</h2><p className="mt-3 text-sm text-muted-foreground">{products.length ? 'Prueba otro filtro para ver tus productos.' : 'Añade una URL para empezar a seguir su precio.'}</p></div>
-            : <><p className="mb-4 text-sm text-muted-foreground">{visible.length+visibleGroups.length} productos · {visibleGroups.length} grupos</p><div className="grid min-w-0 grid-cols-1 items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{visibleGroups.map(group=><GroupCard key={group.id} group={group} onOpen={()=>go({view:'group',id:group.id})}/>)}{visible.map(product => <div key={product.id} className="min-w-0" onDragOver={e=>{if(product.status!=='pending_confirmation')e.preventDefault();}} onDrop={e=>{e.preventDefault();const from=e.dataTransfer.getData('application/x-scrappy-product');const source=products.find(p=>p.id===from);if(source&&source.id!==product.id&&!groupedIds.has(source.id)&&source.currency===product.currency&&source.target_type&&product.target_type){setSelected([source.id,product.id]);go({view:'group-create',id:''});}else setNotice('Selecciona dos ofertas confirmadas de la misma moneda.');}}>
+        : visible.length+visibleGroups.length === 0 ? <EmptyState icon={<Package />} title={products.length ? 'No hay productos con este estado' : 'Tu catálogo espera tu próximo producto'} description={products.length ? 'Prueba otro filtro para ver tus productos.' : 'Añade una URL para empezar a seguir su precio.'} action={products.length ? <Button variant="outline" onClick={() => setFilter('all')}>Ver todos</Button> : <Button disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('add')}><Plus aria-hidden="true" />Añadir producto</Button>} />
+            : <><p className="mb-3 font-mono text-xs text-subtle-foreground">{visible.length+visibleGroups.length} productos · {visibleGroups.length} grupos</p><div className="grid min-w-0 grid-cols-1 items-start gap-3 sm:grid-cols-2 xl:grid-cols-3">{visibleGroups.map(group=><GroupCard key={group.id} group={group} onOpen={()=>go({view:'group',id:group.id})}/>)}{visible.map(product => <div key={product.id} className="min-w-0" onDragOver={e=>{if(product.status!=='pending_confirmation')e.preventDefault();}} onDrop={e=>{e.preventDefault();const from=e.dataTransfer.getData('application/x-scrappy-product');const source=products.find(p=>p.id===from);if(source&&source.id!==product.id&&!groupedIds.has(source.id)&&source.currency===product.currency&&source.target_type&&product.target_type){setSelected([source.id,product.id]);go({view:'group-create',id:''});}else setNotice('Selecciona dos ofertas confirmadas de la misma moneda.');}}>
               <ProductCard product={product} onDetail={() => go({ view: 'detail', id: product.id })} selection={product.status==='pending_confirmation'?undefined:{selected:selected.includes(product.id),onToggle:()=>setSelected(s=>s.includes(product.id)?s.filter(id=>id!==product.id):[...s,product.id]),onDragStart:e=>e.dataTransfer.setData('application/x-scrappy-product',product.id)}} /></div>)}</div></>}
-    {selected.length>0&&view==='home'&&<div className="fixed inset-x-4 bottom-20 z-30 mx-auto grid max-w-xl grid-cols-2 items-center gap-2 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur sm:flex lg:bottom-6">
-      <div className="col-span-2 min-w-0 sm:flex-1"><p className="text-sm font-medium">{selected.length} {selected.length===1?'tarjeta seleccionada':'tarjetas seleccionadas'}</p><p className="hidden text-xs text-muted-foreground sm:block">Elige el mismo producto en la misma moneda.</p></div>
-      <Button className="w-full sm:w-auto" variant="outline" onClick={()=>setSelected([])}>Cancelar</Button><Button className="w-full sm:w-auto" disabled={!compatible||loading||!!productsError} onClick={()=>go({view:'group-create',id:''})}>Continuar <span aria-hidden="true" className="ml-1">→</span></Button>
+    {selected.length>0&&view==='home'&&<div className="fixed inset-x-4 bottom-24 z-30 mx-auto grid max-w-xl grid-cols-2 items-center gap-2 rounded-xl border border-border-strong bg-elevated/95 p-3 backdrop-blur sm:flex lg:bottom-6">
+      <div className="col-span-2 min-w-0 sm:flex-1"><p className="text-sm font-medium">{selected.length} {selected.length===1?'tarjeta seleccionada':'tarjetas seleccionadas'}</p><p className="hidden text-xs text-subtle-foreground sm:block">Elige el mismo producto en la misma moneda.</p></div>
+      <Button className="w-full sm:w-auto" variant="outline" onClick={()=>setSelected([])}>Cancelar</Button><Button className="w-full sm:w-auto" disabled={!compatible||loading||!!productsError} onClick={()=>go({view:'group-create',id:''})}>Continuar <span aria-hidden="true">→</span></Button>
     </div>}
   </section>;
 
   const currentSection = view === 'lists' || view === 'basket-detail' ? 'lists' : view === 'settings' ? 'settings' : view === 'add' ? 'add' : 'home';
-  const navButtonClass = (active: boolean) => `w-full justify-start ${active ? 'border-primary/50 bg-muted' : ''}`;
-  return <div className="w-full flex-1 px-5 pt-5 pb-24 sm:pt-6 lg:pb-6">
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 lg:max-w-screen-2xl lg:flex-row lg:gap-8">
-      <aside inert={pendingNavigation !== null} aria-label="Navegación de Scrappy" className="w-full shrink-0 lg:w-56 lg:rounded-2xl lg:border lg:border-border lg:bg-card lg:p-4">
-        <div className="mb-5 flex items-center justify-between lg:hidden">
-          <div className="flex items-center gap-3">
-            <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 9 6 6L20 5M13 5h7v7" /></svg>
-            </span>
-            <span className="text-lg font-semibold tracking-tight">scrappy<span className="text-primary">.</span></span>
-          </div>
-          <Button variant="outline" aria-expanded={mobileNavOpen} aria-controls="app-navigation" onClick={() => setMobileNavOpen(value => !value)}>
+  return <div className="w-full flex-1 px-4 pt-3 pb-28 sm:px-6 lg:px-8 lg:pt-8 lg:pb-8">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 lg:max-w-screen-2xl lg:flex-row lg:gap-10">
+      <aside inert={pendingNavigation !== null} aria-label="Navegación de Scrappy" className="w-full shrink-0 lg:sticky lg:top-8 lg:w-56 lg:self-start">
+        <div className="flex items-center justify-between gap-2 lg:hidden">
+          <Logo />
+          <div className="flex items-center gap-2">
+          {view === 'home' && !mobileNavOpen && <Button size="sm" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('add')}><Plus aria-hidden="true" />Añadir producto</Button>}
+          <Button variant="ghost" size="sm" aria-expanded={mobileNavOpen} aria-controls="app-navigation" onClick={() => setMobileNavOpen(value => !value)}>
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d={mobileNavOpen ? 'M18 6 6 18M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'} /></svg>
             {mobileNavOpen ? 'Cerrar' : 'Menú'}
           </Button>
+          </div>
         </div>
-        <div className="hidden items-center gap-3 lg:mb-8 lg:flex">
-          <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 9 6 6L20 5M13 5h7v7" /></svg>
-          </span>
-          <span className="text-lg font-semibold tracking-tight">scrappy<span className="text-primary">.</span></span>
-        </div>
-        <div id="app-navigation" className={mobileNavOpen ? 'space-y-5 rounded-2xl border border-border bg-card p-4 lg:space-y-6 lg:border-0 lg:bg-transparent lg:p-0' : 'hidden lg:block'}>
+        <Logo className="hidden lg:mb-8 lg:flex" />
+        <div id="app-navigation" className={mobileNavOpen ? 'mt-3 space-y-4 rounded-xl border border-border bg-card p-3 lg:mt-0 lg:space-y-6 lg:border-0 lg:bg-transparent lg:p-0' : 'hidden lg:block lg:space-y-6'}>
           <div>
-            <p className="mb-2 px-3 text-xs font-medium tracking-[0.14em] text-muted-foreground uppercase">Seguimiento</p>
-            <nav aria-label="Navegación principal" className="grid gap-1">
-              <Button variant="outline" className={navButtonClass(currentSection === 'home')} aria-current={currentSection === 'home' ? 'page' : undefined} disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('home')}>Productos</Button>
-              <Button variant="outline" className={navButtonClass(currentSection === 'lists')} aria-label="Gestionar canastas" aria-current={currentSection === 'lists' ? 'page' : undefined} disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('lists')}>Canastas</Button>
+            <p className="mb-1.5 px-3 font-mono text-xs text-subtle-foreground">Seguimiento</p>
+            <nav aria-label="Navegación principal" className="grid gap-0.5">
+              <Button variant="nav" aria-current={currentSection === 'home' ? 'page' : undefined} disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('home')}>Productos</Button>
+              <Button variant="nav" aria-label="Gestionar canastas" aria-current={currentSection === 'lists' ? 'page' : undefined} disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('lists')}>Canastas</Button>
             </nav>
           </div>
-          <Button className="w-full" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('add')}>Añadir producto</Button>
-          <div className="border-t border-border pt-4 lg:mt-8">
-            <nav aria-label="Cuenta" className="grid gap-1">
-              <Button variant="outline" className={navButtonClass(currentSection === 'settings')} aria-current={currentSection === 'settings' ? 'page' : undefined} disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('settings')}>Ajustes</Button>
-              <Button variant="outline" className="w-full justify-start" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => basketDirty ? setPendingNavigation('logout') : props.onLogout()}>{props.sessionBusy ? 'Cerrando sesión…' : 'Cerrar sesión'}</Button>
+          <Button className="w-full" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('add')}><Plus aria-hidden="true" />Añadir producto</Button>
+          <div className="border-t border-border pt-4">
+            <nav aria-label="Cuenta" className="grid gap-0.5">
+              <Button variant="nav" aria-current={currentSection === 'settings' ? 'page' : undefined} disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate('settings')}>Ajustes</Button>
+              <Button variant="nav" disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => basketDirty ? setPendingNavigation('logout') : props.onLogout()}>{props.sessionBusy ? 'Cerrando sesión…' : 'Cerrar sesión'}</Button>
             </nav>
           </div>
         </div>
       </aside>
-      <main inert={pendingNavigation !== null} className="min-w-0 flex-1 pt-1">{page}</main>
+      <main inert={pendingNavigation !== null} className="min-w-0 flex-1 pt-2 lg:pt-0">{page}</main>
     </div>
-    <nav inert={pendingNavigation !== null} aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-border bg-background px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:hidden">{([['home', 'Productos'], ['lists', 'Canastas'], ['settings', 'Ajustes']] as const).map(([target, label]) => <Button key={target} variant="outline" className={currentSection === target ? 'border-primary text-primary' : 'border-transparent'} aria-label={`Ir a ${label}`} aria-current={currentSection === target ? 'page' : undefined} disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate(target)}>{label}</Button>)}</nav>
-    {pendingNavigation && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-5"><section onKeyDown={event => {
+    <nav inert={pendingNavigation !== null} aria-label="Secciones" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-border bg-card/95 px-2 pt-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">{([['home', 'Productos', Package], ['lists', 'Canastas', ShoppingBasket], ['settings', 'Ajustes', Settings]] as const).map(([target, label, Icon]) => <Button key={target} variant="ghost" className="min-h-13 flex-col gap-1 px-1 text-xs aria-[current=page]:font-semibold aria-[current=page]:text-foreground [&_svg]:size-5" aria-label={`Ir a ${label}`} aria-current={currentSection === target ? 'page' : undefined} disabled={props.sessionBusy || basketBusy || groupBusy} onClick={() => navigate(target)}><Icon aria-hidden="true" strokeWidth={currentSection === target ? 2.25 : 1.75} />{label}</Button>)}</nav>
+    {pendingNavigation && <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 p-4 backdrop-blur-sm sm:items-center"><section onKeyDown={event => {
       if (event.key === 'Escape') setPendingNavigation(null);
       if (event.key === 'Tab') { const buttons = event.currentTarget.querySelectorAll<HTMLButtonElement>('button'); const first = buttons[0], last = buttons[buttons.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } }
-    }} role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-description" className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-6"><h2 id="leave-title" className="text-xl font-semibold">Tienes cambios sin guardar</h2><p id="leave-description" className="text-sm text-muted-foreground">Si sales, perderás los cambios locales sin guardar. Las solicitudes ya enviadas no se cancelan.</p><div className="flex flex-wrap gap-3"><Button autoFocus onClick={() => setPendingNavigation(null)}>Seguir editando</Button><Button variant="outline" onClick={() => { const next = pendingNavigation; setPendingNavigation(null); setBasketDirty(false); if (next === 'logout') props.onLogout(); else completeNavigation(next); }}>Salir sin guardar</Button></div></section></div>}
+    }} role="alertdialog" aria-modal="true" aria-labelledby="leave-title" aria-describedby="leave-description" className="w-full max-w-md space-y-4 rounded-xl border border-border-strong bg-elevated p-5 sm:p-6"><h2 id="leave-title" className="text-[17px] font-semibold">Tienes cambios sin guardar</h2><p id="leave-description" className="text-sm text-muted-foreground">Si sales, perderás los cambios locales sin guardar. Las solicitudes ya enviadas no se cancelan.</p><div className="flex flex-wrap gap-3"><Button autoFocus onClick={() => setPendingNavigation(null)}>Seguir editando</Button><Button variant="outline" onClick={() => { const next = pendingNavigation; setPendingNavigation(null); setBasketDirty(false); if (next === 'logout') props.onLogout(); else completeNavigation(next); }}>Salir sin guardar</Button></div></section></div>}
   </div>;
 }

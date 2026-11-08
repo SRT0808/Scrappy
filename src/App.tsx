@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
+import { Logo } from './components/ui/logo';
+import { Notice } from './components/ui/notice';
+import { Skeleton } from './components/ui/skeleton';
+import { ArrowRight } from 'lucide-react';
 import { AuthError, requestAuth } from './lib/auth';
 import { HomeScreen } from './components/HomeScreen';
 import { PwaControls } from './components/PwaControls';
@@ -80,27 +84,24 @@ export function App() {
 
   return (
     <PwaInstallProvider><div className="flex min-h-dvh flex-col">
-      {session !== 'authenticated' && <header className="w-full px-5">
-        <div className="mx-auto flex w-full max-w-6xl items-center gap-3 py-5 sm:py-6">
-          <span aria-hidden="true" className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m4 9 6 6L20 5M13 5h7v7" /></svg>
-          </span>
-          <span className="text-lg font-semibold tracking-tight">scrappy<span className="text-primary">.</span></span>
+      {session !== 'authenticated' && <header className="w-full px-4 sm:px-6">
+        <div className="mx-auto flex w-full max-w-6xl items-center py-4 sm:py-6">
+          <Logo />
         </div>
       </header>}
       <PwaControls />
-      {session === 'authenticated' ? <HomeScreen sessionBusy={busy} sessionError={error} onLogout={logout} onExpired={message => { setKey(''); setSession('anonymous'); setError(message); }} /> : <main className="flex flex-1 items-center justify-center px-5 py-10"><div className="w-full max-w-sm">
-          <p className="mb-5 text-xs font-medium tracking-[0.16em] text-primary uppercase">Tu radar de precios</p>
-          <section aria-labelledby="access-title" aria-busy={busy || session === 'checking'} className="rounded-2xl border border-border bg-card p-6 shadow-xl shadow-black/20 sm:p-8">
-            <div aria-hidden="true" className="mb-6 flex size-11 items-center justify-center rounded-xl border border-border bg-muted text-primary">
+      {session === 'authenticated' ? <HomeScreen sessionBusy={busy} sessionError={error} onLogout={logout} onExpired={message => { setKey(''); setSession('anonymous'); setError(message); }} /> : <main className="flex flex-1 items-center justify-center px-4 py-10"><div className="w-full max-w-sm">
+          <p className="mb-4 font-mono text-xs text-subtle-foreground">Tu radar de precios</p>
+          <section aria-labelledby="access-title" aria-busy={busy || session === 'checking'} className="rounded-xl border border-border bg-card p-6 sm:p-8">
+            <div aria-hidden="true" className="mb-6 flex size-11 items-center justify-center rounded-lg border border-border-strong bg-elevated text-foreground">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 15v2" /></svg>
             </div>
-            <h1 id="access-title" className="text-2xl font-semibold tracking-tight">Tu próxima oferta empieza aquí.</h1>
+            <h1 id="access-title" className="text-[28px] leading-tight font-semibold tracking-tight">Tu próxima oferta empieza aquí.</h1>
             {session === 'checking' ? (
               <div role="status" className="mt-6 space-y-4">
                 <p className="text-sm text-muted-foreground">Comprobando tu sesión…</p>
-                <div aria-hidden="true" className="h-12 rounded-lg bg-muted" />
-                <div aria-hidden="true" className="h-11 rounded-lg bg-muted" />
+                <Skeleton className="h-11" />
+                <Skeleton className="h-11" />
               </div>
             ) : session === 'anonymous' ? (
               <>
@@ -110,14 +111,14 @@ export function App() {
                     <label htmlFor="access-key" className="text-sm font-medium">Clave de acceso</label>
                     <Input ref={input} id="access-key" name="key" type="password" autoComplete="current-password" required disabled={busy} value={key} onChange={event => { setKey(event.target.value); setError(''); }} aria-invalid={!!error} aria-describedby={error ? 'auth-error' : undefined} placeholder="Introduce tu clave" />
                   </div>
-                  {error && <p id="auth-error" role="alert" className="text-sm leading-relaxed text-destructive">{error}</p>}
-                  <Button type="submit" disabled={busy} className="w-full">{busy ? 'Entrando…' : 'Entrar'}{!busy && <span aria-hidden="true">→</span>}</Button>
+                  {error && <Notice id="auth-error" role="alert">{error}</Notice>}
+                  <Button type="submit" disabled={busy} className="w-full">{busy ? 'Entrando…' : 'Entrar'}{!busy && <ArrowRight aria-hidden="true" />}</Button>
                   {busy && <p role="status" className="sr-only">Validando tu clave y sesión.</p>}
                 </form>
               </>
             ) : (
               <>
-                <p role="alert" className="mt-4 text-sm leading-relaxed text-destructive">{error}</p>
+                <Notice role="alert" className="mt-5">{error}</Notice>
                 <Button className="mt-7 w-full" onClick={() => setCheck(value => value + 1)}>Reintentar conexión</Button>
               </>
             )}
