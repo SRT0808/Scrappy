@@ -23,7 +23,7 @@ export default defineConfig(({ command, mode }) => ({
         id: '/', name: 'Scrappy · Tu radar de precios', short_name: 'Scrappy',
         description: 'Tu espacio personal para seguir precios y comprar en el momento justo.',
         lang: 'es', start_url: '/', scope: '/', display: 'standalone',
-        theme_color: '#090d0b', background_color: '#090d0b',
+        theme_color: '#0b0b0c', background_color: '#0b0b0c',
         icons: [
           { src: '/pwa-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: '/pwa-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
