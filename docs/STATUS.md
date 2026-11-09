@@ -2,6 +2,7 @@
 
 ## Hito vigente (2026-11-08)
 - **Promoción a main autorizada por el dueño (2026-11-08, SPEC §11/14):** `main` avanza por fast-forward de `3bb4858` al candidato `fcd861f` más este registro, tras la revisión local del dueño. Incluye la revisión del sistema de diseño y los arreglos UX-1 a UX-4. Sin cambios de API, BD ni workflows.
+- **Despliegue verificado (2026-11-08):** el intento automático para `ac73dfe` quedó cancelado por la Ignored Build Step, que se conserva como control manual. Se creó el despliegue Git de producción `dpl_DA2Poxcas4U2oU7f3bgfPwXKJeip` para el SHA exacto, con override `exit 1` solo para ese despliegue: READY, con alias `scrappy-silk.vercel.app`. La portada responde 200 con los nuevos assets (Geist, tokens y favicon) y `/api/session`, `/api/products`, `/api/lists` y `/api/settings` devuelven 401 sin sesión.
 - **Revisión del sistema de diseño (SPEC §11, `docs/decisions.md` 2026-11-08):**
   - Tokens neutros con marca monocroma y cuatro señales (verde, ámbar, rojo y azul) en `src/index.css`; Geist y Geist Mono en lugar de Inter; iconos `lucide-react`.
   - Primitivas de presentación en `src/components/ui/` (Select, Badge, Notice, Skeleton, EmptyState, Logo y variantes de botón).
@@ -16,7 +17,6 @@
 - **Auditoría de documentación y adopción DevFlow:** Reglas de `AGENTS.md` alineadas con la orquestación DevFlow. Historial extenso archivado en `docs/STATUS-history.md`.
 
 ## Siguiente paso
-- Verificar el despliegue de Vercel para el nuevo SHA de `main` (antes, la Ignored Build Step canceló despliegues automáticos).
 - Regenerar los iconos PNG de la PWA (`pwa-*.png`, `apple-touch-icon.png`) con la nueva marca.
 - Pendiente de la auditoría UI/UX: UX-5 (foco en diálogos de confirmación) y UX-6 (foco y estabilidad en rangos). UX-7 y UX-8 quedan cubiertos por la revisión del diseño.
 - Corregir los 6 fallos previos de pruebas web en `App`, `AddProduct` y `PwaControls`.
